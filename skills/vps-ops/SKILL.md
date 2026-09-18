@@ -73,7 +73,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 | First-time setup (paid track): SSH key → firewall → Coolify install → admin/token → hardening → snapshot | `references/10-bootstrap-vps.md` |
 | Free preview server (Oracle Always Free, Arm): signup/PAYG, instance, two firewalls, tunnel dashboard | `references/11-oracle-free-tier.md` |
 | Domain: A records (API or manual), propagation, instance domain, Let's Encrypt verify | `references/20-domain-dns-ssl.md` |
-| Free preview domain (.pp.ua at nic.ua) + Cloudflare DNS-only zone | `references/21-free-domain-cloudflare.md` |
+| Preview domain: free `.pp.ua` (nic.ua) or an owned domain at any registrar → Cloudflare DNS-only zone | `references/21-free-domain-cloudflare.md` |
 | Deploy an app: repo → project/app → envs → Postgres → domain → first deploy → smoke | `references/30-deploy-app.md` |
 | The change loop: edit → push → auto-deploy → wait → smoke → report; rollback | `references/40-change-pipeline.md` |
 | Status, logs, metrics, backups, updates, incident playbook | `references/50-ops-monitoring.md` |

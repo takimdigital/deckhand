@@ -1,8 +1,10 @@
-# 21 — Free preview domain (.pp.ua) + Cloudflare DNS-only
+# 21 — Preview domains: .pp.ua (free) or an owned domain → Cloudflare DNS-only
 
 Load when: Track F needs a domain and the user won't pay ~$10/yr yet. If they CAN pay, recommend a
 real domain instead — it removes every caveat in this file (card gate, public WHOIS, annual phone
 re-activation, mail reputation). This is the $0 route. Next: A records → `30-deploy-app.md`.
+
+Already own a domain? Skip the registration part entirely and use §D — the Cloudflare flow is identical.
 
 Chain (as designed): `[business.pp.ua @ nic.ua] → [Cloudflare, DNS-only] → [server IP] → [Coolify
 Let's Encrypt]`. The Let's Encrypt mechanics are unchanged from `20-domain-dns-ssl.md`.
@@ -67,6 +69,20 @@ App email (sign-in codes, receipts) must NOT send from `.pp.ua` (deliverability 
 preview: keep email in a test/console mode, or verify a sending subdomain with a free provider
 (Resend free = 3,000/mo, 100/day; Postmark trial = 100). Decide before `30-deploy-app.md` (it needs
 the app's env values). Switch to the real domain at migration (`60`).
+
+## D. Already own a domain? (any registrar — NameSilo, Namecheap, GoDaddy, …)
+
+Skip registration entirely — you still get everything Cloudflare gives us:
+
+1. Cloudflare → **Add a site** → your domain → **Free** plan → it scans existing DNS.
+   ⚠️ BEFORE swapping NS: if the domain has **email (MX) or other live services**, recreate those
+   records inside the Cloudflare zone first — after the swap, the old DNS stops answering.
+   (A parked domain with no MX/TXT: nothing to preserve.)
+2. At the registrar, switch to the 2 Cloudflare nameservers (disable DNSSEC first if enabled):
+   - **NameSilo**: Domain Manager → the domain → **Nameservers** → *Custom nameservers* → paste both → Submit
+   - **Namecheap**: Domain List → Manage → **Nameservers** → *Custom DNS*
+   - **GoDaddy**: My Products → DNS → **Nameservers** → Change → *Custom*
+3. Wait for the zone to go **Active** (minutes–hours), then continue at §B (A records, DNS-only).
 
 ## Alternatives (ranked, 2026)
 
