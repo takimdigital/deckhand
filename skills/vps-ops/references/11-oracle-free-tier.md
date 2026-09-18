@@ -103,15 +103,27 @@ Coolify's S3-compatible destination.
 CPU p95 + network + (A1) memory all <20% over 7 days → Oracle may reclaim the instance; a daily
 health ping does NOT move those percentiles. Real traffic keeps it alive; migration is the real answer.
 
-## If Oracle signup fails (card rejected / capacity blocked)
+## If Oracle signup fails (card rejected, verification stall, capacity blocked)
 
-| Alternative | Reality check |
-|---|---|
-| Real domain + cheap VPS (e.g. Hetzner CX/CAX ~€4–5/mo) | the sane fallback; instant + reliable |
-| GCP e2-micro forever-free | US regions only, 1 GB RAM — below Coolify's minimum |
-| AWS free | new accounts get $200 credits, then the account closes (no perpetual EC2) |
-| Azure free | 750 h B1s for 12 months only |
-| Render free | no card needed, but sleeps after 15 min and Postgres expires in 30 days — not a VPS |
+The card gate is industry-wide: every real free-forever VM wants a credit / credit-like card, and
+Oracle additionally rejects prepaid/virtual/single-use. Order of moves:
+
+1. **Retry the signup with a different card** — credit or credit-like debit (no PIN); a
+   foreign-currency (devise) or foreign-issued card is the usual fix when a local card fails.
+   No VPN/proxy, one clean browser session; keep any support ticket open in parallel.
+2. **Another cloud, still free-ish (card required):**
+   - Google Cloud trial: **$300 / 90 days** → run a 2–4 GB VM (e2-small/medium) inside the credit;
+     the forever-free e2-micro is only 1 GB (below Coolify's floor). `[verify at live drill]`
+   - AWS: new accounts get **$200 credits / 6 months, then the account closes** — no perpetual EC2.
+   - Azure: $200 / 30 days + 750 h B1s for 12 months only.
+3. **Go paid-cheap instead** — Hetzner CAX11 **~€4.49/mo** (ARM 2 vCPU / 4 GB) or the planned
+   migration target (Hostinger): starting paid directly DELETES the migration step (ref 60) —
+   no capacity lottery, card/PayPal accepted in most countries.
+4. **No card at all?** Render free (no card) sleeps after 15 min and its Postgres expires in 30 days;
+   fly.io has no free tier for new orgs; Koyeb free is closed to new signups. There is **no
+   card-free production-grade free VPS in 2026** — say that honestly.
+5. **Capacity-only failures** (account exists, instance creation fails): the ladder in §Capacity —
+   the PAYG upgrade is the fix; no need to switch providers.
 
 ## Provenance
 
