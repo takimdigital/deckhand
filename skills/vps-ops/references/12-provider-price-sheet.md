@@ -35,6 +35,19 @@ never re-research prices per user — but re-verify the ONE number you are about
 
 (Render/Koyeb/fly/AWS/Azure free tiers: see ref 11 — none is Coolify-grade.)
 
+## Contabo — live drill notes (Cloud VPS 4 "2026", 2026-09-18)
+
+- Order email contains: panel login (`my.contabo.com`), customer ID, **IP**, `root`, "password as
+  chosen during order", VNC pointer, IPv6 /64. Ubuntu 24.04, "Hub Europe" DC.
+- **No cloud firewall** — ports are open as soon as something listens; nothing to configure there.
+- SSH: password auth ON initially (VNC in the panel as fallback). Key-install without bothering the
+  user: one ssh run with `SSH_ASKPASS=<helper> SSH_ASKPASS_REQUIRE=force` +
+  `-o PreferredAuthentications=password -o PubkeyAuthentication=no` → install the pubkey → verify with
+  BatchMode → delete the helper → harden to key-only (exactly how this drill ran).
+- Whole stack (Coolify 4.3.23 + Proxy + Postgres + Next.js app + build) fits comfortably on
+  4 vCPU / 8 GB — ~2.5 GB RAM used in steady state.
+- 24-month contracts are the cheapest; warn the user about auto-renew/cancellation windows.
+
 ## Sizing rules of thumb
 
 - **Coolify floor**: ≥2 vCPU / 2 GB RAM / 30 GB disk → order **4 GB+**, and **12 GB+ for ~4 apps**.

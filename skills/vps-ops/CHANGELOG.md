@@ -1,5 +1,21 @@
 # Changelog — vps-ops
 
+## 0.2.2 — 2026-09-19
+
+Live drill: CitiQuiz deployed on Contabo Cloud VPS 4 → https://sidehustlepaths.com (Coolify 4.3.23,
+Let's Encrypt, 2,417-question bank seeded, production owner created, dev seed account removed).
+Every fix below is live-verified:
+
+- ref 10: new **Step 3b** — lock the dashboard by loopback-binding 8000/6001/6002 in Coolify's
+  compose (host iptables does NOT block Docker-29 published ports — 0 packets, traffic still flowed);
+  tunnel note (Windows: forward 8000 only — 6001/6002 hit reserved ranges and kill the tunnel);
+  token-must-be-single-quoted note (`1|…` breaks unquoted env files with `Unauthenticated.`).
+- ref 12: Contabo live notes — order-email contents, no cloud firewall, SSH_ASKPASS key-install flow,
+  4 vCPU / 8 GB sizing confirmed for the full stack.
+- ref 30: deploy-blocking repo traps (pnpm `packageManager` pin; invalid `pnpm-workspace.yaml` →
+  `packages field missing or empty`), Postgres `start` recovery for a never-materialized container,
+  new **§6b** container-side migrate / seed / production-owner flow.
+
 ## 0.2.1 — 2026-09-18
 
 - New `references/12-provider-price-sheet.md` — the "Oracle is out" answer: provider decision order +

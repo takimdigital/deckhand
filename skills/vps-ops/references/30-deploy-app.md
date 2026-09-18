@@ -16,6 +16,19 @@ gh repo create <name> --private --source=. --push    # GitHub repo, pushed
 If `gh` is missing/not authed → hand the user the `00-user-checklist.md` browser step, then continue from the push URL.
 The app must be scaffolded by `expert-build-pack`: a `Dockerfile` **or** a nixpacks-detectable app, listening on **port 3000**, with `.env.example` listing every variable.
 
+Deploy-blocking repo traps (live-verified 2026-09-19 — check these BEFORE the first build):
+
+- **Pin the package manager to the lockfile era.** No `packageManager` in package.json → Nixpacks
+  pulls a current pnpm whose install can hard-fail. Pin it (e.g. `"packageManager": "pnpm@10.29.3"`
+  for a lockfileVersion 9.0 repo) — corepack then uses the exact same version as CI.
+- **A `pnpm-workspace.yaml` must be VALID** — either a real workspace (`packages:` non-empty) or the
+  file must not exist. A placeholder file without `packages` fails with
+  `ERROR packages field missing or empty` (this blocked the first build; fix = delete the file +
+  add the pin).
+- **Runtime CLIs live in `dependencies`, not `devDependencies`**, when the first-run steps use them
+  (e.g. `drizzle-kit` for container-side migrations). `tsx` needs no entry — `npx -y tsx` fetches it
+  on demand.
+
 ## 1. Pin the UUIDs (once per deploy)
 
 ```bash
@@ -127,6 +140,9 @@ The container runs postgres `initdb` for ~2 min while the API reports **`exited:
 polling `GET /databases/{uuid}` until `running:healthy`. Progress is visible via `GET /databases/{uuid}/logs`
 (returns `{"logs": "..."}`, shows the initdb output). If it stays down, `POST /databases/{uuid}/start` exists.
 Wire the URL into the app with the §3 bulk PATCH **from a file** (never on the command line), then redeploy.
+If the container never materializes, or the status looks stuck (`exited:unhealthy` while docker says
+otherwise): `POST /databases/{uuid}/start` builds it (live-verified, ~15 s) — then verify with
+`docker ps` / `docker logs <db>` directly; Coolify's stored status field lags reality.
 Strong end-to-end check: a `GET /db` route doing `SELECT 1` → `smoke <url>/db --contains db-ok` (validated).
 Add the connection URL to `.env.production` as `DATABASE_URL=<url>`, re-run `coolify app env sync <APP_UUID> --file .env.production`. App and DB in the same project → Coolify hands you the internal Docker-network URL; no external access needed.
 
@@ -163,6 +179,28 @@ Expected:
 - `smoke` → `OK 200 https://app.<domain>`, exit **0**; exit `4` = fail.
 
 Statuses are tolerant: `{"success","finished"}` = OK · `{"failed","cancelled"}` = FAIL · **anything else = still running**. *Live-verified on Coolify 4.3.21: terminal OK = `finished`; the deployments endpoint returns `{"count":N,"deployments":[...]}` (newest first by `created_at`), which `scripts/coolify_api.py` already normalizes.*
+
+## 6b. First-run data steps — inside the running container (live-verified)
+
+App env vars are already inside the container (Coolify injects them), so migrations and seeds run
+straight through `docker exec` — no extra wiring:
+
+```bash
+ssh root@$VPS_IP "docker ps --format '{{.Names}}' | grep <APP_UUID> | head -1"   # find the container
+ssh root@$VPS_IP "docker exec <container> sh -lc 'cd /app && npx drizzle-kit migrate'"
+ssh root@$VPS_IP "docker exec <container> sh -lc 'cd /app && npx -y tsx lib/db/seed.ts'"
+```
+
+**If the app's seed ships a development owner** (a known password in the README), that is now a live
+admin: delete it and create the production owner in the same session —
+
+```bash
+ssh root@$VPS_IP "docker exec <db-container> psql -U <dbuser> -d <db> -c \"DELETE FROM users WHERE email='test@test.com';\""
+ssh root@$VPS_IP "docker exec <container> sh -lc 'cd /app && npx -y tsx scripts/create-owner.ts <real-email>'"
+```
+
+The owner script prints the generated password **exactly once** — store it under `~/.vps-ops/secrets/`
+and hand it to the user out-of-band. Re-run the smoke afterwards; the site is then prod-clean.
 
 ## 7. Auto-deploy on push
 

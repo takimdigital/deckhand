@@ -114,6 +114,45 @@ ssh -o BatchMode=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP \
 Expected: `Status: active` + rules for 22/tcp (OpenSSH), 80, 443, 8000, 6001, 6002.
 Never remove the port-22 rule — Coolify manages the server over SSH.
 
+## Step 3b — lock the dashboard: the docker-aware way (live-verified 2026-09-19)
+
+Do NOT rely on host firewalls for Coolify's own published ports. On Docker 29 with the default
+userland proxy, traffic to published ports (8000/6001/6002) bypasses host iptables entirely —
+DOCKER-USER **and** INPUT DROP rules were live-tested and stayed at **0 packets** while the ports
+remained fully reachable from the internet. Providers WITH a cloud firewall (Oracle) still block
+them at the network layer; providers without one (Contabo, most bare VPS) are fully exposed.
+
+The reliable lock = bind them to loopback inside Coolify's own compose:
+
+```bash
+ssh root@$VPS_IP '
+  cd /data/coolify/source
+  cp -n docker-compose.prod.yml docker-compose.prod.yml.bak-vpsops
+  sed -i "s|\"${APP_PORT:-8000}:8080\"|\"127.0.0.1:${APP_PORT:-8000}:8080\"|; \
+          s|\"${SOKETI_PORT:-6001}:6001\"|\"127.0.0.1:${SOKETI_PORT:-6001}:6001\"|; \
+          s|\"6002:6002\"|\"127.0.0.1:6002:6002\"|" docker-compose.prod.yml
+  docker compose --project-name source -f docker-compose.yml -f docker-compose.prod.yml up -d'
+```
+
+Verify (all three): `ss -ltnp | grep -E ':(8000|6001|6002)'` → **127.0.0.1** binds · a curl from
+outside must time out (`curl -m 6 http://$VPS_IP:8000/api/health` → exit 28, code 000) ·
+`curl -s http://127.0.0.1:8000/api/health` on the box → 200.
+
+Dashboard access from then on = **SSH tunnel only** (run in background from the agent machine):
+
+```bash
+ssh -N -o ExitOnForwardFailure=yes -L 8000:127.0.0.1:8000 \
+  -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP
+```
+
+Windows note (live-verified): forwarding 6001/6002 can die with `bind [127.0.0.1]:6002: Permission
+denied` (Windows reserved port ranges) and `ExitOnForwardFailure` then kills the whole tunnel —
+**forward 8000 only**; the dashboard is fully usable (live log panels may need a refresh).
+
+⚠️ Coolify upgrades re-download both compose files from its CDN (`upgrade.sh`) — the loopback
+binds are LOST on upgrade. Leave a re-apply note on the box (`/root/vps-ops-notes.txt`) and re-run
+Step 3b after every Coolify update.
+
 ## Step 4 — install Coolify + verify
 
 ```bash
@@ -136,7 +175,7 @@ Expected: install finishes (several minutes); health → `200`; container list =
 Guide the user through `00-user-checklist.md` §4A (one browser session). Then:
 
 ```bash
-printf 'export COOLIFY_URL=%s\nexport COOLIFY_TOKEN=%s\n' "http://$VPS_IP:8000" "<token>" > ~/.vps-ops/secrets/env.sh
+printf "export COOLIFY_URL='%s'\nexport COOLIFY_TOKEN='%s'\n" "http://$VPS_IP:8000" "<token>" > ~/.vps-ops/secrets/env.sh
 chmod 600 ~/.vps-ops/secrets/env.sh
 . ~/.vps-ops/secrets/env.sh
 curl -sS -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_URL/api/v1/applications"
@@ -144,7 +183,9 @@ curl -sS -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_URL/api/v1/applicat
 
 Expected: `[]` (fresh install) or a JSON array. `401` → API access still disabled or token wrong (§4A).
 Script check: `py scripts/coolify_api.py health` → `coolify health: 200`. Never echo the token into
-chat, logs, or a repo file. `coolify_api.py` reads `$COOLIFY_URL`/`$COOLIFY_TOKEN`, then `~/.vps-ops/config.json` / `secrets/env.sh`.
+chat, logs, or a repo file. The token contains `|` (Sanctum format `1|…`): the env file must hold it
+**single-quoted** (`export COOLIFY_TOKEN='1|…'`) or the shell splits it and every call answers
+`Unauthenticated.` (live-verified). `coolify_api.py` reads `$COOLIFY_URL`/`$COOLIFY_TOKEN`, then `~/.vps-ops/config.json` / `secrets/env.sh`.
 
 ## Step 6 — harden (only after Step 2 proved key auth)
 

@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.2.1
+version: 0.2.2
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -63,7 +63,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
   smoke check (`coolify_api.py smoke`).
 - Never print token values; reference them as `$COOLIFY_TOKEN` / `$HOSTINGER_API_TOKEN`.
 - Every invariant above applies to BOTH tracks. The free preview is a DISPOSABLE host: never present it as production-grade durability — say "preview" in reports; ref `60` is the exit path.
-- On the free track keep Coolify's dashboard OFF the public internet: SSH tunnel (ref 11) or the instance domain — never open 8000/6001/6002 in the cloud firewall.
+- Keep Coolify's dashboard OFF the public internet on EVERY track: loopback-bind its ports in Coolify's own compose (ref 10 Step 3b) + SSH tunnel — host firewall rules alone do NOT stop Docker-published ports (live-verified on Docker 29, 2026-09-19).
 
 ## Layout & routing table
 
