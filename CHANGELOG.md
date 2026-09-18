@@ -1,18 +1,20 @@
 # Changelog
 
-## 2026-09-19 — first live deployment (vps-ops v0.2.2)
+## 2026-09-19 — paid track validated live (vps-ops v0.2.2)
 
-CitiQuiz went live on a real VPS: Contabo Cloud VPS 4 → Coolify 4.3.23 → https://sidehustlepaths.com
-(Cloudflare DNS + Let's Encrypt). Every fix below is live-verified and folded into `vps-ops` v0.2.2:
+A real Next.js + Postgres SaaS was taken from a private repo to a live HTTPS domain on a rented VPS
+(Coolify → Cloudflare DNS-only → Let's Encrypt; migrations, seed data, production owner). Every error
+the deployment surfaced is now a pre-listed step — that is the whole point of v0.2.2:
 
-- ref 10: new **Step 3b** — host firewalls do NOT block Docker-29 published ports; lock the Coolify
-  dashboard by loopback-binding 8000/6001/6002 in its compose (+ re-apply after Coolify upgrades).
-  Tunnel note (forward 8000 only on Windows) and the `1|…` token single-quoting trap.
-- ref 12: Contabo live notes (order email, no cloud firewall, SSH key-install flow, 4 vCPU/8 GB sizing).
-- ref 30: pre-flight repo traps (`packageManager` pin + valid `pnpm-workspace.yaml`), Postgres
-  `start` recovery, new §6b — container-side migrate / seed / production-owner flow.
-- First build failure fixed in the app repo: invalid `pnpm-workspace.yaml` + missing pnpm pin
-  (`packages field missing or empty`) → citiquiz `778296e`.
+- ref 10: new **Step 3b** — host firewall rules do NOT stop Docker-published ports (live-tested:
+  0 packets, still reachable); lock the dashboard by loopback-binding 8000/6001/6002 in Coolify's
+  compose and re-apply after Coolify upgrades. Plus: `1|…` tokens must be single-quoted; on Windows
+  forward 8000 only (6001/6002 can be reserved ports and kill the tunnel).
+- ref 12: provider notes — order-to-key flow, no cloud firewall, SSH key install, 4 vCPU / 8 GB
+  sizing confirmed for the full stack.
+- ref 30: pre-flight repo traps (`packageManager` pin + valid `pnpm-workspace.yaml` — the first
+  build died on `packages field missing or empty`); Postgres `start` recovery; new §6b —
+  container-side migrate → seed → production-owner flow (and removing dev seed credentials).
 - 36 tests green; zip == repo.
 
 ## 2026-09-18 — provider price sheet (vps-ops v0.2.1)

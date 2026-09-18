@@ -78,13 +78,13 @@ Deployed and validated end to end against a real Coolify instance:
 - [x] **Backups** — schedule → dump → **restore drill** (`pg_restore` into a scratch database, verified)
 - [x] **Build packs** — Nixpacks and Dockerfile · **ops** — logs, deployments, env vars, docker cleanup
 - [x] **36 unit tests** green (standard library only)
-- [x] **First real business live — 2026-09-19** — CitiQuiz (Next.js + Postgres, private repo) → Contabo
-  Cloud VPS 4 → Coolify 4.3.23 → **https://sidehustlepaths.com** — Cloudflare DNS-only, Let's Encrypt
-  auto-renew, 2,417-question bank seeded, production owner created, dev seed credentials removed.
+- [x] **Paid track validated live (2026-09)** — a real Next.js + Postgres SaaS deployed end-to-end on a
+  rented VPS: Coolify → Cloudflare DNS-only → Let's Encrypt, with migrations, seed data and a
+  production-owner flow — every error it surfaced is folded back into the runbooks.
 
 Every bug these drills found is fixed and pinned in the reference runbooks — they carry live-verified API shapes, not guesses.
 
-**Two tracks, both real.** The **paid track** is proven end-to-end on a live business (the drill above);
+**Two tracks, both real.** The **paid track** is proven end-to-end on a real deployment (the drill above);
 vps-ops v0.2.2 folds in every lesson from it — the Docker-29 dashboard lock, pnpm/package-manager
 pre-flight traps, Postgres recovery, and the first-run data → production-owner flow. The
 **free-preview track** (vps-ops v0.2.0) takes a product live at $0 on Oracle Cloud Always Free + a free

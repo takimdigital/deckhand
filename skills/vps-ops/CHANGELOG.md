@@ -2,19 +2,26 @@
 
 ## 0.2.2 — 2026-09-19
 
-Live drill: CitiQuiz deployed on Contabo Cloud VPS 4 → https://sidehustlepaths.com (Coolify 4.3.23,
-Let's Encrypt, 2,417-question bank seeded, production owner created, dev seed account removed).
-Every fix below is live-verified:
+Paid track validated end-to-end by a first real deployment on a rented VPS (Coolify → Cloudflare DNS
+→ Let's Encrypt, Postgres + migrations + seed data + production owner). Each item below is an error
+that deployment actually surfaced, caught and fixed — now pre-listed so the next run doesn't hit them:
 
-- ref 10: new **Step 3b** — lock the dashboard by loopback-binding 8000/6001/6002 in Coolify's
-  compose (host iptables does NOT block Docker-29 published ports — 0 packets, traffic still flowed);
-  tunnel note (Windows: forward 8000 only — 6001/6002 hit reserved ranges and kill the tunnel);
-  token-must-be-single-quoted note (`1|…` breaks unquoted env files with `Unauthenticated.`).
-- ref 12: Contabo live notes — order-email contents, no cloud firewall, SSH_ASKPASS key-install flow,
-  4 vCPU / 8 GB sizing confirmed for the full stack.
-- ref 30: deploy-blocking repo traps (pnpm `packageManager` pin; invalid `pnpm-workspace.yaml` →
-  `packages field missing or empty`), Postgres `start` recovery for a never-materialized container,
-  new **§6b** container-side migrate / seed / production-owner flow.
+- ref 10: new **Step 3b — dashboard lockdown, the docker-aware way.** Host firewall rules do NOT stop
+  Docker-published ports (live-tested on Docker 29: DOCKER-USER + INPUT DROP showed 0 packets while
+  8000 stayed publicly reachable). New procedure: loopback-bind the ports in Coolify's own compose,
+  verify three ways, and re-apply after every Coolify upgrade (upgrades re-download the compose
+  files and silently restore the public binds).
+- ref 10: two smaller traps caught — the API token's `|` silently breaks any unquoted env file
+  (`Unauthenticated.` on every call; single-quote it), and on Windows, forwarding ports 6001/6002
+  can fail as "reserved" and `ExitOnForwardFailure` then kills the whole tunnel (forward 8000 only).
+- ref 12: provider notes from the same deployment — order-email contents, no cloud firewall, the
+  SSH_ASKPASS key-install flow, and sizing confirmation (4 vCPU / 8 GB runs the full stack).
+- ref 30: **pre-flight repo traps.** The first build died with `packages field missing or empty` (a
+  placeholder `pnpm-workspace.yaml` + no package-manager pin) — the ref now checks these before the
+  first deploy. Also: Postgres recovery when the container never materializes
+  (`POST /databases/{uuid}/start`; trust `docker ps`, not Coolify's lagging status), and new **§6b**:
+  container-side migrate → seed → production-owner creation, including removing any dev seed
+  account before going live.
 
 ## 0.2.1 — 2026-09-18
 
