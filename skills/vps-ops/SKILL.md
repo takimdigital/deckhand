@@ -1,12 +1,12 @@
 ---
 name: vps-ops
-description: "Deploy and manage apps on a VPS with Coolify."
-version: 0.1.0
+description: "Deploy apps on a VPS with Coolify — free preview or paid."
+version: 0.2.0
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
   hermes:
-    tags: [deploy, vps, coolify, hostinger, dns, ssl, ssh, operations, backups, rollback]
+    tags: [deploy, vps, coolify, hostinger, oracle, free-tier, preview, cloudflare, dns, ssl, ssh, operations, backups, rollback, migration]
     related_skills: [expert-build-pack, component-library]
 ---
 
@@ -21,6 +21,8 @@ all from the harness, without the user ever touching the server.
 - The user wants to deploy/host/go live, mentions a VPS, Coolify, domain/DNS/SSL, or "put my app online".
 - Any post-deploy request: check status, read logs, ship a change, roll back, backups, updates.
 - The buildout skill (`expert-build-pack`) finished in the project — deploy is the next phase.
+- The user has no VPS/domain yet, or wants a $0 live preview → Track F: `references/11-oracle-free-tier.md` (+ `21` for the free domain).
+- The user wants to leave the preview (or move any server → server) → `references/60-migrate-to-paid.md`.
 
 ## The promise (what the user does vs what you do)
 
@@ -32,6 +34,24 @@ Two one-time browser moments are unavoidable and are guided click-by-click in `r
 Never ask the user to open a terminal on the server or run server commands — you run everything
 via `ssh`/API from the harness.
 
+## Two deployment tracks — the user chooses, nothing is forced
+
+**Track P — paid/direct (default when a VPS is already at hand).** The user provides a real VPS + real
+domain → this runbook exactly as documented: `00 → 10 → 20 → 30 → 40/50`.
+
+**Track F — free preview (offered, never forced).** The user has no VPS/domain yet, or wants to prove
+the business live at $0 before paying: Oracle Cloud Always Free server + free `.pp.ua` domain (nic.ua)
++ Cloudflare DNS-only + Coolify's automatic Let's Encrypt — a real, live deployment on a disposable
+host, with a clean exit (`60-migrate-to-paid.md`) when the business proves itself.
+
+Ask ONCE, batched, at deploy time: *"Free preview first ($0) — or your own VPS + real domain now?"*
+Smart defaults avoid the question: VPS+domain already handed over → Track P. Nothing provided yet and
+cost / "test first" signals → recommend Track F, still as a choice. **One track per run** — never mix
+the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
+
+> Track F status: researched + primary-source-verified 2026-09-18; first live run pending — items
+> marked `[verify at live drill]` in refs 11/21/60 are open until exercised.
+
 ## Invariants (never violate)
 
 - Secrets live ONLY in `~/.vps-ops/` (chmod 600) and in Coolify env vars. Never in repos, chat, or logs.
@@ -42,17 +62,22 @@ via `ssh`/API from the harness.
 - No "deployed" claim without BOTH: terminal deployment status (`coolify_api.py wait`) and a passing
   smoke check (`coolify_api.py smoke`).
 - Never print token values; reference them as `$COOLIFY_TOKEN` / `$HOSTINGER_API_TOKEN`.
+- Every invariant above applies to BOTH tracks. The free preview is a DISPOSABLE host: never present it as production-grade durability — say "preview" in reports; ref `60` is the exit path.
+- On the free track keep Coolify's dashboard OFF the public internet: SSH tunnel (ref 11) or the instance domain — never open 8000/6001/6002 in the cloud firewall.
 
 ## Layout & routing table
 
 | Need | Read |
 |---|---|
 | What to collect from the user; provider cheat sheets; business keys matrix | `references/00-user-checklist.md` |
-| First-time setup: SSH key → firewall → Coolify install → admin/token → hardening → snapshot | `references/10-bootstrap-vps.md` |
+| First-time setup (paid track): SSH key → firewall → Coolify install → admin/token → hardening → snapshot | `references/10-bootstrap-vps.md` |
+| Free preview server (Oracle Always Free, Arm): signup/PAYG, instance, two firewalls, tunnel dashboard | `references/11-oracle-free-tier.md` |
 | Domain: A records (API or manual), propagation, instance domain, Let's Encrypt verify | `references/20-domain-dns-ssl.md` |
+| Free preview domain (.pp.ua at nic.ua) + Cloudflare DNS-only zone | `references/21-free-domain-cloudflare.md` |
 | Deploy an app: repo → project/app → envs → Postgres → domain → first deploy → smoke | `references/30-deploy-app.md` |
 | The change loop: edit → push → auto-deploy → wait → smoke → report; rollback | `references/40-change-pipeline.md` |
 | Status, logs, metrics, backups, updates, incident playbook | `references/50-ops-monitoring.md` |
+| Leave the preview → paid host: what moves, cutover, rollback | `references/60-migrate-to-paid.md` |
 
 ## Tools of the trade
 
@@ -67,15 +92,23 @@ Exit codes: `0` ok · `3` deploy failed · `4` http/smoke error · `5` wait time
 Optional extras (never required): Coolify CLI (MIT, `coolify ...`) and MCP wiring — see
 `references/10-bootstrap-vps.md`.
 
+Oracle free-track asset: `assets/oci-cloud-init.yaml` — hand its contents to the user to paste into
+the instance's Initialization script (ref `11-oracle-free-tier.md`); at first boot it installs the
+root SSH key and opens 80/443 in the VM firewall.
+
 ## Session anchor
 
 Every deployed project keeps `<project>/.vps-ops.json` (server/app/db UUIDs + domain + coolify_url —
-NO secrets). Read it first in any later session; it re-enters the whole pipeline without context loss.
+NO secrets, plus `track: paid | free-preview` and the Oracle region on Track F). Read it first in any
+later session; it re-enters the whole pipeline without context loss.
 
 ## Quickstart
 
-1. Checklist + collect → `references/00-user-checklist.md`
-2. Bootstrap the VPS → `references/10-bootstrap-vps.md`
-3. Domain + SSL → `references/20-domain-dns-ssl.md`
+0. Pick the track (ask once): VPS+domain already at hand → **P**; nothing yet / $0-first → **F**.
+1. Checklist + collect → `references/00-user-checklist.md` (+ §3b for Track F)
+2. **P:** bootstrap the VPS → `references/10-bootstrap-vps.md`
+   **F:** free server → `references/11-oracle-free-tier.md`
+3. Domain + SSL → `references/20-domain-dns-ssl.md` · **F:** `references/21-free-domain-cloudflare.md`
 4. Deploy → `references/30-deploy-app.md`
 5. From then on → `references/40-change-pipeline.md` + `references/50-ops-monitoring.md`
+6. **F only, on request:** leave the preview → `references/60-migrate-to-paid.md`

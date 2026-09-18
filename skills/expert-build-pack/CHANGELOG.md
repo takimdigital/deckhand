@@ -1,5 +1,10 @@
 # Changelog - Expert Build Pack
 
+## 0.2.2 - 2026-09-18
+
+- Cross-links to the `vps-ops` free-preview track (Oracle Always Free + free domain → later migration): buildout step 5 + routing row.
+- Frontmatter `version` corrected (was stale at 0.2.0 while the changelog/README said 0.2.1).
+
 ## 0.2.1 - 2026-09-17
 
 Cross-references to the new companion skill `vps-ops` (VPS deploy & management with Coolify). No functional changes.

@@ -1,12 +1,17 @@
 # vps-ops
 
-Companion skill to `expert-build-pack`: deploy & manage the built project on the user's own VPS with Coolify.
+Companion skill to `expert-build-pack`: deploy & manage the built project on the user's own VPS with
+Coolify — or prove it live at $0 first on the free-preview track.
 
+- **Two tracks, the user's choice** — *paid* (their VPS + domain) or *free preview*
+  (Oracle Cloud Always Free + `.pp.ua` + Cloudflare; exit path = the migration ref).
 - **Bootstrap** — SSH key, provider firewall, Coolify install, admin/token handoff, hardening, golden snapshot.
 - **Ship** — repo → Coolify app + Postgres + envs + domain → first deploy → smoke.
 - **Operate** — change pipeline (push → auto-deploy → wait → smoke → report), rollback, logs, metrics, backups, updates.
+- **Move** — free → paid cutover with a verified integrity gate and a rollback matrix.
 - Universal: pure-stdlib Python scripts; works from Hermes / Claude Code / Codex / any harness.
-- The user provides only a VPS + domain; the two one-time browser approvals are guided click-by-click.
+- The user provides a VPS + domain (Track P) or just an Oracle account (Track F); every browser
+  moment is guided click-by-click.
 
 ## Install
 
@@ -19,7 +24,11 @@ Known skill dirs: `~/.claude/skills/`, `~/.agents/skills/`, `~/.codex/skills/`, 
 ```
 SKILL.md
 README.md
-references/   00-user-checklist · 10-bootstrap-vps · 20-domain-dns-ssl · 30-deploy-app · 40-change-pipeline · 50-ops-monitoring
+CHANGELOG.md
+references/   00-user-checklist · 10-bootstrap-vps · 11-oracle-free-tier · 20-domain-dns-ssl ·
+              21-free-domain-cloudflare · 30-deploy-app · 40-change-pipeline · 50-ops-monitoring ·
+              60-migrate-to-paid
+assets/       oci-cloud-init.yaml    (Oracle first-boot: root key + VM firewall)
 scripts/      coolify_api.py · hostinger_api.py      (stdlib only)
 tests/        test_coolify_api.py · test_hostinger_api.py
 ```

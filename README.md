@@ -12,7 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Tests: 36 passing" src="https://img.shields.io/badge/tests-36%20passing-brightgreen.svg">
-  <img alt="Version: 0.2.1" src="https://img.shields.io/badge/version-0.2.1-blueviolet.svg">
+  <img alt="Version: 0.2.2" src="https://img.shields.io/badge/version-0.2.2-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
@@ -22,8 +22,9 @@ Three skill folders. Drop them into your AI coding agent and it can:
 
 - **build** a real product from an idea — expert playbooks, execution-first loops, verified MIT boilerplates, and a coherent design assembled from a living pool of MIT component registries;
 - **store** every component you build and reuse it in the next project;
-- **deploy** to your own VPS — Coolify bootstrapped, domain + SSL attached, apps built and served;
-- **operate** afterwards — change → push → deploy → smoke test → rollback, plus logs, metrics, backups and restore drills, entirely via API.
+- **deploy** to your own VPS — Coolify bootstrapped, domain + SSL attached, apps built and served — **or go live at $0 first** on the free-preview track (Oracle Cloud Always Free + free domain + Cloudflare);
+- **operate** afterwards — change → push → deploy → smoke test → rollback, plus logs, metrics, backups and restore drills, entirely via API;
+- **move** — when the business proves itself, migrate preview → paid host with a verified cutover and rollback runbook.
 
 ## ⚡ The skills
 
@@ -31,7 +32,7 @@ Three skill folders. Drop them into your AI coding agent and it can:
 | --- | --- |
 | [`expert-build-pack`](skills/expert-build-pack) | **Idea → codebase.** Expert references, execution-first build loops, verified MIT boilerplates, coherent-random design assembly from the live shadcn registry pool (MIT-only), design tokens locked once and applied everywhere. |
 | [`component-library`](skills/component-library) | **Build → reuse.** Save any component you build; the next project starts from what you already made. |
-| [`vps-ops`](skills/vps-ops) | **Codebase → live business.** Bootstraps Coolify on a fresh VPS, wires domain/SSL, deploys with Nixpacks or Dockerfile, then runs the everyday pipeline: deploy, monitor, env changes, database + backups, rollback. |
+| [`vps-ops`](skills/vps-ops) | **Codebase → live business.** Two tracks: **paid** (your VPS + domain) or **free preview** ($0 on Oracle Cloud Always Free + a free `.pp.ua` domain). Bootstraps Coolify, wires domain/SSL, deploys with Nixpacks or Dockerfile, then runs the everyday pipeline: deploy, monitor, env changes, database + backups, rollback — plus a migration runbook to move from the free preview to a paid host. |
 
 ## 🚀 Install
 
@@ -59,6 +60,7 @@ Then just talk to your agent:
 ```text
 Build me an invoicing SaaS for freelancers.
 Deploy it to my VPS with the domain billing.example.com.
+Deploy it to the free Oracle server first — I'll pay for hosting once it makes money.
 Add dark mode and ship it.
 Something broke in production — check the logs and roll back.
 ```
@@ -79,6 +81,11 @@ Deployed and validated end to end against a real Coolify instance:
 
 Every bug these drills found is fixed and pinned in the reference runbooks — they carry live-verified API shapes, not guesses.
 
+**Free-preview track (new in vps-ops v0.2.0):** go live at $0 on Oracle Cloud Always Free + a free
+`.pp.ua` domain behind Cloudflare, then migrate to a paid host with the built-in cutover runbook.
+Researched and primary-source-verified on 2026-09-18 (Oracle's 2 OCPU/12 GB Always Free limits,
+nic.ua's card gate + activation flow, Cloudflare's PSL rule); first live run pending.
+
 ## 🔒 Principles
 
 - **MIT only.** Every component and registry is license-checked (SPDX) before use. No pro tier, no paywalled components, nothing proprietary bundled.
@@ -97,8 +104,9 @@ skills/
 │   ├── scripts/           # registry sync + deterministic design picker
 │   └── tests/             # stdlib unit tests
 ├── component-library/     # save / load reusable components
-└── vps-ops/               # Coolify + Hostinger deploy & ops
-    ├── references/        # bootstrap, domain/SSL, deploy, change pipeline, ops
+└── vps-ops/               # Coolify deploy & ops — paid VPS or free preview (Oracle + .pp.ua)
+    ├── references/        # bootstrap, domain/SSL, free preview, deploy, change pipeline, ops, migration
+    ├── assets/            # oci-cloud-init.yaml (Oracle first-boot)
     ├── scripts/           # Coolify API + Hostinger API clients
     └── tests/
 ```
@@ -109,13 +117,13 @@ skills/
 No. The skills are plain folders with a `SKILL.md`. Claude Code, OpenAI Codex, Cursor, Hermes Agent — anything that reads skill folders.
 
 **What do I need for the deploy part?**
-A VPS and a domain. `vps-ops` bootstraps Coolify on it and drives everything from there. Hostinger's API is baked in; any provider works over SSH.
+A VPS and a domain — or nothing but an Oracle Cloud account if you start on the free-preview track. `vps-ops` bootstraps Coolify on the server and drives everything from there. Hostinger's API is baked in; any provider works over SSH.
 
 **Will my design look AI-generated?**
 That is what the Buildout Engine exists to avoid: it reuses already-excellent open-source components instead of generating slop, with tokens locked once so everything stays coherent.
 
 **Is anything paid required?**
-No. MIT-licensed components only; Coolify (Apache-2.0) runs on your own server.
+No. MIT-licensed components only; Coolify (Apache-2.0) runs on your own server — including the entire $0 preview stack.
 
 ## 📄 License
 

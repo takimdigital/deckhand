@@ -9,7 +9,7 @@ Prerequisites: none — this is the entry point.
 
 ## 1. What we ask for (and nothing else)
 
-- [ ] **VPS host + IP** — or the access needed to create one (§2/§3)
+- [ ] **VPS host + IP** — or the access needed to create one (§2/§3) — *free-preview alternative: §3b, no purchase needed*
 - [ ] **SSH access method** — ONE of the two paths below
 - [ ] **Domain name + registrar** — Hostinger / Namecheap / GoDaddy / Cloudflare / OVH / Google
 - [ ] **GitHub account** — where the repo lives; private or public both fine
@@ -42,6 +42,34 @@ Steps 1a/3/7 and `20-domain-dns-ssl.md`. The token is stored in `~/.vps-ops/secr
 
 3. Nothing else. The agent verifies key auth (`10-bootstrap-vps.md` Step 2) and proceeds.
 
+## 3b. Free preview track — offered, never forced (refs 11/21)
+
+Offer ONCE at deploy time: *"Free preview first ($0, on a free server + free domain) — or your own
+VPS + real domain now?"* If the user already provided a VPS + domain, skip this section entirely.
+
+If chosen, the user's complete job is:
+
+1. **Oracle Cloud signup** — https://signup.oraclecloud.com: email + phone + card ($1 authorization
+   hold; credit/credit-like debit only — prepaid/virtual/single-use cards are rejected). Home region
+   is PERMANENT — decide it deliberately with the agent. *(recommended)* upgrade to Pay-As-You-Go for
+   capacity ($0 while inside Always Free limits; $100 hold at upgrade, reversed).
+2. **Create the instance** (agent guides field-by-field): Ubuntu 24.04, VM.Standard.A1.Flex ≤2 OCPU /
+   12 GB, public IPv4, paste the agent's `~/.vps-ops/ssh/id_ed25519.pub` into **Add SSH keys → Paste
+   public keys**, and paste `assets/oci-cloud-init.yaml` into **Show advanced options → Management →
+   Initialization script**. On "out of host capacity": retry, change AD, or use the PAYG upgrade.
+3. **Security List** (one-time, agent dictates exact values): add ingress TCP 80 and 443 from
+   0.0.0.0/0. Never open 8000 (the dashboard is reached via the agent's SSH tunnel).
+4. **Free domain** (optional — skip if a real domain exists): `.pp.ua` at https://nic.ua — account +
+   confirmed email + a linked card (1 UAH pre-auth, refunded — the main failure point), real legal
+   name/address in the profile, then Telegram-bot (@ppuabot) phone activation within 5 days. Steps in
+   `references/21-free-domain-cloudflare.md`.
+5. **Cloudflare account** (free) — add the domain as a zone, change the 2 nameservers at nic.ua.
+6. Keep the account reachable: **log in to Oracle at least monthly** (30-day-idle accounts can be
+   deemed abandoned); yearly `.pp.ua` renewal also re-activates by phone.
+
+Everything else is unchanged: the two approvals in §4 and the keys in §5 still apply; the agent does
+all server work and DNS record creation (or dictates exact clicks).
+
 ## 4. Two one-time browser approvals (agent guides, click-by-click)
 
 **A. Coolify admin account + API access** — right after the agent installs Coolify (`10-bootstrap-vps.md` Step 5):
@@ -58,7 +86,8 @@ Steps 1a/3/7 and `20-domain-dns-ssl.md`. The token is stored in `~/.vps-ops/secr
 **B. GitHub App install** — only for **private repos**, prompted during `30-deploy-app.md`: the
 agent creates the GitHub App in Coolify, you click **Install** on GitHub and pick the repo. One click.
 
-That is the entire set — no other browser visits are ever required.
+That is the entire set for Track P. On Track F (§3b) the signups/activations listed there are added —
+still nothing that runs on the server.
 
 ## 5. Business keys matrix — the agent asks only for the rows your app needs
 

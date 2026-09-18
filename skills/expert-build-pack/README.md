@@ -53,6 +53,7 @@ component-library/              # companion skill (ships alongside)
 ## Usage
 
 - Explicit: `/expert-build-pack`
+- Deploy: companion `vps-ops` — bring your own VPS + domain, or take the $0 free-preview track (Oracle Cloud Always Free + free domain) — see `vps-ops/references/11-oracle-free-tier.md`
 - Auto-trigger: phrases like "scope the MVP", "set up repo conventions", "review the deploy plan".
 - Buildout: "start me a SaaS from a boilerplate", "design this site", "find me a hero section".
 - Update loop: when a knowledge gap is detected the agent asks once per session (batched, skippable); on consent, <=3 verifying subagents research -> verify -> patch the refs with provenance.

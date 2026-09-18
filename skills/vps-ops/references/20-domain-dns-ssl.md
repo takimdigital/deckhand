@@ -10,6 +10,11 @@ After this file: `30-deploy-app.md` (attach the same domain to the app), then `4
 Prerequisites: `~/.vps-ops/secrets/env.sh` exported (`$HOSTINGER_API_TOKEN`, `$COOLIFY_URL`,
 `$COOLIFY_TOKEN` — see `10-bootstrap-vps.md` Steps 1a/5); VPS IP known; SSH + Coolify health verified.
 
+> **Free-preview track:** the domain is `name.pp.ua` at nic.ua, DNS hosted at Cloudflare (free).
+> Run `21-free-domain-cloudflare.md` for registration + the NS swap + the A records, then use the
+> "Coolify side" section below (Cloudflare = the manual-registrar route there; records stay
+> **DNS-only** during cert issuance).
+
 Hard rules: **never PUT a DNS change without validating it first** (validate → apply → re-read) ·
 keep the pre-change zone backup · we own only A records for `@`, `www`, `coolify` (+ `*` if wanted) —
 everything else in the zone is untouched.

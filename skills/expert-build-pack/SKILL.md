@@ -1,7 +1,7 @@
 ---
 name: expert-build-pack
 description: "Build/ship SaaS and online businesses with expert refs."
-version: 0.2.0
+version: 0.2.2
 author: Takim, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -45,7 +45,7 @@ For greenfield projects the pack runs a buildout flow:
 2. **Lock, then assemble** — one batched design-brief round → `.design/design.lock.json` (colors / fonts / radius / motion / seed) → per section, a seeded coherent pick from the live pool → apply tokens → verify gates. Details: `references/buildout/10-design-assembly.md`.
 3. **Living pool** — `py scripts/registry_sync.py sync|check|list|onboard` keeps `data/registries.snapshot.json` (synced from the 372-registry shadcn directory) and `data/items/*.jsonl` catalogs fresh. Never read the raw directory JSON; query the compact snapshot (token discipline).
 4. **Store what you build** — the companion `component-library` skill saves/reuses components (`references/buildout/20-component-library.md`).
-5. **Deploy it** — the companion `vps-ops` skill: VPS bootstrap (SSH + Coolify), domain/DNS/SSL, first deploy, then the change pipeline + ops. Start at `vps-ops/references/10-bootstrap-vps.md`.
+5. **Deploy it** — the companion `vps-ops` skill has two tracks: **paid** (user's VPS + domain) → start at `vps-ops/references/10-bootstrap-vps.md`; **free preview** (no VPS/domain yet — Oracle Always Free + free domain, $0) → `vps-ops/references/11-oracle-free-tier.md`, then `60-migrate-to-paid.md` to move later. Then the change pipeline + ops.
 
 ## Quick Reference — phase → file
 
@@ -66,7 +66,7 @@ For greenfield projects the pack runs a buildout flow:
 | Start a project from a boilerplate | `references/buildout/00-start-from-boilerplate.md` |
 | Design a site coherently from the live registries | `references/buildout/10-design-assembly.md` |
 | Save/reuse components you built | `references/buildout/20-component-library.md` (+ `component-library` skill) |
-| Deploy & operate on a VPS (Coolify) | companion skill `vps-ops` (start: `vps-ops/references/10-bootstrap-vps.md`) |
+| Deploy & operate on a VPS (Coolify) | companion skill `vps-ops` — paid: `vps-ops/references/10-bootstrap-vps.md` · free preview: `vps-ops/references/11-oracle-free-tier.md` |
 
 ## Hard Rules (budgets & gates)
 

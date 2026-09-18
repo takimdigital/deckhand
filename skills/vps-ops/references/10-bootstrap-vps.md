@@ -2,6 +2,10 @@
 
 Load when: the user's VPS + access method (+ provider API token) are known — i.e. after
 `00-user-checklist.md` §1–§3. Next refs: `20-domain-dns-ssl.md` → `30-deploy-app.md`.
+
+> **Oracle Cloud (free-preview track):** do `11-oracle-free-tier.md` FIRST (root login + in-VM
+> firewall + cloud-init), then run Steps 0 → 2 → 4 → 5 → 6 here; **skip Step 3** (firewall = OCI
+> Security List + ref 11) and **Step 7** (Hostinger-only). **Never run UFW on Oracle images.**
 Runs from the agent machine (git-bash on Windows; `py` = Python launcher). `scripts/hostinger_api.py`
 and `scripts/coolify_api.py` are stdlib-only — the contract; raw curl equivalents shown for every
 step. Secrets live only in `~/.vps-ops/secrets/env.sh` (chmod 600).
