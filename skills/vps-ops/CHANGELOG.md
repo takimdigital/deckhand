@@ -1,5 +1,12 @@
 # Changelog — vps-ops
 
+## 0.2.1 — 2026-09-18
+
+- New `references/12-provider-price-sheet.md` — the "Oracle is out" answer: provider decision order +
+  verified prices (Contabo / Hostinger / Hetzner / Oracle) + Coolify sizing rules. Quote the sheet,
+  re-verify the one number you promise — no per-user price research.
+- ref 11's "signup failed" ladder now points at the sheet instead of naming a single fallback.
+
 ## 0.2.0 — 2026-09-18
 
 Free preview track (Oracle Cloud Always Free + free `.pp.ua` domain + Cloudflare DNS-only +

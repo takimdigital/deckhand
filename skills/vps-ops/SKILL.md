@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.2.0
+version: 0.2.1
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -72,6 +72,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 | What to collect from the user; provider cheat sheets; business keys matrix | `references/00-user-checklist.md` |
 | First-time setup (paid track): SSH key → firewall → Coolify install → admin/token → hardening → snapshot | `references/10-bootstrap-vps.md` |
 | Free preview server (Oracle Always Free, Arm): signup/PAYG, instance, two firewalls, tunnel dashboard | `references/11-oracle-free-tier.md` |
+| Which provider / how much? Prices + sizing for Oracle / Contabo / Hostinger / Hetzner | `references/12-provider-price-sheet.md` |
 | Domain: A records (API or manual), propagation, instance domain, Let's Encrypt verify | `references/20-domain-dns-ssl.md` |
 | Preview domain: free `.pp.ua` (nic.ua) or an owned domain at any registrar → Cloudflare DNS-only zone | `references/21-free-domain-cloudflare.md` |
 | Deploy an app: repo → project/app → envs → Postgres → domain → first deploy → smoke | `references/30-deploy-app.md` |

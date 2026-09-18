@@ -116,9 +116,10 @@ Oracle additionally rejects prepaid/virtual/single-use. Order of moves:
      the forever-free e2-micro is only 1 GB (below Coolify's floor). `[verify at live drill]`
    - AWS: new accounts get **$200 credits / 6 months, then the account closes** — no perpetual EC2.
    - Azure: $200 / 30 days + 750 h B1s for 12 months only.
-3. **Go paid-cheap instead** — Hetzner CAX11 **~€4.49/mo** (ARM 2 vCPU / 4 GB) or the planned
-   migration target (Hostinger): starting paid directly DELETES the migration step (ref 60) —
-   no capacity lottery, card/PayPal accepted in most countries.
+3. **Go paid-cheap instead** — see `12-provider-price-sheet.md` (default pick: **Contabo from
+   ~€5.50/mo incl. VAT**; Hostinger if the user wants one provider for host + VPS; Hetzner EU is the
+   cheapest per performance, but its US locations cost noticeably more). Starting paid directly
+   DELETES the migration step (ref 60) — no capacity lottery.
 4. **No card at all?** Render free (no card) sleeps after 15 min and its Postgres expires in 30 days;
    fly.io has no free tier for new orgs; Koyeb free is closed to new signups. There is **no
    card-free production-grade free VPS in 2026** — say that honestly.
