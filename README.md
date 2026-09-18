@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="assets/logo.svg" width="108" alt="Expert Build Pack">
+  <img src="assets/logo.svg" width="108" alt="Expert Build Pack — AI agent skills for building and deploying SaaS">
 </p>
 
 <h1 align="center">Expert Build Pack</h1>
 
 <p align="center">
-  <b>Agent skills that take a product from idea to a live, self-hosted SaaS.<br>
-  Build it, deploy it, change it, roll it back — from the chat.</b>
+  <b>From an idea to a live, production-ready SaaS — by chatting with your AI agent.<br>
+  No agency, no DevOps, no hosting bills until it earns.</b>
 </p>
 
 <p align="center">
@@ -18,13 +18,70 @@
 
 ---
 
-Three skill folders. Drop them into your AI coding agent and it can:
+Three small skill folders you drop into your AI coding agent (Claude Code, OpenAI Codex, Cursor, Hermes Agent…). From then on, your agent doesn't just *write code* — it **takes the whole thing live**: sets up a server (free tier, or one you already have), attaches your domain with HTTPS, deploys the app, puts a real database behind it, seeds first data, **smoke-tests everything, and hands you the URL**. If a change breaks something, it catches it and rolls back.
 
-- **build** a real product from an idea — expert playbooks, execution-first loops, verified MIT boilerplates, and a coherent design assembled from a living pool of MIT component registries;
-- **store** every component you build and reuse it in the next project;
-- **deploy** to your own VPS — Coolify bootstrapped, domain + SSL attached, apps built and served — **or go live at $0 first** on the free-preview track (Oracle Cloud Always Free + free domain + Cloudflare);
-- **operate** afterwards — change → push → deploy → smoke test → rollback, plus logs, metrics, backups and restore drills, entirely via API;
-- **move** — when the business proves itself, migrate preview → paid host with a verified cutover and rollback runbook.
+> You: *"Build me a quiz site for dog owners and put it online."*
+> Agent: reads these skills, builds it, ships it, and replies with a live link + the evidence logs.
+
+**Who it's for:** solo founders, indie hackers, and non-developers using AI agents — anyone who wants a real product on the internet without hiring anyone.
+
+## 🚀 Zero → live, in three steps
+
+1. **Say what you want.** "An invoicing tool for freelancers", "a quiz site", "my bakery's booking page."
+2. **Your agent builds it.** From a living pool of vetted, MIT-licensed, human-designed components — with **one locked design system** (colour, type, radius, motion), so the result looks designed, not AI-generated.
+3. **Your agent ships it.** Server, domain, HTTPS padlock, database, backups — proven with real deploy logs and health checks, never "should work".
+
+After day one it's the everyday loop: *"add dark mode"* → change → deploy → verify. *"something's broken"* → read the logs → fix it or roll back.
+
+## 💡 Why it feels too easy
+
+- **It finishes the job.** Most AI tools stop at "here's the code". This pack is built for the last mile — the part where projects usually die (servers, DNS, SSL, databases, backups, rollbacks).
+- **Start at $0 — for real.** Don't want to pay for hosting until the business earns? The built-in **free-preview track** goes live on a genuinely free Oracle Cloud server + a free domain behind Cloudflare + automatic HTTPS, with click-by-click guidance for every browser step that only you can do. When it makes money, the migration runbook moves you to a paid host in ~5–15 minutes of downtime (rollback included). Paying is an offer, never a gate.
+- **Cheap to run.** It was engineered to burn **a fraction of the tokens** of "generate everything from scratch" workflows — [here's why](#-why-it-uses-so-few-tokens).
+- **Evidence, not vibes.** Every step ends with a check the agent actually ran: HTTP 200s, container health, database queries, restore drills.
+- **Yours, forever.** MIT-only and self-hosted on your own server. No subscription, no lock-in, nothing proprietary bundled.
+
+## 🪙 Why it uses so few tokens
+
+Most AI workflows burn tokens re-inventing things. This pack is engineered the other way:
+
+- **Procedures live in compact playbooks, not in the model's head.** The agent *reads* a deployment runbook once — with real API shapes and known pitfalls — instead of re-deriving the whole process from scratch. Re-deriving is what costs a fortune.
+- **Scripts do the labour.** Registry sync, design-token picking, deploy API calls, health checks — deterministic Python scripts handle the boring parts, so you're not paying tokens for boilerplate.
+- **Assemble, don't generate.** Design and code come from a living pool of already-excellent MIT components, not raw model output. Skipping "generate a UI from nothing" removes the single most expensive part of an AI build.
+- **Gates, not retry spirals.** Execution loops with verification: run → check → move on, or stop and fix the real error. No long "advice essays", no blind retrying.
+
+## 🗣️ Things you can just say
+
+```text
+Build me an invoicing SaaS for freelancers.
+Deploy it to my VPS with the domain billing.example.com.
+Deploy it to the free Oracle server first — I'll pay for hosting once it makes money.
+Add dark mode and ship it.
+Something broke in production — check the logs and roll back.
+```
+
+The agent drives the whole pipeline and reports back with deploy and health-check evidence — never a to-do list for you.
+
+## 🗺️ The two tracks, both shipped
+
+**Track P — your own VPS + domain (paid).** Bootstrap any Ubuntu VPS (SSH keys, firewall, Coolify, hardened dashboard on a tunnel) → DNS + SSL via Cloudflare → deploy (Nixpacks or Dockerfile; public repos and private repos via deploy keys) → first-run data (migrations, seed, production owner) → ongoing pipeline: change → push → deploy → smoke test, rollback, env vars, logs, backups + restore drills. Proven end-to-end on a live deployment.
+
+**Track F — go live at $0 first (free preview).** The full chain, guided click-by-click where a browser is unavoidable and agent-driven everywhere else: **[free `.pp.ua` domain] → [Cloudflare DNS-only] → [Oracle Cloud Always Free (Arm) VPS] → [Coolify + Let's Encrypt]** — shipped with an `oci-cloud-init.yaml` first-boot asset, an "out of host capacity" ladder, a signup-failure ladder with vetted alternatives, and an honest reclamation-risk note. Researched and primary-source-verified; first live run pending. The migration runbook moves you to a paid host when you're ready.
+
+**Choosing a host? No fresh research needed.** The provider price sheet carries current prices + sizing rules for Oracle, Contabo, Hostinger and Hetzner (USD/CAD, monthly and prepaid terms). Already own a domain? Ref 21 points it at Cloudflare too — DNS/SSL setup is identical at any registrar.
+
+## ✅ Proven on a live server (not "should work")
+
+Deployed and validated end to end against a real Coolify instance:
+
+- [x] **Deploy** — container image app · public Git repo · private repo via deploy key
+- [x] **Change pipeline** — edit → commit → push → deploy → health smoke test
+- [x] **Broken deploy caught** by the smoke test → **rollback** (full-tag) → `git revert` fix-forward
+- [x] **Postgres** — provisioned via API → the app executes a real query over the internal network
+- [x] **Backups** — schedule → dump → **restore drill** (`pg_restore` into a scratch database, verified)
+- [x] **Build packs** — Nixpacks and Dockerfile · **ops** — logs, deployments, env vars, docker cleanup
+- [x] **36 unit tests** green (standard library only)
+- [x] **Paid track validated live** — a real Next.js + Postgres SaaS deployed end-to-end on a rented VPS: Coolify → Cloudflare DNS-only → Let's Encrypt, with migrations, seed data and a production-owner flow — every error it surfaced is now folded back into the runbooks.
 
 ## ⚡ The skills
 
@@ -55,62 +112,27 @@ cd expert-build-pack
 cp -r skills/* ~/.claude/skills/
 ```
 
-Then just talk to your agent:
+Then just start a conversation — the examples above work verbatim.
 
-```text
-Build me an invoicing SaaS for freelancers.
-Deploy it to my VPS with the domain billing.example.com.
-Deploy it to the free Oracle server first — I'll pay for hosting once it makes money.
-Add dark mode and ship it.
-Something broke in production — check the logs and roll back.
-```
+## 📖 Plain-words glossary (no jargon required)
 
-The agent reads the skills, drives the whole pipeline, and reports back with real deploy and health-check evidence — not instructions for you to follow.
-
-## ✅ Proven on a live server (not "should work")
-
-Deployed and validated end to end against a real Coolify instance:
-
-- [x] **Deploy** — container image app · public Git repo · private repo via deploy key
-- [x] **Change pipeline** — edit → commit → push → deploy → health smoke test
-- [x] **Broken deploy caught** by the smoke test → **rollback** (full-tag) → `git revert` fix-forward
-- [x] **Postgres** — provisioned via API → the app executes a real query over the internal network
-- [x] **Backups** — schedule → dump → **restore drill** (`pg_restore` into a scratch database, verified)
-- [x] **Build packs** — Nixpacks and Dockerfile · **ops** — logs, deployments, env vars, docker cleanup
-- [x] **36 unit tests** green (standard library only)
-- [x] **Paid track validated live (2026-09)** — a real Next.js + Postgres SaaS deployed end-to-end on a
-  rented VPS: Coolify → Cloudflare DNS-only → Let's Encrypt, with migrations, seed data and a
-  production-owner flow — every error it surfaced is folded back into the runbooks.
-
-Every bug these drills found is fixed and pinned in the reference runbooks — they carry live-verified API shapes, not guesses.
-
-### The two tracks, both shipped
-
-**Track P — your own VPS + domain (paid).** Bootstrap any Ubuntu VPS (SSH keys, firewall, Coolify,
-hardened dashboard on a loopback tunnel) → DNS + SSL via Cloudflare → deploy (Nixpacks or Dockerfile;
-public repos and private repos via deploy keys) → first-run data (migrations, seed, production owner)
-→ ongoing pipeline: change → push → deploy → smoke test, rollback, env vars, logs, backups + restore
-drills. Proven end-to-end on a live deployment; v0.2.2 folds in every lesson it surfaced.
-
-**Track F — go live at $0 first (free preview).** The full chain, guided click-by-click where a
-browser is unavoidable and agent-driven everywhere else: **[free `.pp.ua` domain] → [Cloudflare
-DNS-only] → [Oracle Cloud Always Free (Arm) VPS] → [Coolify + Let's Encrypt]** — shipped with an
-`oci-cloud-init.yaml` first-boot asset, an "out of host capacity" ladder, a signup-failure ladder with
-vetted alternatives, and an honest reclamation-risk note. Researched and primary-source-verified
-(2026-09-18); first live run pending. When the business proves itself, the migration runbook cuts over
-to a paid host — downtime ≈ the freeze, ~5–15 min, with a rollback matrix.
-
-**Choosing a host? No fresh research needed.** `references/12-provider-price-sheet.md` carries current
-prices + sizing rules for Oracle, Contabo, Hostinger and Hetzner (USD/CAD, monthly and prepaid terms).
-Already own a domain? Ref 21 points it at Cloudflare too — DNS/SSL setup is identical at any registrar.
+- **Agent** — your AI assistant (Claude Code, Codex, Cursor, Hermes…), the thing you chat with.
+- **VPS** — a small rented computer in a data centre that runs your product. ~$0–6/month depending on power.
+- **Domain / DNS** — your web address (like `mybakery.com`) and the system that points it at your server.
+- **HTTPS / SSL** — the padlock in the browser. The pack gets you one automatically, free.
+- **Deploy** — putting your app onto that rented computer so the world can reach it.
+- **Rollback** — instantly returning to the last version that worked when something breaks.
+- **Coolify** — the free, open-source control panel the agent installs to run your apps, databases and backups. Think "self-hosted Vercel".
+- **Token** — the unit AI models are paid in. Fewer tokens = cheaper usage.
+- **SKILL.md** — how agent skills are packaged: plain-text instructions an agent reads before doing a task.
 
 ## 🔒 Principles
 
 - **MIT only.** Every component and registry is license-checked (SPDX) before use. No pro tier, no paywalled components, nothing proprietary bundled.
 - **Living pool, never hardcoded.** The component catalog is discovered fresh from the shadcn registry index — it grows as the ecosystem grows.
-- **Coherent-random design.** Design tokens (color, type, radius, motion) are locked once per project, then applied to every component — random picks that still look designed.
+- **Coherent-random design.** Design tokens (colour, type, radius, motion) are locked once per project, then applied to every component — random picks that still look designed.
 - **Agent-first ops.** The agent manages the server over its API: deploy, env, backups, rollback, logs. You never SSH in.
-- **Token-cheap by design.** Registry metadata is compacted before the model ever sees it.
+- **Token-cheap by design.** Registry metadata is compacted before the model ever sees it; scripts do the deterministic work.
 - **Execution over advice.** The skills drive work in loops with verification gates, not advice essays.
 
 ## 📁 Repository layout
@@ -131,8 +153,14 @@ skills/
 
 ## ❓ FAQ
 
+**Do I need to know how to code?**
+No. You chat; the agent works. You'll answer at most a couple of simple questions (like "free preview first, or your own server?") and do the few things only you can do — like creating an account, or clicking "connect domain" when a browser is unavoidable — each explained click by click.
+
 **Does this only work with Claude Code?**
 No. The skills are plain folders with a `SKILL.md`. Claude Code, OpenAI Codex, Cursor, Hermes Agent — anything that reads skill folders.
+
+**What does it actually cost?**
+The pack is free and yours forever. Hosting: $0 to start on the free-preview track; later, a small VPS is typically ~$5–6/month (the price sheet compares providers for you).
 
 **What do I need for the deploy part?**
 A VPS and a domain — or nothing but an Oracle Cloud account if you start on the free-preview track. `vps-ops` bootstraps Coolify on the server and drives everything from there. Hostinger's API is baked in; any provider works over SSH.
@@ -142,6 +170,9 @@ That is what the Buildout Engine exists to avoid: it reuses already-excellent op
 
 **Is anything paid required?**
 No. MIT-licensed components only; Coolify (Apache-2.0) runs on your own server — including the entire $0 preview stack.
+
+**Is my project locked into this system?**
+No. It's your code on your server, built from open-source parts. Stop using the pack any time — everything keeps running.
 
 ## 📄 License
 
