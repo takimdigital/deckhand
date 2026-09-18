@@ -84,14 +84,25 @@ Deployed and validated end to end against a real Coolify instance:
 
 Every bug these drills found is fixed and pinned in the reference runbooks — they carry live-verified API shapes, not guesses.
 
-**Two tracks, both real.** The **paid track** is proven end-to-end on a real deployment (the drill above);
-vps-ops v0.2.2 folds in every lesson from it — the Docker-29 dashboard lock, pnpm/package-manager
-pre-flight traps, Postgres recovery, and the first-run data → production-owner flow. The
-**free-preview track** (vps-ops v0.2.0) takes a product live at $0 on Oracle Cloud Always Free + a free
-`.pp.ua` domain behind Cloudflare, with a cutover runbook to move to a paid host later; researched and
-primary-source-verified on 2026-09-18, first live run pending. Provider prices (Oracle · Contabo ·
-Hostinger · Hetzner) ship in `skills/vps-ops/references/12-provider-price-sheet.md` — choosing a host
-never needs fresh research.
+### The two tracks, both shipped
+
+**Track P — your own VPS + domain (paid).** Bootstrap any Ubuntu VPS (SSH keys, firewall, Coolify,
+hardened dashboard on a loopback tunnel) → DNS + SSL via Cloudflare → deploy (Nixpacks or Dockerfile;
+public repos and private repos via deploy keys) → first-run data (migrations, seed, production owner)
+→ ongoing pipeline: change → push → deploy → smoke test, rollback, env vars, logs, backups + restore
+drills. Proven end-to-end on a live deployment; v0.2.2 folds in every lesson it surfaced.
+
+**Track F — go live at $0 first (free preview).** The full chain, guided click-by-click where a
+browser is unavoidable and agent-driven everywhere else: **[free `.pp.ua` domain] → [Cloudflare
+DNS-only] → [Oracle Cloud Always Free (Arm) VPS] → [Coolify + Let's Encrypt]** — shipped with an
+`oci-cloud-init.yaml` first-boot asset, an "out of host capacity" ladder, a signup-failure ladder with
+vetted alternatives, and an honest reclamation-risk note. Researched and primary-source-verified
+(2026-09-18); first live run pending. When the business proves itself, the migration runbook cuts over
+to a paid host — downtime ≈ the freeze, ~5–15 min, with a rollback matrix.
+
+**Choosing a host? No fresh research needed.** `references/12-provider-price-sheet.md` carries current
+prices + sizing rules for Oracle, Contabo, Hostinger and Hetzner (USD/CAD, monthly and prepaid terms).
+Already own a domain? Ref 21 points it at Cloudflare too — DNS/SSL setup is identical at any registrar.
 
 ## 🔒 Principles
 
