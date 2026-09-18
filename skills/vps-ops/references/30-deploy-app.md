@@ -1,0 +1,188 @@
+# 30 — Deploy an app (repo → Coolify app → envs → Postgres → HTTPS → smoke)
+
+**Purpose:** turn a repo produced by the buildout engine into a running, HTTPS, auto-deploying app on the Coolify VPS.
+**Use when:** first deployment of a project — "deploy / host / go live / put this on my VPS".
+**Prerequisites:** `10-bootstrap-vps.md` done (Coolify live, token in `~/.vps-ops/secrets/env.sh`, `coolify` CLI context optional) · `20-domain-dns-ssl.md` A-record step done for `<domain>` **before** §5.
+**Companion refs:** `40-change-pipeline.md` (every later change) · `50-ops-monitoring.md` (status/backups/incidents) · `00-user-checklist.md` (one-time browser approvals).
+
+Run from git-bash. `py scripts/...` paths are relative to the skill root. REST fallbacks need `. ~/.vps-ops/secrets/env.sh` (`$COOLIFY_URL`, `$COOLIFY_TOKEN`) — never echo the token.
+
+## 0. Prerequisites on the repo
+
+```bash
+gh repo create <name> --private --source=. --push    # GitHub repo, pushed
+```
+
+If `gh` is missing/not authed → hand the user the `00-user-checklist.md` browser step, then continue from the push URL.
+The app must be scaffolded by `expert-build-pack`: a `Dockerfile` **or** a nixpacks-detectable app, listening on **port 3000**, with `.env.example` listing every variable.
+
+## 1. Pin the UUIDs (once per deploy)
+
+```bash
+coolify server list  --format json     # the localhost server → <S>
+coolify project list --format json     # pick a project → <P>
+```
+
+REST: `GET /servers` (a `localhost` server exists right after install) · `GET /projects`. Create a project if none fits:
+
+```bash
+curl -sS -X POST "$COOLIFY_URL/api/v1/projects" \
+  -H "Authorization: Bearer $COOLIFY_TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"<project-name>","description":"<one line>"}'      # → {"uuid":"<P>"}
+```
+
+## 2. Create the application
+
+### 2a. Public repo (fastest)
+
+```bash
+coolify app create public --server-uuid <S> --project-uuid <P> --environment-name production \
+  --git-repository https://github.com/<u>/<r> --git-branch main --build-pack nixpacks \
+  --ports-exposes 3000 --format json
+```
+
+Expected: JSON for the new application → copy `uuid` as `<APP_UUID>`.
+
+REST fallback (exact schema):
+
+```bash
+curl -sS -X POST "$COOLIFY_URL/api/v1/applications/public" \
+  -H "Authorization: Bearer $COOLIFY_TOKEN" -H "Content-Type: application/json" -d '{
+    "project_uuid": "<P>", "server_uuid": "<S>", "environment_name": "production",
+    "git_repository": "https://github.com/<u>/<r>", "git_branch": "main",
+    "build_pack": "nixpacks", "ports_exposes": "3000", "name": "<app-name>"}'
+```
+
+- Required: `project_uuid`, `server_uuid`, `environment_name` (or `environment_uuid`), `git_repository`, `git_branch`, `build_pack` ∈ {`nixpacks`,`railpack`,`static`,`dockerfile`,`dockercompose`}.
+- Optional: `ports_exposes` (**string**, not a number), `name`, `description`, `domains` (**comma-separated string**), `destination_uuid`.
+- *(Live-verified 2026-09-17: both `nixpacks` and `dockerfile` build packs build & serve correctly — a repo-level `Dockerfile` + `"build_pack":"dockerfile"` finished in 30 s.)*
+
+### 2b. Private repo — two routes
+
+**GitHub App (recommended — Coolify then owns the webhook, so auto-deploy is automatic).** In the Coolify UI: Sources → GitHub App → create → GitHub opens → the user installs it on the account (**one browser click, one-time**, see `00-user-checklist.md`). Then create the app with the GitHub App attached — exact CLI flags `[verify at live drill]`; REST route is the same `POST /applications/public` body, then `PATCH /applications/<APP_UUID>` with `{"github_app_uuid":"<uuid>"}` (a pinned PATCH field). Inventory: `GET /github-apps`, `GET /github-apps/{id}/repositories`, `GET /github-apps/{id}/branches`; delete with `DELETE /github-apps/{id}` — the numeric `id`, **not** the uuid (uuid → HTTP 500, live-verified 2026-09-17). Never delete the built-in `Public GitHub` app (system-wide; Coolify refuses it with 409).
+
+**Deploy-key route (no browser click).** Dedicated key, registered with Coolify, then create with `private_key_uuid`:
+
+```bash
+ssh-keygen -t ed25519 -N "" -C "vps-ops-deploy" -f ~/.vps-ops/ssh/deploy_<app>
+# build the body via file so the PEM never lands in shell history:
+py -c "import json,pathlib; p=pathlib.Path.home()/'.vps-ops/ssh/deploy_<app>'; print(json.dumps({'name':'deploy-<app>','private_key':p.read_text()}))" > "$LOCALAPPDATA/Temp/coolify-key.json"
+curl -sS -X POST "$COOLIFY_URL/api/v1/security/keys" \
+  -H "Authorization: Bearer $COOLIFY_TOKEN" -H "Content-Type: application/json" \
+  -d @"$LOCALAPPDATA/Temp/coolify-key.json"                       # → uuid = <PK_UUID>
+rm "$LOCALAPPDATA/Temp/coolify-key.json"
+```
+
+```bash
+curl -sS -X POST "$COOLIFY_URL/api/v1/applications/private-deploy-key" \
+  -H "Authorization: Bearer $COOLIFY_TOKEN" -H "Content-Type: application/json" -d '{
+    "project_uuid": "<P>", "server_uuid": "<S>", "environment_name": "production",
+    "git_repository": "git@github.com:<u>/<r>.git", "git_branch": "main",
+    "build_pack": "nixpacks", "ports_exposes": "3000", "private_key_uuid": "<PK_UUID>"}'
+```
+
+Then add the matching **public** key as a read-only GitHub deploy key, and wire the webhook by hand for auto-deploy (§7). ⚠ On Windows, `gh` is a native exe and cannot read MSYS paths — pass the key via `"$(cygpath -m ~/.vps-ops/ssh/deploy_<app>.pub)"` (live-verified 2026-09-17). `GET /security/keys` · `GET|DELETE /security/keys/{uuid}`.
+⚠ The private key stays in `~/.vps-ops/ssh/` and in Coolify — never in chat, a repo, or a command line.
+
+## 3. Environment variables
+
+Build `.env.production` locally from `.env.example` + the user's business keys (`KEY=value`, one per line). It is **gitignored** and never committed.
+
+```bash
+coolify app env sync <APP_UUID> --file .env.production     # upsert; existing keys untouched; nothing is ever deleted
+py scripts/coolify_api.py envs <APP_UUID>                  # verify: prints the key names present
+```
+
+REST fallback (exact schema — `{"data":[{key,value,(optional) is_preview|is_literal|is_multiline|is_shown_once}]}`):
+
+```bash
+curl -sS -X PATCH "$COOLIFY_URL/api/v1/applications/<APP_UUID>/envs/bulk" \
+  -H "Authorization: Bearer $COOLIFY_TOKEN" -H "Content-Type: application/json" \
+  -d '{"data":[{"key":"DATABASE_URL","value":"<url>"},{"key":"STRIPE_SECRET_KEY","value":"<key>"}]}'
+```
+
+For one-off **non-secret** values, `py scripts/coolify_api.py envset <APP_UUID> KEY=VALUE` is fine — but never put a secret value on a command line (shell history); secrets go through `--file` or the API only. *(Live-verified: the bulk PATCH answers **201**, not 200 — accept any 2xx; changes apply on the next deploy.)*
+
+## 4. Postgres (skip if the app brings its own DB)
+
+```bash
+coolify database create postgresql --server-uuid <S> --project-uuid <P> \
+  --environment-name production --format json          # exact flags: [verify at live drill]
+coolify database get <DB_UUID> --format json           # copy the internal connection URL
+```
+
+REST fallback (exact schema):
+
+```bash
+curl -sS -X POST "$COOLIFY_URL/api/v1/databases/postgresql" \
+  -H "Authorization: Bearer $COOLIFY_TOKEN" -H "Content-Type: application/json" \
+  -d '{"server_uuid":"<S>","project_uuid":"<P>","environment_name":"production",
+       "postgres_user":"app","postgres_db":"app"}'   # optional: postgres_password (generated if omitted), destination_uuid
+```
+
+Required: `server_uuid`, `project_uuid`, `environment_name` (or `environment_uuid`). Inventory: `GET /databases`, `GET /databases/{uuid}`.
+
+*(Live-verified 2026-09-17):* the POST response carries **`internal_db_url`** (password included — never echo it).
+The container runs postgres `initdb` for ~2 min while the API reports **`exited:unhealthy` — that is NORMAL**; keep
+polling `GET /databases/{uuid}` until `running:healthy`. Progress is visible via `GET /databases/{uuid}/logs`
+(returns `{"logs": "..."}`, shows the initdb output). If it stays down, `POST /databases/{uuid}/start` exists.
+Wire the URL into the app with the §3 bulk PATCH **from a file** (never on the command line), then redeploy.
+Strong end-to-end check: a `GET /db` route doing `SELECT 1` → `smoke <url>/db --contains db-ok` (validated).
+Add the connection URL to `.env.production` as `DATABASE_URL=<url>`, re-run `coolify app env sync <APP_UUID> --file .env.production`. App and DB in the same project → Coolify hands you the internal Docker-network URL; no external access needed.
+
+## 5. Attach the domain
+
+Prerequisite: `<domain>` resolves to the VPS IP (`20-domain-dns-ssl.md`; `py scripts/hostinger_api.py dns set-a <domain> --ip <IP> --names @,www`).
+
+```bash
+curl -sS -X PATCH "$COOLIFY_URL/api/v1/applications/<APP_UUID>" \
+  -H "Authorization: Bearer $COOLIFY_TOKEN" -H "Content-Type: application/json" \
+  -d '{"domains":"https://app.<domain>"}'
+```
+
+`domains` is a **comma-separated string** — several names: `"https://app.<domain>,https://www.<domain>"`. The same PATCH also accepts `name`, `build_pack`, `ports_exposes`, `git_commit_sha`, `github_app_uuid`.
+Coolify issues the Let's Encrypt certificate on the next deploy (port 80 reachable first). Verify after §6: `curl -sSI https://app.<domain> | head -1` → `HTTP/2 200`.
+
+## 6. First deploy + verify
+
+```bash
+coolify deploy uuid <APP_UUID>                                   # enqueue
+py scripts/coolify_api.py wait <APP_UUID> --timeout 900          # poll to terminal status
+py scripts/coolify_api.py smoke https://app.<domain> --expect 200
+```
+
+REST deploy trigger — **query params only, no body**:
+
+```bash
+curl -sS -X POST "$COOLIFY_URL/api/v1/deploy?uuid=<APP_UUID>&force=false" \
+  -H "Authorization: Bearer $COOLIFY_TOKEN"
+```
+
+Expected:
+- `wait` → `SUCCESS (1m32s, deployment <id>)`, exit **0**. Exit `3` = deployment failed → `40-change-pipeline.md` classification. Exit `5` = timeout → keep polling / read logs.
+- `smoke` → `OK 200 https://app.<domain>`, exit **0**; exit `4` = fail.
+
+Statuses are tolerant: `{"success","finished"}` = OK · `{"failed","cancelled"}` = FAIL · **anything else = still running**. *Live-verified on Coolify 4.3.21: terminal OK = `finished`; the deployments endpoint returns `{"count":N,"deployments":[...]}` (newest first by `created_at`), which `scripts/coolify_api.py` already normalizes.*
+
+## 7. Auto-deploy on push
+
+- **GitHub App route → automatic.** Coolify owns the webhook; a push to `main` queues a deployment. Nothing to configure.
+- **Other routes (public repo / deploy key) → add a repo webhook** pointing at the Coolify webhook URL shown in the app's UI (App → Webhooks). Exact URL pattern: **`[pin at first live run if not GitHub App]`**. Without it, every change needs the explicit deploy in `40-change-pipeline.md` step 4.
+
+## 8. Session anchor — `<project>/.vps-ops.json`
+
+```json
+{"server_uuid":"<S>","project_uuid":"<P>","app_uuid":"<APP_UUID>","db_uuid":"<DB_UUID>","domain":"app.example.com","coolify_url":"http://<ip>:8000"}
+```
+
+No secrets — safe to commit. Commit it (`git add .vps-ops.json && git commit -m "chore: vps-ops anchor" && git push`): every later session, in any harness, re-enters the pipeline from this file alone.
+
+## Done checklist
+
+| # | Check | Command |
+|---|---|---|
+| 1 | app uuid pinned + committed | `cat .vps-ops.json` |
+| 2 | env keys present | `py scripts/coolify_api.py envs <APP_UUID>` |
+| 3 | deployment terminal SUCCESS | `py scripts/coolify_api.py deployments <APP_UUID> --limit 3` |
+| 4 | HTTPS answers 200 | `py scripts/coolify_api.py smoke https://app.<domain> --expect 200` |
+| 5 | auto-deploy wired | push a trivial commit → expect a new deployment (`[verify at live drill]` on non-GitHub-App routes) |

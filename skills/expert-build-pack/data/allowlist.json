@@ -1,0 +1,40 @@
+{
+  "updatedAt": "2026-09-17",
+  "rules": {
+    "codeLicense": "MIT only (SPDX: MIT) for components and boilerplates. Registries that mix 'free + pro' are allowed ONLY for their free/MIT items; verify per item.",
+    "fonts": "OFL/SIL or system stacks only for webfonts (Google Fonts OK). Record license per font.",
+    "evidence": "Every entry: repo + how MIT was verified (GitHub API spdx_id or LICENSE) + date."
+  },
+  "registries": [
+    {
+      "name": "@shadcn", "homepage": "https://ui.shadcn.com", "url": "https://ui.shadcn.com/r/{name}.json",
+      "license": "MIT", "licenseEvidence": "github.com/shadcn-ui/ui — LICENSE (MIT)", "verifiedAt": "2026-09-17",
+      "integration": "shadcn", "tags": ["core", "primitives"],
+      "notes": "Core registry. Add by bare name (button, card, …) or block names."
+    },
+    {
+      "name": "@reui", "homepage": "https://reui.io", "url": "https://reui.io/r/{style}/{name}.json",
+      "license": "MIT", "licenseEvidence": "api.github.com/repos/keenthemes/reui → spdx_id=MIT (2026-09-17)", "verifiedAt": "2026-09-17",
+      "integration": "shadcn", "tags": ["patterns", "dashboard", "large"],
+      "notes": "1773 free items; premium blocks excluded — verify item is free before use. URL needs {style} (radix|base) — set the style segment in the project namespace config."
+    },
+    {
+      "name": "@velora", "homepage": "https://velora.colorlib.com", "url": "https://velora.colorlib.com/r/{name}.json",
+      "license": "MIT", "licenseEvidence": "api.github.com/repos/ColorlibHQ/velora-ui → spdx_id=MIT (2026-09-17)", "verifiedAt": "2026-09-17",
+      "integration": "shadcn", "tags": ["animated", "landing", "tokenized"],
+      "notes": "64 items, token-aware (items carry cssVars). llms.txt lists sizes/deps."
+    },
+    {
+      "name": "@cult-ui", "homepage": "https://cult-ui.com", "url": "https://cult-ui.com/r/{name}.json",
+      "license": "MIT", "licenseEvidence": "api.github.com/repos/nolly-studio/cult-ui → spdx_id=MIT + README (2026-09-17)", "verifiedAt": "2026-09-17",
+      "integration": "shadcn", "tags": ["design-engineer", "motion"],
+      "notes": "157 items. Directory health status 'observing' — re-check at use. If cult-ui.com rate-limits (429/Vercel checkpoint), onboard from the repo mirror: apps/www/public/r/registry.json (raw.githubusercontent.com/nolly-studio/cult-ui/main/apps/www/public/r/registry.json) saved to a file + --catalog-file."
+    },
+    {
+      "name": "@daisyui", "homepage": "https://daisyui.com", "url": null,
+      "license": "MIT", "licenseEvidence": "github.com/saadeghi/daisyui — LICENSE (MIT)", "verifiedAt": "2026-09-17",
+      "integration": "tailwind-plugin", "tags": ["themes", "css-components"],
+      "notes": "NOT a shadcn registry. Alternative base via Tailwind plugin; never mix with shadcn token flow."
+    }
+  ]
+}

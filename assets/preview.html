@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Expert Build Pack — social preview</title>
+<style>
+  html, body { margin: 0; width: 1280px; height: 640px; overflow: hidden; }
+  body {
+    background: #0B1220;
+    color: #E2E8F0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .glow {
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(620px 420px at 78% 18%, rgba(249,115,22,.20), transparent 62%),
+      radial-gradient(720px 520px at 12% 92%, rgba(56,189,248,.10), transparent 62%);
+  }
+  .wrap { display: flex; align-items: center; gap: 56px; padding: 0 96px; position: relative; }
+  h1 { font-size: 74px; margin: 0; letter-spacing: -2px; color: #F8FAFC; }
+  p  { margin: 16px 0 0; font-size: 29px; color: #94A3B8; line-height: 1.4; }
+  p b { color: #FB923C; font-weight: 650; }
+  .chips { margin-top: 32px; }
+  .chip {
+    display: inline-block; padding: 8px 20px; border: 1px solid #1E293B; border-radius: 999px;
+    margin-right: 10px; font-size: 21px; color: #CBD5E1; background: #111A2E;
+  }
+  .url { margin-top: 26px; font-size: 21px; color: #64748B; letter-spacing: .3px; }
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="wrap">
+    <svg xmlns="http://www.w3.org/2000/svg" width="208" height="208" viewBox="0 0 128 128" role="img" aria-label="Expert Build Pack">
+      <defs>
+        <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#1E293B"/><stop offset="1" stop-color="#0F172A"/>
+        </linearGradient>
+        <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#FDE68A"/><stop offset="1" stop-color="#F97316"/>
+        </linearGradient>
+      </defs>
+      <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#tile)" stroke="#334155" stroke-width="1.5"/>
+      <rect x="36" y="94" width="56" height="11" rx="5.5" fill="#475569"/>
+      <rect x="57.5" y="50" width="13" height="42" rx="6.5" fill="url(#flame)"/>
+      <path d="M64 16 L87 50 H41 Z" fill="url(#flame)"/>
+    </svg>
+    <div>
+      <h1>Expert Build Pack</h1>
+      <p><b>Idea → live SaaS.</b> Build, deploy &amp; operate<br>from your AI coding agent.</p>
+      <div class="chips">
+        <span class="chip">Claude Code</span><span class="chip">Codex</span><span class="chip">Cursor</span><span class="chip">Hermes</span>
+      </div>
+      <div class="url">github.com/takimdigital/expert-build-pack</div>
+    </div>
+  </div>
+</body>
+</html>
