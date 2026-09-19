@@ -13,7 +13,7 @@ metadata:
 
 # Component Library
 
-Personal store for UI components the user builds or adapts, so they can be found and reused in any later project instead of rebuilt. The store is a shadcn-compatible folder (`registry.json` + `r/<name>.json` + `items/`) plus a flat `index.jsonl` the agent can grep cheaply even with hundreds of items. Companion to `expert-build-pack` (used at the end of buildout sessions to keep what was built).
+Personal store for UI components the user builds or adapts, so they can be found and reused in any later project instead of rebuilt. The store is a shadcn-compatible folder (`registry.json` + `r/<name>.json` + `items/`) plus a flat `index.jsonl` the agent can grep cheaply even with hundreds of items. Companion to `buildout` (used at the end of buildout sessions to keep what was built).
 
 ## When to Use
 
@@ -23,7 +23,7 @@ Personal store for UI components the user builds or adapts, so they can be found
 
 ## Don't Use For
 
-- Third-party code with unverified provenance/license (MIT-only rule from `expert-build-pack`; record `--source` always).
+- Third-party code with unverified provenance/license (MIT-only rule from `buildout`; record `--source` always).
 - One-off style snippets — store real components.
 
 ## How to Run

@@ -7,12 +7,12 @@ platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [deploy, vps, coolify, hostinger, oracle, free-tier, preview, cloudflare, dns, ssl, ssh, operations, backups, rollback, migration]
-    related_skills: [expert-build-pack, component-library]
+    related_skills: [buildout, component-library]
 ---
 
 # vps-ops — VPS deploy & management (Coolify)
 
-Takes a project built by `expert-build-pack` and ships it to a real server: bootstrap the VPS, install
+Takes a project built by `buildout` and ships it to a real server: bootstrap the VPS, install
 Coolify, point the domain, deploy, and then run the whole "user asks for a change → it ships" loop —
 all from the harness, without the user ever touching the server.
 
@@ -20,7 +20,7 @@ all from the harness, without the user ever touching the server.
 
 - The user wants to deploy/host/go live, mentions a VPS, Coolify, domain/DNS/SSL, or "put my app online".
 - Any post-deploy request: check status, read logs, ship a change, roll back, backups, updates.
-- The buildout skill (`expert-build-pack`) finished in the project — deploy is the next phase.
+- The buildout skill finished in the project — deploy is the next phase.
 - The user has no VPS/domain yet, or wants a $0 live preview → Track F: `references/11-oracle-free-tier.md` (+ `21` for the free domain).
 - The user wants to leave the preview (or move any server → server) → `references/60-migrate-to-paid.md`.
 

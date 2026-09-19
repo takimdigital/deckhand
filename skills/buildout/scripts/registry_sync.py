@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""registry_sync.py - living shadcn-registry pool for the expert-build-pack.
+"""registry_sync.py - living shadcn-registry pool for the buildout skill.
 
 sync    fetch https://ui.shadcn.com/r/registries.json -> filter by health ->
         merge MIT allowlist -> write compact data/registries.snapshot.json
@@ -20,7 +20,7 @@ SNAPSHOT = DATA / "registries.snapshot.json"
 ALLOWLIST = DATA / "allowlist.json"
 ITEMS_DIR = DATA / "items"
 SOURCE = "https://ui.shadcn.com/r/registries.json"
-UA = {"User-Agent": "expert-build-pack/0.2 (+agentskills.io)"}
+UA = {"User-Agent": "deckhand-buildout/0.2 (+agentskills.io)"}
 BROWSER_UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
 KEEP_STATUSES = {"healthy"}
 

@@ -80,15 +80,14 @@ $brOrange = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArg
 $brSlate  = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 148, 163, 184))
 $brMuted  = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 100, 116, 139))
 
-$arrow = [string][char]0x2192
-$g.DrawString('Expert Build Pack', $fWhite, $brWhite, [float]$tx, [float]150)
+$g.DrawString('Deckhand', $fWhite, $brWhite, [float]$tx, [float]150)
 
-$l1a = "Idea $arrow live SaaS."
-$l1b = ' Build, deploy & operate'
+$l1a = 'Bring a $5 server and a $10 domain.'
+$l1b = ' Your agent'
 $g.DrawString($l1a, $fOrange, $brOrange, [float]$tx, [float]272)
 $wA = $g.MeasureString($l1a, $fOrange).Width
 $g.DrawString($l1b, $fSlate, $brSlate, [float]($tx + $wA), [float]272)
-$g.DrawString('from your AI coding agent.', $fSlate, $brSlate, [float]$tx, [float]316)
+$g.DrawString('turns it into a live business - you go find the clients.', $fSlate, $brSlate, [float]$tx, [float]316)
 
 # chips
 $chipY = 388; $chipH = 48
@@ -105,9 +104,9 @@ foreach ($label in @('Claude Code', 'Codex', 'Cursor', 'Hermes')) {
   $cx2 = $cx2 + $cw + 12
 }
 
-$g.DrawString('github.com/takimdigital/expert-build-pack', $fUrl, $brMuted, [float]$tx, [float]472)
+$g.DrawString('github.com/takimdigital/deckhand', $fUrl, $brMuted, [float]$tx, [float]472)
 
-$out = 'C:\Users\Takim\expert-build-pack\assets\social-preview.png'
+$out = 'C:\Users\Takim\deckhand\assets\social-preview.png'
 $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
 $g.Dispose(); $bmp.Dispose()
 $fi = Get-Item $out

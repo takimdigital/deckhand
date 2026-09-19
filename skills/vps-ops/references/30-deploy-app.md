@@ -14,7 +14,7 @@ gh repo create <name> --private --source=. --push    # GitHub repo, pushed
 ```
 
 If `gh` is missing/not authed → hand the user the `00-user-checklist.md` browser step, then continue from the push URL.
-The app must be scaffolded by `expert-build-pack`: a `Dockerfile` **or** a nixpacks-detectable app, listening on **port 3000**, with `.env.example` listing every variable.
+The app must be scaffolded by `buildout`: a `Dockerfile` **or** a nixpacks-detectable app, listening on **port 3000**, with `.env.example` listing every variable.
 
 Deploy-blocking repo traps (live-verified 2026-09-19 — check these BEFORE the first build):
 

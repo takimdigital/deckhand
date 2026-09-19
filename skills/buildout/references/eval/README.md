@@ -20,7 +20,7 @@ Repeat over a task suite (≥8 tasks); report mean ± spread, not one hero run. 
 
 - Use `trigger-eval.json` (~20 queries: should-trigger / should-not-trigger).
 - Measure recall (caught) + precision (false fires) after ANY change to the description.
-- Real numbers matter: auto-triggering is keyword-overlap-based and leaks; keep an explicit `/expert-build-pack` path as the reliable route.
+- Real numbers matter: auto-triggering is keyword-overlap-based and leaks; keep an explicit `/buildout` path as the reliable route.
 
 ## 3. Paraphrase robustness
 

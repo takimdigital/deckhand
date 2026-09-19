@@ -1,6 +1,6 @@
 # vps-ops
 
-Companion skill to `expert-build-pack`: deploy & manage the built project on the user's own VPS with
+Companion skill to `buildout`: deploy & manage the built project on the user's own VPS with
 Coolify — or prove it live at $0 first on the free-preview track.
 
 - **Two tracks, the user's choice** — *paid* (their VPS + domain) or *free preview*
@@ -15,8 +15,8 @@ Coolify — or prove it live at $0 first on the free-preview track.
 
 ## Install
 
-Copy this folder into the harness's skills dir, or use the combined zip (`expert-build-pack.zip`,
-contains `expert-build-pack/` + `component-library/` + `vps-ops/`).
+Copy this folder into the harness's skills dir, or use the combined zip (`deckhand.zip`,
+contains `buildout/` + `component-library/` + `vps-ops/`).
 Known skill dirs: `~/.claude/skills/`, `~/.agents/skills/`, `~/.codex/skills/`, Hermes profile skills dir.
 
 ## Layout

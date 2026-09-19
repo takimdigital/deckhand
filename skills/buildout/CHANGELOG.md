@@ -1,4 +1,8 @@
-# Changelog - Expert Build Pack
+# Changelog - Buildout
+
+## 0.3.0 - 2026-09-19
+
+Renamed `expert-build-pack` → **`buildout`** as part of the pack rebrand to **Deckhand** (invocation: `/buildout`). No content changes.
 
 ## 0.2.2 - 2026-09-18
 

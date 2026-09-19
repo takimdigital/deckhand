@@ -1,5 +1,5 @@
 ---
-name: expert-build-pack
+name: buildout
 description: "Build/ship SaaS and online businesses with expert refs."
 version: 0.2.2
 author: Takim, Hermes Agent
@@ -11,7 +11,7 @@ metadata:
     tags: [saas, build, jargon, execution-first, machine-first, protocols, delegation, handoff, refs, harness-agnostic, buildout, registries]
 ---
 
-# Expert Build Pack
+# Buildout
 
 A portable knowledge-and-protocol pack for building an online business/SaaS end to end: ideation → foundations → build → design → git → deploy → maintain. It carries: (1) **expert reference files** (jargon, constraints, procedures, anti-patterns), (2) **three operational protocols** — execution-first loops, machine-first state/handoffs, and a verified update loop that keeps the refs current, and (3) a **buildout engine** (v0.2): start from a verified-MIT boilerplate, assemble the UI coherently from the live shadcn registry pool, and store what you build for reuse (`references/buildout/`). Harness-agnostic: the layout follows the agentskills.io spec, so the same folder works in Hermes, Claude Code, Codex/ChatGPT, Cursor, and any spec-conformant runtime.
 
@@ -23,7 +23,7 @@ A portable knowledge-and-protocol pack for building an online business/SaaS end 
 - A build phase needs its checklist/loop, or work is about to be delegated to subagents
 - A new project should start from a boilerplate, or a UI needs to be assembled from component registries
 - The session uncovers missing/incorrect build knowledge → run the Update Loop
-- Explicit invocation: `/expert-build-pack`
+- Explicit invocation: `/buildout`
 
 ## Don't Use For
 

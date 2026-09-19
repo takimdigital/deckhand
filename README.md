@@ -1,29 +1,31 @@
 <p align="center">
-  <img src="assets/logo.svg" width="108" alt="Expert Build Pack — AI agent skills for building and deploying SaaS">
+  <img src="assets/logo.svg" width="108" alt="Deckhand — agent skills that turn a $5 server and a $10 domain into a live business">
 </p>
 
-<h1 align="center">Expert Build Pack</h1>
+<h1 align="center">Deckhand</h1>
 
 <p align="center">
-  <b>From an idea to a live, production-ready SaaS — by chatting with your AI agent.<br>
-  No agency, no DevOps, no hosting bills until it earns.</b>
+  <b>Bring a $5 server and a $10 domain.<br>
+  Your agent turns them into a live business — you go find the clients.</b>
 </p>
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Tests: 36 passing" src="https://img.shields.io/badge/tests-36%20passing-brightgreen.svg">
-  <img alt="Version: 0.2.2" src="https://img.shields.io/badge/version-0.2.2-blueviolet.svg">
+  <img alt="Version: 0.3.0" src="https://img.shields.io/badge/version-0.3.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
 ---
 
-Three small skill folders you drop into your AI coding agent (Claude Code, OpenAI Codex, Cursor, Hermes Agent…). From then on, your agent doesn't just *write code* — it **takes the whole thing live**: sets up a server (free tier, or one you already have), attaches your domain with HTTPS, deploys the app, puts a real database behind it, seeds first data, **smoke-tests everything, and hands you the URL**. If a change breaks something, it catches it and rolls back.
+Three small skill folders you drop into your AI coding agent (Claude Code, OpenAI Codex, Cursor, Hermes Agent…). From then on, your agent doesn't just *write code* — it **takes the whole thing live**: sets up a server (a $5 one, or the free tier), attaches your domain with HTTPS, deploys the app, puts a real database behind it, seeds first data, **smoke-tests everything, and hands you the URL**. If a change breaks something, it catches it and rolls back.
+
+Think of it as a deckhand: **you keep the helm, it works the ropes.** Your job is the business — finding clients.
 
 > You: *"Build me a quiz site for dog owners and put it online."*
 > Agent: reads these skills, builds it, ships it, and replies with a live link + the evidence logs.
 
-**Who it's for:** solo founders, indie hackers, and non-developers using AI agents — anyone who wants a real product on the internet without hiring anyone.
+**Who it's for:** solo founders, indie hackers, and non-developers using AI agents — anyone who ever froze at the words "server", "DNS" or "deploy". Nobody should miss out on a business because the setup felt overwhelming.
 
 ## 🚀 Zero → live, in three steps
 
@@ -35,15 +37,32 @@ After day one it's the everyday loop: *"add dark mode"* → change → deploy �
 
 ## 💡 Why it feels too easy
 
-- **It finishes the job.** Most AI tools stop at "here's the code". This pack is built for the last mile — the part where projects usually die (servers, DNS, SSL, databases, backups, rollbacks).
-- **Start at $0 — for real.** Don't want to pay for hosting until the business earns? The built-in **free-preview track** goes live on a genuinely free Oracle Cloud server + a free domain behind Cloudflare + automatic HTTPS, with click-by-click guidance for every browser step that only you can do. When it makes money, the migration runbook moves you to a paid host in ~5–15 minutes of downtime (rollback included). Paying is an offer, never a gate.
+- **The whole door costs about the price of a lunch.** A real online business = **~$5/month for a server + ~$10/year for a domain**. That's it. What stops most people isn't money — it's the pile of unfamiliar tech (servers, DNS, SSL, deploys, databases). That pile is exactly what Deckhand absorbs: you bring two things — a server and a domain — and go find clients.
+- **It finishes the job.** Most AI tools stop at "here's the code". Deckhand is built for the last mile — the part where projects usually die (servers, DNS, SSL, databases, backups, rollbacks).
+- **Start at $0 — for real.** Don't want to pay anything until the business earns? The built-in **free-preview track** goes live on a genuinely free Oracle Cloud server + a free domain behind Cloudflare + automatic HTTPS, with click-by-click guidance for every browser step that only you can do. When it makes money, the migration runbook moves you to a paid host in ~5–15 minutes of downtime (rollback included). Paying is an offer, never a gate.
 - **Cheap to run.** It was engineered to burn **a fraction of the tokens** of "generate everything from scratch" workflows — [here's why](#-why-it-uses-so-few-tokens).
 - **Evidence, not vibes.** Every step ends with a check the agent actually ran: HTTP 200s, container health, database queries, restore drills.
 - **Yours, forever.** MIT-only and self-hosted on your own server. No subscription, no lock-in, nothing proprietary bundled.
 
+## ☕ The uncomfortable math
+
+**"I can't afford to start a business"** — you, holding a $9 *Venti Macha Luxa Choco-Caca Laka Frappé*.
+
+Meanwhile, the actual cost:
+
+| Your coffee | What it covers |
+| --- | --- |
+| one $5 drink | one month of a real server |
+| one $10 drink | a real domain, for a whole year |
+| three drinks | your entire business — live and running, for a month |
+
+The drinks have names longer than your business plan, and they still cost more than the infrastructure that could be hosting it. **You're not broke — you've been paying for the wrong thing.**
+
+Bring the $5 server and the $10 domain. Deckhand does the rest while you go find the client.
+
 ## 🪙 Why it uses so few tokens
 
-Most AI workflows burn tokens re-inventing things. This pack is engineered the other way:
+Most AI workflows burn tokens re-inventing things. Deckhand is engineered the other way:
 
 - **Procedures live in compact playbooks, not in the model's head.** The agent *reads* a deployment runbook once — with real API shapes and known pitfalls — instead of re-deriving the whole process from scratch. Re-deriving is what costs a fortune.
 - **Scripts do the labour.** Registry sync, design-token picking, deploy API calls, health checks — deterministic Python scripts handle the boring parts, so you're not paying tokens for boilerplate.
@@ -87,7 +106,7 @@ Deployed and validated end to end against a real Coolify instance:
 
 | Skill | What it does |
 | --- | --- |
-| [`expert-build-pack`](skills/expert-build-pack) | **Idea → codebase.** Expert references, execution-first build loops, verified MIT boilerplates, coherent-random design assembly from the live shadcn registry pool (MIT-only), design tokens locked once and applied everywhere. |
+| [`buildout`](skills/buildout) | **Idea → codebase.** Expert references, execution-first build loops, verified MIT boilerplates, coherent-random design assembly from the live shadcn registry pool (MIT-only), design tokens locked once and applied everywhere. |
 | [`component-library`](skills/component-library) | **Build → reuse.** Save any component you build; the next project starts from what you already made. |
 | [`vps-ops`](skills/vps-ops) | **Codebase → live business.** Two tracks: **paid** (your VPS + domain) or **free preview** ($0 on Oracle Cloud Always Free + a free `.pp.ua` domain). Bootstraps Coolify, wires domain/SSL, deploys with Nixpacks or Dockerfile, then runs the everyday pipeline: deploy, monitor, env changes, database + backups, rollback — plus a migration runbook to move from the free preview to a paid host. |
 
@@ -96,8 +115,8 @@ Deployed and validated end to end against a real Coolify instance:
 No build step, no dependencies — plain `SKILL.md` folders plus stdlib Python:
 
 ```bash
-git clone https://github.com/takimdigital/expert-build-pack.git
-cd expert-build-pack
+git clone https://github.com/takimdigital/deckhand.git
+cd deckhand
 ```
 
 | Harness | Copy the skill folders into |
@@ -117,9 +136,9 @@ Then just start a conversation — the examples above work verbatim.
 ## 📖 Plain-words glossary (no jargon required)
 
 - **Agent** — your AI assistant (Claude Code, Codex, Cursor, Hermes…), the thing you chat with.
-- **VPS** — a small rented computer in a data centre that runs your product. ~$0–6/month depending on power.
-- **Domain / DNS** — your web address (like `mybakery.com`) and the system that points it at your server.
-- **HTTPS / SSL** — the padlock in the browser. The pack gets you one automatically, free.
+- **VPS** — a small rented computer in a data centre that runs your product. ~$5/month, or $0 on the free track.
+- **Domain / DNS** — your web address (like `mybakery.com`) and the system that points it at your server. ~$10/year.
+- **HTTPS / SSL** — the padlock in the browser. Deckhand gets you one automatically, free.
 - **Deploy** — putting your app onto that rented computer so the world can reach it.
 - **Rollback** — instantly returning to the last version that worked when something breaks.
 - **Coolify** — the free, open-source control panel the agent installs to run your apps, databases and backups. Think "self-hosted Vercel".
@@ -138,8 +157,9 @@ Then just start a conversation — the examples above work verbatim.
 ## 📁 Repository layout
 
 ```text
+assets/                    # logo + social preview (render-social-preview.ps1)
 skills/
-├── expert-build-pack/     # idea → codebase (references, buildout engine, design assembly)
+├── buildout/              # idea → codebase (references, buildout engine, design assembly)
 │   ├── references/        # expert playbooks, formats, lifecycle, eval, buildout
 │   ├── scripts/           # registry sync + deterministic design picker
 │   └── tests/             # stdlib unit tests
@@ -159,8 +179,8 @@ No. You chat; the agent works. You'll answer at most a couple of simple question
 **Does this only work with Claude Code?**
 No. The skills are plain folders with a `SKILL.md`. Claude Code, OpenAI Codex, Cursor, Hermes Agent — anything that reads skill folders.
 
-**What does it actually cost?**
-The pack is free and yours forever. Hosting: $0 to start on the free-preview track; later, a small VPS is typically ~$5–6/month (the price sheet compares providers for you).
+**How much does it really cost to start?**
+~$5/month for a server + ~$10/year for a domain — or literally $0 on the free-preview track. The pack itself is free, forever. For comparison: less than most streaming subscriptions you already pay. Deckhand exists to remove the *overwhelm*, not the cost.
 
 **What do I need for the deploy part?**
 A VPS and a domain — or nothing but an Oracle Cloud account if you start on the free-preview track. `vps-ops` bootstraps Coolify on the server and drives everything from there. Hostinger's API is baked in; any provider works over SSH.

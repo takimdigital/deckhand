@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-19 — rebrand: Deckhand (pack v0.3.0)
+
+The pack has a name now: **Deckhand** — *bring a $5 server and a $10 domain; your agent turns them into a live business while you go find the clients.* The name carries the insight: the barrier was never the money — it's the overwhelm. That pile of unfamiliar tech is the deckhand's job.
+
+- Repository renamed `expert-build-pack` → `deckhand` (GitHub redirects old links automatically).
+- Skill `expert-build-pack` renamed **`buildout`** ("idea → codebase"); cross-references in `vps-ops` and `component-library` updated. Invocation: `/buildout`.
+- README rewritten around the cost reality (~$5/month server + ~$10/year domain = the whole door) and the human's job (finding clients). Social-preview + logo assets carry the new name.
+- No functional changes to the runbooks; 36 tests green; zip == repo.
+
 ## 2026-09-19 — paid track validated live (vps-ops v0.2.2)
 
 A real Next.js + Postgres SaaS was taken from a private repo to a live HTTPS domain on a rented VPS

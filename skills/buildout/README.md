@@ -1,4 +1,4 @@
-# Expert Build Pack
+# Buildout
 
 Portable, harness-agnostic skill pack for building an online business / SaaS end to end: ideation -> foundations -> build -> design -> git -> deploy -> maintain.
 
@@ -11,7 +11,7 @@ Synthesized from Phase-1 research: 8 research streams, 97 dated sources (priorit
 ## Layout
 
 ```
-expert-build-pack/
+buildout/
 |-- SKILL.md                    # router: triggers, protocols, budgets (start here)
 |-- references/
 |   |-- formats/                # step-record - handoff-envelope - verify-ladder - terminal-states
@@ -40,9 +40,9 @@ component-library/              # companion skill (ships alongside)
 
 ## Install (any harness)
 
-**Hermes Agent** - copy this folder to `<hermes home>/skills/software-development/expert-build-pack/` (and `component-library/` alongside it), then `/reload-skills` or start a new session. Invoke via `/expert-build-pack ...` or let it auto-trigger.
+**Hermes Agent** - copy this folder to `<hermes home>/skills/software-development/buildout/` (and `component-library/` alongside it), then `/reload-skills` or start a new session. Invoke via `/buildout ...` or let it auto-trigger.
 
-**Claude Code** - copy to `~/.claude/skills/expert-build-pack/` (personal) or `.claude/skills/expert-build-pack/` (project).
+**Claude Code** - copy to `~/.claude/skills/buildout/` (personal) or `.claude/skills/buildout/` (project).
 
 **Codex / ChatGPT** - Codex discovers `.agents/skills/` (repo) and `$HOME/.agents/skills/` (user). Keep descriptions short: the initial skills list has a tight character budget (~2% of context) and descriptions get shortened first.
 
@@ -52,7 +52,7 @@ component-library/              # companion skill (ships alongside)
 
 ## Usage
 
-- Explicit: `/expert-build-pack`
+- Explicit: `/buildout`
 - Deploy: companion `vps-ops` — bring your own VPS + domain, or take the $0 free-preview track (Oracle Cloud Always Free + free domain) — see `vps-ops/references/11-oracle-free-tier.md`
 - Auto-trigger: phrases like "scope the MVP", "set up repo conventions", "review the deploy plan".
 - Buildout: "start me a SaaS from a boilerplate", "design this site", "find me a hero section".
