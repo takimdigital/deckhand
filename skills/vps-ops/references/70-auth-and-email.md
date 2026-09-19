@@ -47,7 +47,21 @@ Substitutes / rejects (one-liners): SMTP2GO 1,000/mo · 200/day — no branding,
 
 Reading inbound replies (agent): **AgentMail** — free, 3,000/mo, official MCP, no card (best). Cloudflare Email Routing — free unlimited inbound (sending needs Workers Paid $5/mo).
 
-**Human-once (ONE batched message):** create the free accounts (email signup, no card) at Resend + Mailgun + Brevo, paste one API key each. Everything else is agent work.
+**Human-once (ONE batched message):** create the free accounts (email signup, no card) and hand over one key each — then everything else is agent work.
+
+Getting the RIGHT key (walk the user through exactly this — they will have no idea):
+
+| Provider | Where in the dashboard | Which key + cautions |
+|---|---|---|
+| **Resend** | Sign up — the API key is prompted immediately (step 1; easiest). | Copy the `re_…` key. Until a domain is verified, Resend only delivers to your own signup address (`onboarding@resend.dev` = testing only — never ship it). |
+| **Mailgun** | Sign in → Settings → **API security** → Create key. | Choose role **Developer** (enough to send; smallest privilege. Admin only if domain APIs need it later). Key shown once. |
+| **Brevo** | Sign up → side menu **SMTP & API** → **API keys and MCP**. | Take the **API key** (`xkeysib-…`). The **MCP server key** beside it is ONLY for the optional MCP session (ref 80) — never for sending. |
+
+Hand-over — offer BOTH, default first (never say a bare "drop them into Coolify env"):
+(a) *paste the keys to the agent* — it stores them in the secrets vault (`~/.vps-ops/secrets/`, chmod 600)
+and sets the Coolify env vars; values are never echoed or committed again;
+(b) *prefer to enter them yourself?* the agent gives a click-by-click guide: Coolify → the app →
+**Environment Variables** → Add → exact name shown → paste value → Save.
 
 ## 3. Deliverability DNS — the part that makes mail arrive
 

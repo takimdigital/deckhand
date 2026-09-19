@@ -1,5 +1,16 @@
 # Changelog — vps-ops
 
+## 0.4.1 — 2026-09-19
+
+Key-handover UX, from the first real walkthrough (the keys were found — but by guessing at the
+dashboard): ref 70 §2 now carries the exact per-provider key walkthrough —
+Resend (key prompted at signup; `onboarding@resend.dev` only reaches your own address until a domain is
+verified — never ship it), Mailgun (Settings → API security → Create key → role **Developer**; enough to
+send, smallest privilege), Brevo (**API key** — the MCP server key beside it is only for the optional MCP
+session, never for sending). Hand-over is now explicit with a default: paste to the agent (vaulted,
+chmod 600, never echoed) or ask for the click-by-click Coolify guide — no bare "drop them into Coolify
+env". ref 80's Brevo row flags the API-key-vs-MCP-key split too.
+
 ## 0.4.0 — 2026-09-19
 
 **Auth + login email** — "no email, no business". Researched by four parallel agents, primary-source

@@ -38,7 +38,7 @@ Sending = ref 70's chain + router. MCPs here are for setup/management/reading:
 |---|---|---|---|---|
 | Resend | official | MIT | remote `mcp.resend.com/mcp` · or `npx resend-mcp` | send + read; React Email first-party |
 | Mailgun | official | Apache-2.0 | `npx @mailgun/mcp-server` (stdio) | routes + stored messages |
-| Brevo | official hosted | (hosted) | `mcp.brevo.com/v1/brevo/mcp` | 27 modules |
+| Brevo | official hosted | (hosted) | `mcp.brevo.com/v1/brevo/mcp` | 27 modules; its **MCP server key** (Brevo → SMTP & API → API keys and MCP) is separate from the sending **API key** — create only when wiring this server |
 | Mailtrap | official | MIT | `npx mcp-mailtrap` | testing/sandbox |
 | Cloudflare | official | Apache-2.0 | `mcp.cloudflare.com/mcp` + Agentic Inbox | free inbound routing; sending needs Workers Paid $5/mo |
 | AgentMail | official hosted | (hosted) | `mcp.agentmail.to/mcp` | BEST for agent READING inbound (free, no card) |

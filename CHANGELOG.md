@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-19 — key handover, spelled out (vps-ops v0.4.1 / pack v0.6.1)
+
+First live key walkthrough surfaced the gap: users have no idea *which* key to create, and "add them to
+the Coolify env" means nothing outside of dev circles. Ref 70 now walks it provider by provider —
+Resend (key prompted at signup; testing address caveat), Mailgun (Settings → API security → Create key,
+**Developer** role), Brevo (**API key**, NOT the MCP server key) — and the hand-over ask has a clear
+default: paste to the agent (vaulted chmod 600, never echoed) or take the click-by-click Coolify guide.
+
 ## 2026-09-19 — auth + login email: the free failover chain (vps-ops v0.4.0 / pack v0.6.0)
 
 "No email, no business." Four research agents verified the September-2026 landscape, and the pack now

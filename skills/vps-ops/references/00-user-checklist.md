@@ -103,8 +103,10 @@ still nothing that runs on the server.
 | Anything else | whatever the app's `.env.example` declares | — | the app's own config |
 
 Login-email apps: the email row is the ONLY human step — create the three free accounts in one sitting
-(email signup, no card) and hand over the keys batched. DNS records, env wiring, and the failover router
-are agent work (refs 70 + 80).
+(email signup, no card), then hand the keys over ONE of two ways (offer, default first): paste to the
+agent — it vaults them (`~/.vps-ops/secrets/`, chmod 600) and sets the Coolify env, values never echoed
+again; or ask for the click-by-click Coolify guide. Which key per provider: ref 70 §2. DNS records,
+env wiring, and the failover router are agent work (refs 70 + 80).
 
 Rule: the agent reads `.env.example` in the repo and asks for exactly those values — nothing more.
 Secrets go only into `~/.vps-ops/secrets/` and Coolify env vars, never into a repo, commit, or chat echo.
