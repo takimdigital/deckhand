@@ -1,5 +1,21 @@
 # Changelog — vps-ops
 
+## 0.4.3 — 2026-09-19
+
+The Brevo corner, closed — second live pass:
+
+- ref 70 §2/§3: **Brevo's domain setup is fully API-able** — `POST /v3/senders/domains` returns the
+  records (2 DKIM CNAMEs + `brevo-code` TXT + a required `_dmarc.<subdomain>` TXT), then
+  `PUT /v3/senders/domains/<name>/authenticate` flips it to `authenticated:true verified:true`.
+  New-IP handling documented: the 401 also triggers a one-click "authorize the new IP" email to the
+  account owner (account-alerts@t.brevo.com — legitimate); both the setup machine and the app server
+  must be authorised.
+- mail-router template: owner alerts are now plain-language — what happened, that nothing is broken,
+  that mail continues via the next provider, and that no action is needed. Written for non-dev users,
+  after the first real one asked.
+- Verified live: all three providers have now CARRIED real mail — resend ✓, mailgun ✓ (drain drill),
+  brevo ✓ (both-drained drill) — and each restore put the primary back.
+
 ## 0.4.2 — 2026-09-19
 
 First live run of the email chain on a real Next.js + Coolify + Postgres deployment — every finding

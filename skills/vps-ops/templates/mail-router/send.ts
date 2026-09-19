@@ -107,9 +107,9 @@ async function alert(p: Adapter, reason: string) {
       try {
         await q.send({
           to: owner,
-          subject: `[email] ${p.id}: ${reason}`,
-          text: `Provider ${p.id}: ${reason}\n${new Date().toISOString()}`,
-          html: `<p>Provider <strong>${p.id}</strong>: ${reason}</p><p>${new Date().toISOString()}</p>`,
+          subject: `[mail] ${p.id}: ${reason} — fallback active`,
+          text: `Provider "${p.id}" stopped accepting mail (${reason}).\nMessages continue through the next provider in the chain automatically — no action needed.\nIf this repeats often, review the chain order/caps.\n${new Date().toISOString()}`,
+          html: `<p>Provider <strong>${p.id}</strong> stopped accepting mail (${reason}).</p><p>Messages continue through the next provider in the chain automatically — <strong>no action needed</strong>.</p><p>If this repeats often, review the chain order/caps.</p><p>${new Date().toISOString()}</p>`,
           from: q.from
         }, `alert/${p.id}/${Date.now()}`);
         return;

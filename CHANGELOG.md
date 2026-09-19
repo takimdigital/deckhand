@@ -1,6 +1,12 @@
 # Changelog
 
-## 2026-09-19 — the email chain's first live run (vps-ops v0.4.2 / pack v0.6.2)
+## 2026-09-19 — all three providers carry (vps-ops v0.4.3 / pack v0.6.3)
+
+The chain's coverage is now complete and proven: Brevo's corner closed via its API (domain created,
+records added, `authenticate` → verified — plus the new-IP dance: a one-click email to the owner,
+both the setup machine and the server authorised). And the first non-dev feedback landed: owner
+alerts rewritten in plain language — what happened, that nothing is broken, and that no action is
+needed. Drilled live: every provider has carried real mail, and every restore returned the primary.
 
 The failover chain went through a real deployment end-to-end — password reset live, every hop
 watched — and the run's findings are folded back: Resend's onboarding key can't manage domains
