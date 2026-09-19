@@ -15,7 +15,7 @@ metadata:
 
 A portable knowledge-and-protocol pack for building an online business/SaaS end to end: ideation → foundations → build → design → git → deploy → maintain. It carries: (1) **expert reference files** (jargon, constraints, procedures, anti-patterns), (2) **three operational protocols** — execution-first loops, machine-first state/handoffs, and a verified update loop that keeps the refs current, and (3) a **buildout engine** (v0.2): start from a verified-MIT boilerplate, assemble the UI coherently from the live shadcn registry pool, and store what you build for reuse (`references/buildout/`). Harness-agnostic: the layout follows the agentskills.io spec, so the same folder works in Hermes, Claude Code, Codex/ChatGPT, Cursor, and any spec-conformant runtime.
 
-**Loading discipline.** This file is a router. Load reference files by task phase — never load the whole pack. Do not paste reference content wholesale into prompts; use it to write precise briefs.
+**Loading discipline.** This file is a router. Load reference files by task phase — never load the whole pack. Do not paste reference content wholesale into prompts; use it to write precise briefs. Before asking the user anything, read `~/.deckhand/profile.md` (skill `deckhand-profile`) — never re-ask what it answers.
 
 ## When to Use
 

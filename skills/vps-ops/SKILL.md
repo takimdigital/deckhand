@@ -26,6 +26,7 @@ all from the harness, without the user ever touching the server.
 
 ## The promise (what the user does vs what you do)
 
+First read the user's portable profile `~/.deckhand/profile.md` (skill `deckhand-profile`) — accounts, providers and defaults live there; never re-ask what it answers.
 The user provides ONLY: VPS + domain (+ optionally a provider API token). Everything else is your job.
 Two one-time browser moments are unavoidable and are guided click-by-click in `references/00-user-checklist.md`:
 1. Create the Coolify admin account + copy one API token.

@@ -1,5 +1,7 @@
 # 00 — User checklist: the only things we ask the user for
 
+**First: read `~/.deckhand/profile.md`** (skill `deckhand-profile`) — items it answers are already collected; ask only what it leaves open.
+
 Load when: a deployment engagement starts ("host my app", "I have a VPS", "deploy this project").
 This file is the complete ask-list. Collect items 1–4 once (plus any §5 keys the app needs), then run
 `10-bootstrap-vps.md` → `20-domain-dns-ssl.md` → `30-deploy-app.md`. After that, every request flows

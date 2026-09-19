@@ -12,13 +12,13 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Tests: 36 passing" src="https://img.shields.io/badge/tests-36%20passing-brightgreen.svg">
-  <img alt="Version: 0.4.0" src="https://img.shields.io/badge/version-0.4.0-blueviolet.svg">
+  <img alt="Version: 0.5.0" src="https://img.shields.io/badge/version-0.5.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
 ---
 
-Four small skill folders you drop into your AI coding agent (Claude Code, OpenAI Codex, Cursor, Hermes Agent…). From then on, your agent doesn't just *write code* — it **takes the whole thing live**: sets up a server (a $5 one, or the free tier), attaches your domain with HTTPS, deploys the app, puts a real database behind it, seeds first data, **smoke-tests everything, and hands you the URL**. If a change breaks something, it catches it and rolls back.
+Five small skill folders you drop into your AI coding agent (Claude Code, OpenAI Codex, Cursor, Hermes Agent…). From then on, your agent doesn't just *write code* — it **takes the whole thing live**: sets up a server (a $5 one, or the free tier), attaches your domain with HTTPS, deploys the app, puts a real database behind it, seeds first data, **smoke-tests everything, and hands you the URL**. If a change breaks something, it catches it and rolls back.
 
 Think of it as a deckhand: **you keep the helm, it works the ropes.** Your job is the business — finding clients.
 
@@ -69,10 +69,12 @@ Most AI workflows burn tokens re-inventing things. Deckhand is engineered the ot
 - **Assemble, don't generate.** Design and code come from a living pool of already-excellent MIT components, not raw model output. Skipping "generate a UI from nothing" removes the single most expensive part of an AI build.
 - **Gates, not retry spirals.** Execution loops with verification: run → check → move on, or stop and fix the real error. No long "advice essays", no blind retrying.
 - **Failures are paid for once.** `session-autopsy` turns any red run into a pre-flight check the next agent can't miss — the pack gets sharper with use, never noisier.
+- **You answer once, ever.** `deckhand-profile` keeps your accounts, providers and defaults in one portable file — every agent reads it first instead of interrogating you again.
 
 ## 🗣️ Things you can just say
 
 ```text
+Create my deckhand profile.
 Build me an invoicing SaaS for freelancers.
 Deploy it to my VPS with the domain billing.example.com.
 Deploy it to the free Oracle server first — I'll pay for hosting once it makes money.
@@ -111,6 +113,7 @@ Deployed and validated end to end against a real Coolify instance:
 | [`component-library`](skills/component-library) | **Build → reuse.** Save any component you build; the next project starts from what you already made. |
 | [`vps-ops`](skills/vps-ops) | **Codebase → live business.** Two tracks: **paid** (your VPS + domain) or **free preview** ($0 on Oracle Cloud Always Free + a free `.pp.ua` domain). Bootstraps Coolify, wires domain/SSL, deploys with Nixpacks or Dockerfile, then runs the everyday pipeline: deploy, monitor, env changes, database + backups, rollback — plus a migration runbook to move from the free preview to a paid host. |
 | [`session-autopsy`](skills/session-autopsy) | **Failure → fix.** When a run goes red, it dissects the session, finds the instruction that allowed the wrong path, and rewrites it — on a strength ladder (eliminate → pre-flight → reorder → gate → pitfall). Pitfalls are counted as debt, not solutions. |
+| [`deckhand-profile`](skills/deckhand-profile) | **You, once.** One portable file (`~/.deckhand/profile.md`) with your accounts, providers and defaults — every agent reads it first and never re-asks. Copy it to any harness or machine. |
 
 ## 🚀 Install
 
@@ -171,7 +174,8 @@ skills/
 │   ├── assets/            # oci-cloud-init.yaml (Oracle first-boot)
 │   ├── scripts/           # Coolify API + Hostinger API clients
 │   └── tests/
-└── session-autopsy/       # failure → instruction fix (refs 10/20/30 + report template)
+├── session-autopsy/       # failure → instruction fix (refs 10/20/30 + report template)
+└── deckhand-profile/      # the portable user profile (format + template)
 ```
 
 ## ❓ FAQ
