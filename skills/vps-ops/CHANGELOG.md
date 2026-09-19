@@ -1,5 +1,18 @@
 # Changelog — vps-ops
 
+## 0.3.1 — 2026-09-19
+
+CI safety net for the `packageManager` pin — both failure modes live-verified (red → green) on a real repo:
+
+1. A CI workflow that ALSO pins pnpm (`pnpm/action-setup` with `version:`) fails the job in seconds:
+   `Multiple versions of pnpm specified` / `ERR_PNPM_BAD_PM_VERSION`. One source of truth: keep the
+   `packageManager` pin, drop the workflow's `version:` (the action reads `packageManager` itself).
+2. On the Node-24-era action majors (`checkout@v5`, `setup-node@v5`, `pnpm/action-setup@v6`), the step
+   order is load-bearing: `pnpm/action-setup` must run BEFORE `setup-node` — v5 auto-caches the pnpm
+   store and must find `pnpm` on PATH, or the job dies with `Unable to locate executable file: pnpm`.
+
+Ref 30's repo-traps list now carries both; the same pass moves workflows off Node-20-era action majors.
+
 ## 0.3.0 — 2026-09-19
 
 New: **the cold-start handoff.** Every deployment now ends by writing `OPS.md` in the app repo

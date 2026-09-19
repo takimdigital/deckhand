@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.3.0
+version: 0.3.1
 license: MIT
 platforms: [linux, macos, windows]
 metadata:

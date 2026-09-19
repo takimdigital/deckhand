@@ -28,6 +28,16 @@ Deploy-blocking repo traps (live-verified 2026-09-19 — check these BEFORE the 
 - **Runtime CLIs live in `dependencies`, not `devDependencies`**, when the first-run steps use them
   (e.g. `drizzle-kit` for container-side migrations). `tsx` needs no entry — `npx -y tsx` fetches it
   on demand.
+- **The `packageManager` pin is repo-wide — check the repo's own CI workflow too.** Pinning pnpm in
+  package.json while a GitHub Actions job ALSO passes `version:` to `pnpm/action-setup` fails that job in
+  seconds: `Multiple versions of pnpm specified` / `ERR_PNPM_BAD_PM_VERSION` (live-verified). One source of
+  truth: keep the pin, delete `version:` from the action (it reads `packageManager` itself) — and once the
+  pin lands, watch the run (`gh run list` → `gh run watch <id>`): CI is where competing pins surface.
+  While touching the workflow, bump actions off Node-20-era majors (`checkout@v5`, `setup-node@v5`,
+  `pnpm/action-setup@v6`) — the runner still executes them, but GitHub flags them on every run. When on
+  those majors, keep the canonical step order **checkout → pnpm/action-setup → setup-node**:
+  `setup-node@v5` auto-caches the pnpm store and must find `pnpm` on PATH — reversed, the job dies with
+  `Unable to locate executable file: pnpm` (live-verified).
 
 ## 1. Pin the UUIDs (once per deploy)
 
