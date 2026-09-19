@@ -8,7 +8,8 @@ Load when: the user's VPS + access method (+ provider API token) are known — i
 > Security List + ref 11) and **Step 7** (Hostinger-only). **Never run UFW on Oracle images.**
 Runs from the agent machine (git-bash on Windows; `py` = Python launcher). `scripts/hostinger_api.py`
 and `scripts/coolify_api.py` are stdlib-only — the contract; raw curl equivalents shown for every
-step. Secrets live only in `~/.vps-ops/secrets/env.sh` (chmod 600).
+step. Secrets live only in `~/.vps-ops/secrets/env.sh` (chmod 600 — cosmetic on Windows git-bash;
+enforce for real with `icacls <file> /inheritance:r /grant:r "%USERNAME%:F"`).
 
 Hard rules: firewall BEFORE the Coolify install · hardening only AFTER key auth is proven (Step 2) ·
 never close port 22 (Coolify manages over SSH) · never touch Coolify's installer-created keys.
