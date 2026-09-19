@@ -80,6 +80,11 @@ Root: `_dmarc` TXT `v=DMARC1; p=none; rua=mailto:dmarc@<domain>; adkim=r; aspf=r
 check `Authentication-Results` shows `dkim=pass` + `spf=pass` with that provider's domain. Keep ALL click/open tracking OFF everywhere.
 Agent creates these records via the DNS API/MCP — ref 80.
 
+Free-plan quirk (live-seen): Brevo-carried mail shows Gmail's **"Unsubscribe"** chip — Brevo attaches a
+`List-Unsubscribe` header on free accounts (Resend/Mailgun sends don't). Cosmetic for auth mail since Brevo
+is the overflow provider, but clicking it suppresses ONLY Brevo for that address — so keep Brevo LAST in
+the chain. Toggle location in Brevo's account settings: [unverified — verify if a user asks].
+
 ## 4. Failover router — drop-in (`templates/mail-router/`)
 
 Copy `templates/mail-router/` into the app: `send.ts` → `lib/email/`, run `schema.sql`, fill the env rows, wire per its README.
