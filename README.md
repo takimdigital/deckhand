@@ -12,13 +12,13 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Tests: 36 passing" src="https://img.shields.io/badge/tests-36%20passing-brightgreen.svg">
-  <img alt="Version: 0.3.2" src="https://img.shields.io/badge/version-0.3.2-blueviolet.svg">
+  <img alt="Version: 0.4.0" src="https://img.shields.io/badge/version-0.4.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
 ---
 
-Three small skill folders you drop into your AI coding agent (Claude Code, OpenAI Codex, Cursor, Hermes Agent…). From then on, your agent doesn't just *write code* — it **takes the whole thing live**: sets up a server (a $5 one, or the free tier), attaches your domain with HTTPS, deploys the app, puts a real database behind it, seeds first data, **smoke-tests everything, and hands you the URL**. If a change breaks something, it catches it and rolls back.
+Four small skill folders you drop into your AI coding agent (Claude Code, OpenAI Codex, Cursor, Hermes Agent…). From then on, your agent doesn't just *write code* — it **takes the whole thing live**: sets up a server (a $5 one, or the free tier), attaches your domain with HTTPS, deploys the app, puts a real database behind it, seeds first data, **smoke-tests everything, and hands you the URL**. If a change breaks something, it catches it and rolls back.
 
 Think of it as a deckhand: **you keep the helm, it works the ropes.** Your job is the business — finding clients.
 
@@ -68,6 +68,7 @@ Most AI workflows burn tokens re-inventing things. Deckhand is engineered the ot
 - **Scripts do the labour.** Registry sync, design-token picking, deploy API calls, health checks — deterministic Python scripts handle the boring parts, so you're not paying tokens for boilerplate.
 - **Assemble, don't generate.** Design and code come from a living pool of already-excellent MIT components, not raw model output. Skipping "generate a UI from nothing" removes the single most expensive part of an AI build.
 - **Gates, not retry spirals.** Execution loops with verification: run → check → move on, or stop and fix the real error. No long "advice essays", no blind retrying.
+- **Failures are paid for once.** `session-autopsy` turns any red run into a pre-flight check the next agent can't miss — the pack gets sharper with use, never noisier.
 
 ## 🗣️ Things you can just say
 
@@ -109,6 +110,7 @@ Deployed and validated end to end against a real Coolify instance:
 | [`buildout`](skills/buildout) | **Idea → codebase.** Expert references, execution-first build loops, verified MIT boilerplates, coherent-random design assembly from the live shadcn registry pool (MIT-only), design tokens locked once and applied everywhere. |
 | [`component-library`](skills/component-library) | **Build → reuse.** Save any component you build; the next project starts from what you already made. |
 | [`vps-ops`](skills/vps-ops) | **Codebase → live business.** Two tracks: **paid** (your VPS + domain) or **free preview** ($0 on Oracle Cloud Always Free + a free `.pp.ua` domain). Bootstraps Coolify, wires domain/SSL, deploys with Nixpacks or Dockerfile, then runs the everyday pipeline: deploy, monitor, env changes, database + backups, rollback — plus a migration runbook to move from the free preview to a paid host. |
+| [`session-autopsy`](skills/session-autopsy) | **Failure → fix.** When a run goes red, it dissects the session, finds the instruction that allowed the wrong path, and rewrites it — on a strength ladder (eliminate → pre-flight → reorder → gate → pitfall). Pitfalls are counted as debt, not solutions. |
 
 ## 🚀 Install
 
@@ -164,11 +166,12 @@ skills/
 │   ├── scripts/           # registry sync + deterministic design picker
 │   └── tests/             # stdlib unit tests
 ├── component-library/     # save / load reusable components
-└── vps-ops/               # Coolify deploy & ops — paid VPS or free preview (Oracle + .pp.ua)
-    ├── references/        # bootstrap, domain/SSL, free preview, deploy, change pipeline, ops, migration
-    ├── assets/            # oci-cloud-init.yaml (Oracle first-boot)
-    ├── scripts/           # Coolify API + Hostinger API clients
-    └── tests/
+├── vps-ops/               # Coolify deploy & ops — paid VPS or free preview (Oracle + .pp.ua)
+│   ├── references/        # bootstrap, domain/SSL, free preview, deploy, change pipeline, ops, migration
+│   ├── assets/            # oci-cloud-init.yaml (Oracle first-boot)
+│   ├── scripts/           # Coolify API + Hostinger API clients
+│   └── tests/
+└── session-autopsy/       # failure → instruction fix (refs 10/20/30 + report template)
 ```
 
 ## ❓ FAQ
