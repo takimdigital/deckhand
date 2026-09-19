@@ -214,6 +214,23 @@ and hand it to the user out-of-band. Re-run the smoke afterwards; the site is th
 ```
 
 No secrets — safe to commit. Commit it (`git add .vps-ops.json && git commit -m "chore: vps-ops anchor" && git push`): every later session, in any harness, re-enters the pipeline from this file alone.
+It is machine-minimal by design — for humans/agents with zero context, pair it with the `OPS.md`
+handoff (§9), which they can actually read and act on.
+
+## 9. Handoff file — `OPS.md` (write it at deploy time, keep it current)
+
+The anchor (§8) is machine-minimal. Every deployed app ALSO gets **`OPS.md` at the repo root** — the
+single file any future session (human or agent, zero context) reads FIRST, so nobody burns tokens
+re-discovering the world. Start from `templates/OPS-handoff-template.md`, fill it, commit it with the app.
+
+It must carry: what the app is · live URL(s) + health checks · server + SSH command + provider/panel ·
+Coolify ids + dashboard access (the tunnel command) · **a secrets inventory — locations only, NEVER values** ·
+domain/DNS (registrar, zone, records) · the copy-paste everyday commands (deploy a change, migrate,
+DB shell, owner re-key, logs, smoke) · a "do not do these" list (app-specific landmines — e.g. re-running
+an app's dev seed against prod) · what is NOT set up yet (backups, payment keys). ≤ ~150 lines; update it
+the moment topology changes (domain, ids, envs, host).
+
+Tell the user it exists — it is the cold-start door into everything else.
 
 ## Done checklist
 

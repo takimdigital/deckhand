@@ -12,7 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Tests: 36 passing" src="https://img.shields.io/badge/tests-36%20passing-brightgreen.svg">
-  <img alt="Version: 0.3.0" src="https://img.shields.io/badge/version-0.3.0-blueviolet.svg">
+  <img alt="Version: 0.3.1" src="https://img.shields.io/badge/version-0.3.1-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
@@ -83,7 +83,7 @@ The agent drives the whole pipeline and reports back with deploy and health-chec
 
 ## 🗺️ The two tracks, both shipped
 
-**Track P — your own VPS + domain (paid).** Bootstrap any Ubuntu VPS (SSH keys, firewall, Coolify, hardened dashboard on a tunnel) → DNS + SSL via Cloudflare → deploy (Nixpacks or Dockerfile; public repos and private repos via deploy keys) → first-run data (migrations, seed, production owner) → ongoing pipeline: change → push → deploy → smoke test, rollback, env vars, logs, backups + restore drills. Proven end-to-end on a live deployment.
+**Track P — your own VPS + domain (paid).** Bootstrap any Ubuntu VPS (SSH keys, firewall, Coolify, hardened dashboard on a tunnel) → DNS + SSL via Cloudflare → deploy (Nixpacks or Dockerfile; public repos and private repos via deploy keys) → first-run data (migrations, seed, production owner) → ongoing pipeline: change → push → deploy → smoke test, rollback, env vars, logs, backups + restore drills. Every deploy also writes the app's **`OPS.md`** — a cold-start handoff (access, secret locations, everyday commands) so any future session starts with zero re-discovery. Proven end-to-end on a live deployment.
 
 **Track F — go live at $0 first (free preview).** The full chain, guided click-by-click where a browser is unavoidable and agent-driven everywhere else: **[free `.pp.ua` domain] → [Cloudflare DNS-only] → [Oracle Cloud Always Free (Arm) VPS] → [Coolify + Let's Encrypt]** — shipped with an `oci-cloud-init.yaml` first-boot asset, an "out of host capacity" ladder, a signup-failure ladder with vetted alternatives, and an honest reclamation-risk note. Researched and primary-source-verified; first live run pending. The migration runbook moves you to a paid host when you're ready.
 

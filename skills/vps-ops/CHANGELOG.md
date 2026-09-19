@@ -1,5 +1,14 @@
 # Changelog — vps-ops
 
+## 0.3.0 — 2026-09-19
+
+New: **the cold-start handoff.** Every deployment now ends by writing `OPS.md` in the app repo
+(ref 30 §9 + `templates/OPS-handoff-template.md`): live URL + health checks, server/SSH, Coolify ids and
+dashboard access, **a secrets inventory by location** (never values), DNS, the copy-paste everyday
+commands, and the app-specific "do not" list. A fresh session — human or agent, zero context — starts
+working from that one file: no re-discovery, no wasted tokens. Validated on the first live deployment
+that followed this release.
+
 ## 0.2.2 — 2026-09-19
 
 Paid track validated end-to-end by a first real deployment on a rented VPS (Coolify → Cloudflare DNS

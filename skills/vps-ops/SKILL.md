@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.2.2
+version: 0.3.0
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -76,6 +76,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 | Domain: A records (API or manual), propagation, instance domain, Let's Encrypt verify | `references/20-domain-dns-ssl.md` |
 | Preview domain: free `.pp.ua` (nic.ua) or an owned domain at any registrar → Cloudflare DNS-only zone | `references/21-free-domain-cloudflare.md` |
 | Deploy an app: repo → project/app → envs → Postgres → domain → first deploy → smoke | `references/30-deploy-app.md` |
+| Already-deployed app, fresh session, zero context — the cold-start doc | the app repo's **`OPS.md`** first → then refs 40/50 (written at deploy time, ref 30 §9) |
 | The change loop: edit → push → auto-deploy → wait → smoke → report; rollback | `references/40-change-pipeline.md` |
 | Status, logs, metrics, backups, updates, incident playbook | `references/50-ops-monitoring.md` |
 | Leave the preview → paid host: what moves, cutover, rollback | `references/60-migrate-to-paid.md` |
@@ -101,7 +102,9 @@ root SSH key and opens 80/443 in the VM firewall.
 
 Every deployed project keeps `<project>/.vps-ops.json` (server/app/db UUIDs + domain + coolify_url —
 NO secrets, plus `track: paid | free-preview` and the Oracle region on Track F). Read it first in any
-later session; it re-enters the whole pipeline without context loss.
+later session; it re-enters the whole pipeline without context loss. Every deploy ALSO writes
+`<project>/OPS.md` (ref 30 §9) — the human-readable cold-start handoff (live URL, access, secret
+*locations*, the copy-paste everyday commands). Anchor = for the agent's tooling; `OPS.md` = for reading.
 
 ## Quickstart
 
@@ -111,5 +114,6 @@ later session; it re-enters the whole pipeline without context loss.
    **F:** free server → `references/11-oracle-free-tier.md`
 3. Domain + SSL → `references/20-domain-dns-ssl.md` · **F:** `references/21-free-domain-cloudflare.md`
 4. Deploy → `references/30-deploy-app.md`
-5. From then on → `references/40-change-pipeline.md` + `references/50-ops-monitoring.md`
-6. **F only, on request:** leave the preview → `references/60-migrate-to-paid.md`
+5. First-run data + handoff → `references/30-deploy-app.md` §6b (migrations/seed/owner) and §9 (`OPS.md` — commit it with the app)
+6. From then on → `references/40-change-pipeline.md` + `references/50-ops-monitoring.md`
+7. **F only, on request:** leave the preview → `references/60-migrate-to-paid.md`

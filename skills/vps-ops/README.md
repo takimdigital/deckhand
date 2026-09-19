@@ -9,6 +9,8 @@ Coolify — or prove it live at $0 first on the free-preview track.
 - **Ship** — repo → Coolify app + Postgres + envs + domain → first deploy → smoke.
 - **Operate** — change pipeline (push → auto-deploy → wait → smoke → report), rollback, logs, metrics, backups, updates.
 - **Move** — free → paid cutover with a verified integrity gate and a rollback matrix.
+- **Handoff** — every deploy writes the app's `OPS.md` (ref 30 §9): access, secret *locations*, and the
+  copy-paste commands for the everyday loop — a cold-start door for any future session.
 - Universal: pure-stdlib Python scripts; works from Hermes / Claude Code / Codex / any harness.
 - The user provides a VPS + domain (Track P) or just an Oracle account (Track F); every browser
   moment is guided click-by-click.
