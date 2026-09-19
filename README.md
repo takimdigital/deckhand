@@ -60,6 +60,14 @@ The drinks have names longer than your business plan, and they still cost more t
 
 Bring the $5 server and the $10 domain. Deckhand does the rest while you go find the client.
 
+**Broke? Good news — keep the coffee.** There is a real $0 track: a free server + a free domain + HTTPS, live in production. Prove the business on zero first — paying is an offer, never a gate.
+
+## ☕ Support Deckhand
+
+The pack is free, forever — MIT, no tiers, no paywalls, no upsell. If it saved you time or made you money, you can fund the tokens, the servers and the next bricks:
+
+**[☕ Buy me a coffee →](https://buymeacoffee.com/takimdigital)** · or just ⭐ star the repo — both count.
+
 ## 🪙 Why it uses so few tokens
 
 Most AI workflows burn tokens re-inventing things. Deckhand is engineered the other way:

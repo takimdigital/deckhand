@@ -1,0 +1,9 @@
+# Sponsor button shown on the repo page — https://github.com/sponsors
+# Docs: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+buy_me_a_coffee: takimdigital
+
+# Alternative / additional platforms — uncomment when ready:
+# ko_fi: <username>
+# github: [takimdigital]     # enable after enrolling at github.com/sponsors
+# custom: ["https://example.com/donate"]
