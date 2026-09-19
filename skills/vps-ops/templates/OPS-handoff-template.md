@@ -48,6 +48,14 @@ pointed to from here. Machine-readable twin: `.vps-ops.json` (repo root). Skill:
 - Records: <A/AAAA/CNAME list → IP>
 - Change DNS: <dashboard / API + where the token lives>
 
+## Email (if the app sends mail — ref 70)
+
+| Thing | Value |
+| --- | --- |
+| Chain + caps | `<EMAIL_CHAIN>` · caps in Coolify envs; sending subdomains + From per provider |
+| Verify it works | <the app's mail-test/canary command> |
+| Open items | <e.g. a provider whose server IP / domain isn't finished yet — say so plainly> |
+
 ## Secrets inventory — locations only, never values
 
 | Secret | Where it lives |

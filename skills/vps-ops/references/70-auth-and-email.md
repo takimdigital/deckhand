@@ -53,9 +53,9 @@ Getting the RIGHT key (walk the user through exactly this — they will have no 
 
 | Provider | Where in the dashboard | Which key + cautions |
 |---|---|---|
-| **Resend** | Sign up — the API key is prompted immediately (step 1; easiest). | Copy the `re_…` key. Until a domain is verified, Resend only delivers to your own signup address (`onboarding@resend.dev` = testing only — never ship it). |
+| **Resend** | Sign up — the API key is prompted immediately (step 1; easiest). | At signup you get a **Sending-only** key — perfect for the router at runtime, but it CANNOT create or verify domains (`401 restricted_api_key`). For domain setup create a key with **Full access** (API Keys → Create; or edit the key's permission) — or add the domain in the dashboard and hand the records over. Until a domain is verified, Resend only delivers to your own signup address (`onboarding@resend.dev` = testing only — never ship it). |
 | **Mailgun** | Sign in → Settings → **API security** → Create key. | Choose role **Developer** (enough to send; smallest privilege. Admin only if domain APIs need it later). Key shown once. |
-| **Brevo** | Sign up → side menu **SMTP & API** → **API keys and MCP**. | Take the **API key** (`xkeysib-…`). The **MCP server key** beside it is ONLY for the optional MCP session (ref 80) — never for sending. |
+| **Brevo** | Sign up → side menu **SMTP & API** → **API keys and MCP**. | Take the **API key** (`xkeysib-…`). The **MCP server key** beside it is ONLY for the optional MCP session (ref 80) — never for sending. Brevo refuses API calls from IPs it has not seen (`401 unrecognised IP address`) until they are added at https://app.brevo.com/security/authorised_ips — add BOTH the setup machine's current IP (agent calls) AND the app server's IP (runtime sends), or Brevo stays dark in the chain while everything else works. |
 
 Hand-over — offer BOTH, default first (never say a bare "drop them into Coolify env"):
 (a) *paste the keys to the agent* — it stores them in the secrets vault (`~/.vps-ops/secrets/`, chmod 600)
@@ -71,9 +71,9 @@ From: `no-reply@mailN.<domain>` + `Reply-To: support@<domain>`. Why: each subdom
 
 | Provider | Records on its subdomain (values from provider dashboard) |
 |---|---|
-| Resend (`mail1`) | MX → `feedback-smtp.<region>.amazonses.com` (10) · TXT `v=spf1 include:amazonses.com ~all` · TXT `resend._domainkey` (p=…) |
+| Resend (`mail1`) | Take the EXACT set the dashboard/API returns — live-verified shape: MX `send.mail1` → `feedback-smtp.<region>.amazonses.com` (10) · TXT `send.mail1` → `v=spf1 include:amazonses.com ~all` · TXT `resend._domainkey.mail1` (p=…) · CNAME `rsend.mail1` → `send.forge.rmta.net`. Verify via API after propagation; status flips to `verified` on its own check. |
 | Brevo (`mail2`) | TXT Brevo-code · DKIM (2 CNAMEs or 1 TXT) · TXT `v=spf1 include:spf.brevo.com ~all` (no `mx` — send-only subdomain) |
-| Mailgun (`mail3`) | TXT `v=spf1 include:mailgun.org ~all` · TXT `<selector>._domainkey` (p=…) · NO tracking CNAME (rewrites links — auth links must never be rewritten) |
+| Mailgun (`mail3`) | TXT `v=spf1 include:mailgun.org ~all` · TXT `<selector>._domainkey` (p=…) · NO tracking CNAME (rewrites links — auth links must never be rewritten). Live-verified: SPF+DKIM alone flip the domain to `active` (~2 min after DNS) — the receiving MX and tracking CNAME stay off on a send-only subdomain. A Developer-role key can create and verify the domain. |
 
 Root: `_dmarc` TXT `v=DMARC1; p=none; rua=mailto:dmarc@<domain>; adkim=r; aspf=r` → tighten to
 `p=quarantine`/`reject` after 2–4 clean weeks. Verify each provider independently (bypass the chain): send to Gmail,
@@ -91,6 +91,9 @@ Rules it implements (do not deviate):
 - Idempotency: message key → `Idempotency-Key` header + `email_attempt` unique(message_key, provider) — a timeout→failover can't double-send silently.
 - Alerting edge-triggered: one per (provider, reason) per 6 h; greppable `EMAIL_ALERT` line + optional webhook + owner email via the NEXT healthy provider; if none healthy — log + `/api/health` only.
 - Weekly canary per provider (self-send, bypassing the chain) — catch a quietly-dead provider before it's needed.
+- Read env INSIDE functions, never at module scope: Next.js imports route/action modules during `next build`, where mail envs don't exist yet — a top-level `new URL(process.env.APP_URL!)` breaks the CI build. The shipped template already reads lazily.
+- Env changes need a **redeploy** (Coolify restart does not re-read env vars); a cached rebuild is ~75 s — the drain drill below is cheap to run for real.
+- Live-verified 2026-09-19 on a Next.js + Postgres + Coolify deployment: full password-reset cycle end-to-end, plus the drill — drain the primary (`*_DAILY_CAP=0`) → the next provider carries it → restore → primary again — with `email_attempt` / `email_quota` / `email_alert_state` recording every hop. Agents can read their own outbound back from the provider API (e.g. Resend `GET /emails` with a full-access key) — an end-to-end reset test needs no inbox.
 
 Auth wiring (Better Auth hooks — the framework never learns providers exist):
 

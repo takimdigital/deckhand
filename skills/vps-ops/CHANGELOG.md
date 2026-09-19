@@ -1,5 +1,27 @@
 # Changelog — vps-ops
 
+## 0.4.2 — 2026-09-19
+
+First live run of the email chain on a real Next.js + Coolify + Postgres deployment — every finding
+from the run, folded back:
+
+- ref 70 §2: **Resend's onboarding key is Sending-only** (`401 restricted_api_key`) — creating/verifying
+  a domain needs a **Full access** key (or the dashboard route). **Brevo** refuses API calls from
+  unrecognised IPs (`401 unrecognised IP address`) until they are authorised at
+  app.brevo.com/security/authorised_ips — both the setup machine's IP and the app server's.
+- ref 70 §3: Resend's record set corrected to what the API actually returns (`send.` MX + TXT,
+  `resend._domainkey` DKIM, `rsend` return-path CNAME); Mailgun live-verified with SPF + DKIM alone
+  (receiving MX and tracking CNAME stay off; a Developer-role key can create + verify the domain).
+- ref 70 §4: field rules — read env INSIDE functions (module-scope env breaks `next build`), env
+  changes need a redeploy (restart doesn't re-read; cached rebuild ≈ 75 s), and a note that agents can
+  read their own outbound back from the provider API (no inbox needed for e2e tests).
+- `templates/mail-router/send.ts`: lazy env reads, alert mails carry `html`, failover alerts start
+  after the failed provider by id (not array index).
+- `templates/OPS-handoff-template.md`: new Email section.
+- Live-verified: full password-reset cycle end-to-end + the drain drill (primary drained → next
+  provider carried → restore → primary again), with `email_attempt`/`email_quota`/`email_alert_state`
+  recording every hop.
+
 ## 0.4.1 — 2026-09-19
 
 Key-handover UX, from the first real walkthrough (the keys were found — but by guessing at the

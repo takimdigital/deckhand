@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-19 — the email chain's first live run (vps-ops v0.4.2 / pack v0.6.2)
+
+The failover chain went through a real deployment end-to-end — password reset live, every hop
+watched — and the run's findings are folded back: Resend's onboarding key can't manage domains
+(a Full-access key is needed for setup), Brevo needs the server's IP authorised before it will
+answer at all, Resend's DNS record set corrected to the API's actual output, Mailgun verified with
+SPF+DKIM alone, and two field rules for Next.js/Coolify deployments (read env lazily or the CI
+build breaks; env changes need a redeploy). The mail-router template carries the fixes. Verified
+live: full reset cycle + "drain primary → next provider carried → restore" drill.
+
 ## 2026-09-19 — key handover, spelled out (vps-ops v0.4.1 / pack v0.6.1)
 
 First live key walkthrough surfaced the gap: users have no idea *which* key to create, and "add them to

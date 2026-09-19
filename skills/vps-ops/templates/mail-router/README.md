@@ -34,3 +34,4 @@ emailAndPassword: { sendResetPassword: async ({ user, url }) => {
 - Every body URL must match `APP_URL` (kills link-rewriting bugs at build time).
 - Weekly canary: from a cron/route, send a self-addressed mail through each provider *directly* (bypassing the chain) — catches a silently-dead provider.
 - Alerts: greppable `EMAIL_ALERT` log line + optional webhook + owner email via the next healthy provider; 6 h cooldown per (provider, reason).
+- Verify from the outside: provider APIs can read back your own sends (e.g. Resend `GET /emails` with a full-access key) — an agent can complete a reset loop end-to-end without any inbox.
