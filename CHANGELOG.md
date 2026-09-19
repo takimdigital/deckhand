@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-09-19 — auth + login email: the free failover chain (vps-ops v0.4.0 / pack v0.6.0)
+
+"No email, no business." Four research agents verified the September-2026 landscape, and the pack now
+ships the missing piece — **login email that actually arrives, at $0**:
+
+- **Auth verdict:** Better Auth (MIT) — verification/reset/magic-link built in, Drizzle `pg`, env-only
+  config; Auth.js v5 is still beta + security-patches-only; Lucia is deprecated. The new ref carries
+  the Coolify/Traefik/Next-16 gotchas with their exact error strings.
+- **Free email chain:** Resend → Mailgun → Brevo (SMTP2GO as the no-branding substitute) behind a
+  drop-in `send.ts` router: silent failover, Postgres quota accounting, never retries a bad recipient,
+  alerts the owner through the next healthy provider when one throttles — plus the deliverability
+  design (one sending subdomain per provider, single SPF include each, DMARC on the root) that makes
+  multi-provider sending safe.
+- **MCP catalog (modular):** DNS/registrar (Cloudflare, Porkbun, NameSilo official servers) and email
+  servers — agent-vs-human autonomy table, never-install-globally policy; extend by appending a section.
+- Human steps stay at a single batched ask: create the free provider accounts. DNS records, env wiring
+  and the router are agent work.
+
 ## 2026-09-19 — deckhand-profile v0.1.1: cold start first-class (pack v0.5.1)
 
 The user-profile create flow now treats the ~90% case as the main path: **cold start** says plainly that nothing is on file yet, then runs the initial interview in one batch (defaults offered; the answers ARE the profile). Context-rich sessions keep the draft-and-ask-only-gaps branch. New **source rule** (SKILL + ref 10): the profile is built ONLY from this workspace and the user's answers — never imported from harness profiles or memory files, so it cannot drift. Updates follow real work as one-line offers; unknowns are omitted, never guessed.

@@ -96,11 +96,15 @@ still nothing that runs on the server.
 | Service | What to create | Where the key is | Used for |
 |---|---|---|---|
 | Stripe | Secret key + webhook signing secret | dashboard.stripe.com → Developers → API keys / Webhooks | payments, webhook verification |
-| Transactional email (Resend / Postmark / SES) | API key (verify sending domain) | provider dashboard → API keys | signup mail, receipts, resets |
+| Transactional email — the free chain (ref 70) | Free accounts at Resend + Mailgun + Brevo → one API key each | provider dashboard → API keys | signup verify, password reset, receipts — agent wires DNS + env + failover |
 | SMTP | host, port, user, pass | your mail provider's SMTP settings | apps that only speak SMTP |
 | OAuth (GitHub / Google) | OAuth app → client id + secret (redirect URI = app domain) | provider developer console | social login |
 | Analytics (Plausible / Umami / PostHog) | site id / project API key | provider dashboard | product analytics |
 | Anything else | whatever the app's `.env.example` declares | — | the app's own config |
+
+Login-email apps: the email row is the ONLY human step — create the three free accounts in one sitting
+(email signup, no card) and hand over the keys batched. DNS records, env wiring, and the failover router
+are agent work (refs 70 + 80).
 
 Rule: the agent reads `.env.example` in the repo and asks for exactly those values — nothing more.
 Secrets go only into `~/.vps-ops/secrets/` and Coolify env vars, never into a repo, commit, or chat echo.

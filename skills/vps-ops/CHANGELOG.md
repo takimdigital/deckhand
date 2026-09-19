@@ -1,5 +1,27 @@
 # Changelog — vps-ops
 
+## 0.4.0 — 2026-09-19
+
+**Auth + login email** — "no email, no business". Researched by four parallel agents, primary-source
+verified 2026-09-19, then shipped as building blocks:
+
+- New `references/70-auth-and-email.md` — the auth verdict (**Better Auth** ≥1.7.5: MIT, built-in
+  verify/reset/magic-link, Drizzle `pg`; Auth.js v5 still beta + security-only; Lucia deprecated), its
+  Coolify/Traefik/Next-16 facts (`BETTER_AUTH_URL`, `Invalid origin`, `nextCookies()` last, `proxy.ts`),
+  the **free email chain Resend → Mailgun → Brevo** (Sept-2026 quotas + corrections), the per-provider
+  sending-subdomain DNS design (one SPF include each; DMARC on the root; tracking OFF), and the
+  auth+email smoke test. ONE batched human step: create the free provider accounts — everything else
+  is agent work.
+- New `templates/mail-router/` — drop-in multi-provider failover sender: `send.ts` (HTTP APIs only;
+  Postgres quota authority; strict failover classes — never retry a bad recipient; idempotent;
+  edge-triggered owner alerts via the next healthy provider; link-integrity assertion), `schema.sql`,
+  `.env.example`, wiring README. No mature OSS library exists for this — hence owning it.
+- New `references/80-mcp-integrations.md` — the modular MCP catalog (append one section per domain):
+  DNS/registrar (Cloudflare Code Mode; Porkbun + NameSilo official servers; agent-vs-human autonomy
+  table) and email read/setup servers. Policy: never install globally; workspace-scoped only; the
+  stdlib scripts stay the deterministic path.
+- `00-user-checklist.md` §5 — the email row now names the free chain; single batched ask.
+
 ## 0.3.1 — 2026-09-19
 
 CI safety net for the `packageManager` pin — both failure modes live-verified (red → green) on a real repo:

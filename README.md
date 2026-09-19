@@ -12,7 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Tests: 36 passing" src="https://img.shields.io/badge/tests-36%20passing-brightgreen.svg">
-  <img alt="Version: 0.5.1" src="https://img.shields.io/badge/version-0.5.1-blueviolet.svg">
+  <img alt="Version: 0.6.0" src="https://img.shields.io/badge/version-0.6.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
@@ -86,6 +86,7 @@ Create my deckhand profile.
 Build me an invoicing SaaS for freelancers.
 Deploy it to my VPS with the domain billing.example.com.
 Deploy it to the free Oracle server first — I'll pay for hosting once it makes money.
+Add login emails — signup verification and password reset.
 Add dark mode and ship it.
 Something broke in production — check the logs and roll back.
 ```
@@ -119,7 +120,7 @@ Deployed and validated end to end against a real Coolify instance:
 | --- | --- |
 | [`buildout`](skills/buildout) | **Idea → codebase.** Expert references, execution-first build loops, verified MIT boilerplates, coherent-random design assembly from the live shadcn registry pool (MIT-only), design tokens locked once and applied everywhere. |
 | [`component-library`](skills/component-library) | **Build → reuse.** Save any component you build; the next project starts from what you already made. |
-| [`vps-ops`](skills/vps-ops) | **Codebase → live business.** Two tracks: **paid** (your VPS + domain) or **free preview** ($0 on Oracle Cloud Always Free + a free `.pp.ua` domain). Bootstraps Coolify, wires domain/SSL, deploys with Nixpacks or Dockerfile, then runs the everyday pipeline: deploy, monitor, env changes, database + backups, rollback — plus a migration runbook to move from the free preview to a paid host. |
+| [`vps-ops`](skills/vps-ops) | **Codebase → live business.** Two tracks: **paid** (your VPS + domain) or **free preview** ($0 on Oracle Cloud Always Free + a free `.pp.ua` domain). Bootstraps Coolify, wires domain/SSL, deploys with Nixpacks or Dockerfile, then runs the everyday pipeline: deploy, monitor, env changes, database + backups, rollback — plus a migration runbook to move from the free preview to a paid host. And **login email that actually arrives**: a free multi-provider chain (Resend → Mailgun → Brevo) behind a drop-in failover router + deliverability DNS, with a modular MCP catalog for DNS/registrar/email. |
 | [`session-autopsy`](skills/session-autopsy) | **Failure → fix.** When a run goes red, it dissects the session, finds the instruction that allowed the wrong path, and rewrites it — on a strength ladder (eliminate → pre-flight → reorder → gate → pitfall). Pitfalls are counted as debt, not solutions. |
 | [`deckhand-profile`](skills/deckhand-profile) | **You, once.** One portable file (`~/.deckhand/profile.md`) with your accounts, providers and defaults — every agent reads it first and never re-asks. Copy it to any harness or machine. |
 
@@ -178,8 +179,9 @@ skills/
 │   └── tests/             # stdlib unit tests
 ├── component-library/     # save / load reusable components
 ├── vps-ops/               # Coolify deploy & ops — paid VPS or free preview (Oracle + .pp.ua)
-│   ├── references/        # bootstrap, domain/SSL, free preview, deploy, change pipeline, ops, migration
+│   ├── references/        # bootstrap, domain/SSL, free preview, deploy, change pipeline, ops, migration, auth+email, MCP catalog
 │   ├── assets/            # oci-cloud-init.yaml (Oracle first-boot)
+│   ├── templates/         # OPS handoff + mail-router/ (failover email sender)
 │   ├── scripts/           # Coolify API + Hostinger API clients
 │   └── tests/
 ├── session-autopsy/       # failure → instruction fix (refs 10/20/30 + report template)

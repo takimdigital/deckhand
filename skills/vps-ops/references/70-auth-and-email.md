@@ -1,0 +1,104 @@
+# 70 — Auth & login email (verify + reset that actually arrives)
+
+Load when: the app must send account email (signup verification, password reset, receipts) or needs auth added.
+Read after `30-deploy-app.md`. Partner file: `references/80-mcp-integrations.md` (MCP catalog; DNS section).
+
+"No email = not a business" — this ref turns a deployed shell into something users can actually sign up for.
+
+## 1. Auth verdict (Sept 2026, primary-source verified)
+
+Rule: new auth = **Better Auth** (MIT, package `better-auth`, ≥1.7.5). Never Lucia (deprecated Mar 2025). Avoid Auth.js for new work.
+
+| Option | Why / why not |
+|---|---|
+| **Better Auth** ✔ | Email/password + verification + reset + magic-link/OTP built in; Drizzle `pg` adapter; MIT; env-only config; self-host failure strings documented. |
+| Auth.js (NextAuth v5) ✘ | Still beta after ~3 years (npm `beta` tag; `latest` = v4 line); security patches only; NO built-in password reset/verification — you DIY `authorize()`. Behind a proxy it dies with `UntrustedHost` without `AUTH_TRUST_HOST`. |
+| Lucia ✘ | Deprecated — docs are a learning resource only. |
+
+Boilerplate rule: do NOT half-wire two auth systems. If the boilerplate ships auth (e.g. custom jose sessions),
+pick ONE path: (a) keep it and wire email into its flows, or (b) migrate fully to Better Auth.
+Migration keeps existing users via custom `password.hash/verify` config; Better Auth adds its own `user/session/account/verification` tables — never run both in parallel.
+
+### Better Auth — deploy facts (Coolify / Traefik / Next.js)
+
+Env: `BETTER_AUTH_SECRET` (`openssl rand -base64 32`) · `BETTER_AUTH_URL=https://<domain>` (origin ONLY — scheme required, no path) · `DATABASE_URL`.
+Schema: `npx @better-auth/cli@latest generate` → Drizzle migrate. Handler: `toNextJsHandler(auth)` at `app/api/auth/[...all]/route.ts`.
+Pages: `/sign-up` `/sign-in` `/forgot-password` `/reset-password?token=` `/verify-email`.
+
+Gotchas (each doc-verified or field-seen):
+1. Always set `BETTER_AUTH_URL` — without it: `Could not get origin from request...`; scheme-less: `Invalid base URL... must include http://`. Emails/redirects build wrong behind TLS termination.
+2. Origin check: wrong origin → HTTP 403 `Invalid origin` (`INVALID_ORIGIN`) + log `add <url> to trustedOrigins`. Traefik forwards the original Host by default → keep `advanced.trustedProxyHeaders` **false** unless the proxy rewrites Host.
+3. Cookies: Secure flag follows `NODE_ENV=production` — keep it set in the container (TLS ends at Traefik).
+4. Next 16 renamed `middleware.ts` → `proxy.ts`; `nextCookies()` must be the **LAST** plugin in `plugins[]`, or Server-Action sign-in can't set cookies.
+5. Coolify: set `HOSTNAME=0.0.0.0` + `PORT=3000`; `NEXT_PUBLIC_*` = build-time (change ⇒ redeploy), secrets = runtime-only.
+6. Do NOT set Auth.js's names (`AUTH_SECRET`, `AUTH_URL`, `AUTH_TRUST_HOST`) — Better Auth ignores them.
+
+## 2. Email — the free chain (zero budget, Sept 2026 verified)
+
+Default chain (route order): **Resend → Mailgun → Brevo** — the failover router tries them in this order.
+
+| Provider | Free quota | Why in the chain |
+|---|---|---|
+| **Resend** | 3,000/mo · 100/day | React Email support; official MIT MCP; receiving also possible (counts against quota). |
+| **Mailgun** | 100/day · 1 domain | Official Apache-2.0 MCP; no card; plain REST + SMTP. |
+| **Brevo** | 300/day (no monthly cap) | Biggest reserve. Caveat: mandatory "Sent with Brevo" sticker on free sends; 1 user. |
+
+Substitutes / rejects (one-liners): SMTP2GO 1,000/mo · 200/day — no branding, best Brevo replacement. Mailtrap 4,000/mo · 150/day. MailerSend 500/mo (manual approval). Loops 4,000/30d (branded). Plunk 1,000/mo (AGPL-3.0). Postmark 100/mo. ZeptoMail 10k credit / 6 mo. **Not free:** Sidemail (7-day trial only), SendGrid (60-day trial only), Mandrill (paid only).
+
+Reading inbound replies (agent): **AgentMail** — free, 3,000/mo, official MCP, no card (best). Cloudflare Email Routing — free unlimited inbound (sending needs Workers Paid $5/mo).
+
+**Human-once (ONE batched message):** create the free accounts (email signup, no card) at Resend + Mailgun + Brevo, paste one API key each. Everything else is agent work.
+
+## 3. Deliverability DNS — the part that makes mail arrive
+
+Rule: **one sending SUBDOMAIN per provider** — `mail1.` Resend · `mail2.` Brevo · `mail3.` Mailgun,
+From: `no-reply@mailN.<domain>` + `Reply-To: support@<domain>`. Why: each subdomain needs only ONE SPF include
+(never risk the 10-lookup limit — RFC 7208 returns `permerror` for everyone when exceeded); provider changes touch one name; reputation isolated. Also forced by providers: Resend 403s when From isn't on a verified domain; Brevo requires the same subdomain for sender + authentication.
+
+| Provider | Records on its subdomain (values from provider dashboard) |
+|---|---|
+| Resend (`mail1`) | MX → `feedback-smtp.<region>.amazonses.com` (10) · TXT `v=spf1 include:amazonses.com ~all` · TXT `resend._domainkey` (p=…) |
+| Brevo (`mail2`) | TXT Brevo-code · DKIM (2 CNAMEs or 1 TXT) · TXT `v=spf1 include:spf.brevo.com ~all` (no `mx` — send-only subdomain) |
+| Mailgun (`mail3`) | TXT `v=spf1 include:mailgun.org ~all` · TXT `<selector>._domainkey` (p=…) · NO tracking CNAME (rewrites links — auth links must never be rewritten) |
+
+Root: `_dmarc` TXT `v=DMARC1; p=none; rua=mailto:dmarc@<domain>; adkim=r; aspf=r` → tighten to
+`p=quarantine`/`reject` after 2–4 clean weeks. Verify each provider independently (bypass the chain): send to Gmail,
+check `Authentication-Results` shows `dkim=pass` + `spf=pass` with that provider's domain. Keep ALL click/open tracking OFF everywhere.
+Agent creates these records via the DNS API/MCP — ref 80.
+
+## 4. Failover router — drop-in (`templates/mail-router/`)
+
+Copy `templates/mail-router/` into the app: `send.ts` → `lib/email/`, run `schema.sql`, fill the env rows, wire per its README.
+Rules it implements (do not deviate):
+- ONE send path (`lib/email/send.ts`); chain order + caps from env; HTTP APIs, no vendor SDKs.
+- Sequential failover, 8 s/attempt, first 2xx wins — the end user never sees the switch.
+- Quota authority = Postgres (`email_quota`, atomic claim, UTC day) — redeploy-safe; caps set ~5% under the real cap.
+- Failover ONLY on: 401 · 429 · 402 · 403-quota · 5xx · timeout/DNS error. NEVER on 400/422 /invalid-recipient /suppression — a bad address must not burn provider B.
+- Idempotency: message key → `Idempotency-Key` header + `email_attempt` unique(message_key, provider) — a timeout→failover can't double-send silently.
+- Alerting edge-triggered: one per (provider, reason) per 6 h; greppable `EMAIL_ALERT` line + optional webhook + owner email via the NEXT healthy provider; if none healthy — log + `/api/health` only.
+- Weekly canary per provider (self-send, bypassing the chain) — catch a quietly-dead provider before it's needed.
+
+Auth wiring (Better Auth hooks — the framework never learns providers exist):
+
+```ts
+emailVerification: { sendVerificationEmail: async ({ user, url }) => {
+  void sendEmail({ to: user.email, subject: "Verify your email", html: `<a href="${url}">Verify</a>`, text: url }, { key: `verify/${user.id}/${Date.now()}` });
+} },
+emailAndPassword: { sendResetPassword: async ({ user, url }) => {
+  void sendEmail({ to: user.email, subject: "Reset your password", html: `<a href="${url}">Reset</a>`, text: url }, { key: `reset/${user.id}/${Date.now()}` });
+} },
+```
+
+`void` = fire-and-forget (avoids timing attacks); failures live in `email_attempt` + the alert path.
+
+## 5. Smoke test (auth + email) — part of "deployed"
+
+1. Sign up a fresh address → verification mail arrives → link works → signed in.
+2. Trigger reset → mail arrives → new password works; old sessions revoked.
+3. `SELECT provider, outcome, count(*) FROM email_attempt GROUP BY 1,2;` — confirm which provider carried each mail.
+4. Temporarily break provider A's key in env → next signup still delivers (live failover) → restore key.
+
+## 6. Capacity to quote
+
+Chain = **~480 sends/day at $0** (95 + 95 + 290 local caps). Sized by deliverability, not throughput.
+Paid exit only when outgrown: change env + DNS, no code changes.
