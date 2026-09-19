@@ -28,6 +28,8 @@ plain headings — human-editable, grep-able, ≤ 60 lines. Omit any field that 
 - Locations, never values: "Cloudflare token in `~/.vps-ops/secrets/env.sh`" belongs in the app's OPS.md, not here.
 - One line per fact. If a field needs a paragraph, it is not a profile field.
 - The user may hand-edit at any time — read the file fresh each session, never a cached copy.
+- Cold start = interview: every field missing → ask them in one batch (defaults offered); the answers are the profile.
+- Sources: this workspace + the user's answers ONLY — never harness profiles or memory files; unknown → omit, never guess.
 
 ## Compact example
 
