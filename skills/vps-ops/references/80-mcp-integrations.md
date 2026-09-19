@@ -45,6 +45,14 @@ Sending = ref 70's chain + router. MCPs here are for setup/management/reading:
 
 No-MCP fallback that always works: provider webhook → our own endpoint (deterministic; no installs).
 
+## Domain: Backup & object storage
+
+| Service | MCP | License | Install | Note |
+|---|---|---|---|---|
+| Backblaze B2 | official (Backblaze Labs) | MIT | `npx -y @backblaze-labs/b2-mcp` (env `B2_APPLICATION_KEY_ID`, `B2_APPLICATION_KEY`) | 40 tools; a scoped key is enough; capability-aware |
+| Cloudflare R2 | — use the Cloudflare API MCP row above (Code Mode) | Apache-2.0 | `mcp.cloudflare.com/mcp` | no R2-specific official server exists; npm `r2-mcp`-style packages are 404s — ignore them |
+| RustFS (app storage, ref 56) | official | Apache-2.0 | build from `rustfs/mcp` (`cargo install rustfs-mcp`) — no prebuilt image | list/upload/get bucket tools |
+
 ## Domain: payments / analytics / other (append here)
 
 (empty — extend per need, same table shapes as above)

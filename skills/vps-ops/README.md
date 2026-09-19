@@ -9,6 +9,8 @@ Coolify — or prove it live at $0 first on the free-preview track.
 - **Ship** — repo → Coolify app + Postgres + envs + domain → first deploy → smoke.
 - **Auth + email** — login email that actually arrives: the free failover chain (Resend → Mailgun →
   Brevo) behind a drop-in router, deliverability DNS, and a modular MCP catalog (refs 70/80).
+- **Backups offsite, always** — dual cloud targets (B2 + R2), 3-copy retention, verified restore drills;
+  RustFS S3 storage for app uploads (refs 55/56).
 - **Operate** — change pipeline (push → auto-deploy → wait → smoke → report), rollback, logs, metrics, backups, updates.
 - **Move** — free → paid cutover with a verified integrity gate and a rollback matrix.
 - **Handoff** — every deploy writes the app's `OPS.md` (ref 30 §9): access, secret *locations*, and the
@@ -31,9 +33,11 @@ README.md
 CHANGELOG.md
 references/   00-user-checklist · 10-bootstrap-vps · 11-oracle-free-tier · 20-domain-dns-ssl ·
               21-free-domain-cloudflare · 30-deploy-app · 40-change-pipeline · 50-ops-monitoring ·
-              60-migrate-to-paid · 70-auth-and-email · 80-mcp-integrations
+              55-offsite-backups · 56-app-object-storage · 60-migrate-to-paid · 70-auth-and-email ·
+              80-mcp-integrations
 assets/       oci-cloud-init.yaml    (Oracle first-boot: root key + VM firewall)
-templates/    OPS-handoff-template.md · mail-router/ (send.ts · schema.sql · .env.example · README)
+templates/    OPS-handoff-template.md · mail-router/ (send.ts · schema.sql · .env.example · README) ·
+              vps-backup/ (restic deep layer: coolify-backup.sh · README)
 scripts/      coolify_api.py · hostinger_api.py      (stdlib only)
 tests/        test_coolify_api.py · test_hostinger_api.py
 ```

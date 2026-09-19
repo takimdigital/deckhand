@@ -1,5 +1,26 @@
 # Changelog — vps-ops
 
+## 0.5.0 — 2026-09-19
+
+**Offsite backups become the day-one default** — "a backup never stays on the same VPS". Researched by
+four parallel agents (source-verified against Coolify tag v4.3.23; live drill next):
+
+- New `references/55-offsite-backups.md` — dual targets **Backblaze B2 (primary: hard spend caps +
+  fully API-driven) + Cloudflare R2 (secondary: free egress = drill source)**; exact Coolify API flow
+  (S3 storage create → validate; one DB schedule per target; volume schedules with S3-only streaming;
+  webhook alerts into the app's mail chain), honest verification rules (list the bucket; drill the
+  restore; count retention), the no-restore-API reality with the agent-side workaround, and the known
+  gaps list so nobody rediscovers them live.
+- New `templates/vps-backup/` — the deep layer: restic → both providers (Coolify's own `coolify-db` +
+  every DB + volume allowlist), keep-last-3 pruning, weekly verified drill (subset check + real
+  `pg_restore` from R2), systemd units, and the B2 hidden-version trap. `[verify at live drill]`
+- New `references/56-app-object-storage.md` — apps with uploads get S3-compatible storage on the VPS:
+  **RustFS 1.0 (Apache-2.0)** as the default (MinIO CE is archived + AGPL — disqualified), pinned-image
+  Coolify compose deploy, the Next.js env contract with presigned PUTs, and the two-layer offsite copy
+  (rclone bucket sync + weekly volume tar).
+- ref 50 §5 + ref 00 §5 updated (offsite is no longer "optional"); ref 80 gains a storage MCP domain
+  (official B2 MCP, MIT; R2 rides the Cloudflare MCP; RustFS MCP).
+
 ## 0.4.3 — 2026-09-19
 
 The Brevo corner, closed — second live pass:

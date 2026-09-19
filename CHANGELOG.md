@@ -1,6 +1,14 @@
 # Changelog
 
-## 2026-09-19 — all three providers carry (vps-ops v0.4.3 / pack v0.6.3)
+## 2026-09-19 — offsite backups as the default (vps-ops v0.5.0 / pack v0.7.0)
+
+"A backup never stays on the same VPS" is now the pipeline's default: dual offsite targets — Backblaze
+B2 primary (hard spend caps, fully API-driven after signup) + Cloudflare R2 secondary (free egress) —
+with 3-copy retention so usage stays flat inside the free tiers. Agents configure everything through
+Coolify's API (S3 storages, per-target schedules, volume backups with S3-only streaming, backup alerts
+into the app's mail chain), verify by listing buckets and running real restore drills, and there's a
+deep restic layer for full-VPS disaster recovery. Apps that need uploads get RustFS 1.0 (Apache-2.0;
+MinIO CE is dead) with its own two-layer offsite copy. Human steps stay at ONE batched ask.
 
 The chain's coverage is now complete and proven: Brevo's corner closed via its API (domain created,
 records added, `authenticate` → verified — plus the new-IP dance: a one-click email to the owner,

@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.4.3
+version: 0.5.0
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -80,6 +80,8 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 | Already-deployed app, fresh session, zero context — the cold-start doc | the app repo's **`OPS.md`** first → then refs 40/50 (written at deploy time, ref 30 §9) |
 | The change loop: edit → push → auto-deploy → wait → smoke → report; rollback | `references/40-change-pipeline.md` |
 | Status, logs, metrics, backups, updates, incident playbook | `references/50-ops-monitoring.md` |
+| Offsite backups — dual target (B2 primary + R2), schedules, verification, restore reality | `references/55-offsite-backups.md` |
+| App uploads — S3-compatible storage (RustFS) via Coolify + its offsite copy | `references/56-app-object-storage.md` |
 | Leave the preview → paid host: what moves, cutover, rollback | `references/60-migrate-to-paid.md` |
 | Auth + login email: verdict, free email chain, deliverability DNS, failover router | `references/70-auth-and-email.md` |
 | MCP integrations catalog (DNS/registrar, email — modular, extend per domain) | `references/80-mcp-integrations.md` |
@@ -119,5 +121,6 @@ later session; it re-enters the whole pipeline without context loss. Every deplo
 4. Deploy → `references/30-deploy-app.md`
 5. First-run data + handoff → `references/30-deploy-app.md` §6b (migrations/seed/owner) and §9 (`OPS.md` — commit it with the app)
 6. From then on → `references/40-change-pipeline.md` + `references/50-ops-monitoring.md`
-7. App must send login email (verify/reset)? → `references/70-auth-and-email.md` (+ `templates/mail-router/`)
-8. **F only, on request:** leave the preview → `references/60-migrate-to-paid.md`
+7. Backups offsite (default, dual target) → `references/55-offsite-backups.md`; app stores uploads? → `references/56-app-object-storage.md`
+8. App must send login email (verify/reset)? → `references/70-auth-and-email.md` (+ `templates/mail-router/`)
+9. **F only, on request:** leave the preview → `references/60-migrate-to-paid.md`

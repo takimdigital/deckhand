@@ -55,7 +55,7 @@ curl -sS -X POST "$COOLIFY_URL/api/v1/servers/<SERVER_UUID>/docker-cleanup/run" 
 
 GET reports reclaimable stopped containers / dangling images / build cache; the POST starts it. Run before disk-pressure incidents and after large deploys. Response field names live-verified 2026-09-17: GET returns `{"docker_cleanup_frequency","docker_cleanup_threshold","force_docker_cleanup","delete_unused_volumes","delete_unused_networks","disable_application_image_retention"}`; POST `…/docker-cleanup/run` → `{"message":"Manual cleanup job started…"}`.
 
-## 5. Backups (default ON — set up once, then verify)
+## 5. Backups — local dump + restore recipe (**offsite dual-target is the default: ref 55**)
 
 ```bash
 coolify database backup create <DB_UUID> --frequency "0 2 * * *" --enabled --retention-days-locally 7
@@ -74,7 +74,7 @@ REST fallbacks (live-verified 2026-09-17): `POST /databases/{uuid}/backups` with
 `GET /databases/{uuid}/backups` · `GET /databases/{uuid}/backups/{scheduled_backup_uuid}/executions`
 (execution shortly shows `status:"success"`; the dump lands in
 `/data/coolify/backups/databases/<team>/<db-name>-<uuid>/pg-dump-<db>-<epoch>.dmp`).
-Offsite (optional, when the user supplies a bucket): `coolify s3 list`, then re-create/extend the backup with `--save-s3 --s3-storage-uuid <uuid>`.
+Offsite is no longer "optional": **every project defaults to dual offsite targets (Backblaze B2 primary + Cloudflare R2) with 3-copy retention, schedules and verification — all in `55-offsite-backups.md`.** The local dump stays as a fast-restore cache; the offsite object is the source of truth.
 VPS-level snapshot (monthly, before updates):
 
 ```bash
