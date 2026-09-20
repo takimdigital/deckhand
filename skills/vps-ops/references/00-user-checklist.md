@@ -120,8 +120,8 @@ message; buckets, scoped keys, schedules, drills — agent work.
 
 **Pending ledger (every project — skill `deckhand-profile`):** whenever a human action is needed —
 keys to paste, a click to make, a password to escrow/rotate, an account to create — record it in
-`~/.deckhand/pending.md` (id · what · WHY · HOW · asked date · status · nag) in the same message where
-you ask. Close items with a date once done/confirmed. **Every report back to the user ends with the
+`~/.deckhand/pending.md` (id · what · WHY · HOW · WHERE · asked date · status · nag) in the same message where
+you ask. `WHERE` = the exact file path / URL / menu chain — the user must not have to search. Close items with a date once done/confirmed. **Every report back to the user ends with the
 open list** (short, with ages). Never silently drop an item — that is the one failure this exists to prevent.
 
 Rule: the agent reads `.env.example` in the repo and asks for exactly those values — nothing more.

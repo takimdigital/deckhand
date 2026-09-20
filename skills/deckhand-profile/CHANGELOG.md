@@ -1,5 +1,12 @@
 # Changelog — deckhand-profile
 
+## 0.2.1 — 2026-09-20
+
+- **`WHERE:` joins the item format** (after HOW): the exact place to find the thing — a full file path,
+  a URL, or a menu chain (“Coolify → app → Environment variables”). Non-tech users don't know where to
+  look; this field removes the last excuse. HOW = what to do · WHERE = where to find it. Template +
+  rules updated.
+
 ## 0.2.0 — 2026-09-20
 
 **The pending ledger** — the skill now owns a second portable file besides the profile:

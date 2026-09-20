@@ -1,7 +1,7 @@
 ---
 name: deckhand-profile
 description: "Use when reading or writing the portable user files. Covers profile.md + pending.md (the human-task ledger)."
-version: 0.2.0
+version: 0.2.1
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -30,10 +30,13 @@ a password to escrow or rotate, an account only they can create. Record it in th
 you ask; NEVER keep human tasks only in chat history.
 
 Format (strict — agents parse it):
-`- [ ] P-0NN · <what> · WHY: <consequence if skipped> · HOW: <one line / link> · asked YYYY-MM-DD · status: open|waiting-confirm · nag: yes|no`
+`- [ ] P-0NN · <what> · WHY: <consequence if skipped> · HOW: <the action, one line> · WHERE: <exact place — file path / URL / menu chain> · asked YYYY-MM-DD · status: open|waiting-confirm · nag: yes|no`
 (optional `· project: <name>`, `· when: <trigger>` for conditional items)
 
 Rules:
+- **HOW vs WHERE:** HOW = what to do; WHERE = exactly where to find it — a full file path, a URL, or a
+  menu chain (“Coolify → app → Environment variables”). Assume the user has NO idea where to look —
+  that is the entire point of the field.
 - `status: open` = user hasn't done it; `waiting-confirm` = likely done but not confirmed; both nag — unless `nag: no` or a `when:` trigger hasn't fired yet.
 - `when:` items never nag before their trigger — no noise.
 - Close = `- [x] … · done YYYY-MM-DD`, moved to `## Done` (keep only the last few; the ledger stays short).

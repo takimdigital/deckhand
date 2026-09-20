@@ -1,5 +1,10 @@
 # Changelog — vps-ops
 
+## 0.7.2 — 2026-09-20
+
+- Pending-ledger format gains **`WHERE:`** (exact file path / URL / menu chain) — ref 00 updated; the
+  nightly nag email includes it so the owner never has to go searching.
+
 ## 0.7.1 — 2026-09-20
 
 **The pending ledger hooks** — human tasks can no longer vanish into chat scroll:

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-20 — the WHERE field (deckhand-profile v0.2.1 / vps-ops v0.7.2 / pack v0.10.1)
+
+Pending items now say **where** — not just what and how. Every item carries `WHERE:` with the exact
+place a non-tech user can find the thing: a full file path, a URL, or a menu chain. Because "escrow
+your restic passwords" is useless to someone who doesn't know what a restic is or where the files
+live — and knowing where to look was the last excuse.
+
 ## 2026-09-20 — the pending ledger (deckhand-profile v0.2.0 / vps-ops v0.7.1 / pack v0.10.0)
 
 Users don't lose track anymore. A second portable file joins the profile: **`~/.deckhand/pending.md`** —
