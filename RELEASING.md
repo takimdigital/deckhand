@@ -1,0 +1,25 @@
+# Releasing this repo (it is PUBLIC)
+
+Load the `skill-pack-publishing` skill and follow it — this file is only the checklist at the point
+of action; it exists because release text is written mid-context, which is exactly when private
+names slip in.
+
+1. **Gate first (hard stop).** `py scripts/leak_sweep.py` → must exit 0. It scans the repo tree,
+   the commit history and every harness copy for the private terms listed in
+   `~/.deckhand/private-terms.txt` (that list itself is never stored here).
+2. **Tests.** Every skill suite green; totals match the README badge.
+3. **Sync.** Working install (hermes) → repo `skills/` → `~/.claude`, `~/.agents`, `~/.codex`;
+   diff each for parity; strip `__pycache__` / `.pytest_cache`; bump versions together
+   (frontmatter, CHANGELOG top entry, README badge).
+4. **Zip == repo.** Rebuild the distributable zip (pack-zip builder from the publishing skill) and
+   confirm its entry count equals `git ls-files`.
+5. **Notes.** Write release notes to a file — improvements + fixes only, ≤ 8 user-facing bullets,
+   no internal narration, no project provenance — then gate the draft:
+   `py scripts/leak_sweep.py --file <notes.md>` → must exit 0.
+6. **Ship.** `git add -A && git commit`; push `main`; `git tag vX.Y.Z && git push origin vX.Y.Z`;
+   `gh release create vX.Y.Z <zip> --notes-file <notes.md>`; verify the newest release is flagged
+   **Latest** with the zip attached.
+
+If a leak ever ships anyway: fix the text, rewrite history messages, force-push `main` + tags,
+`gh release edit` each affected release, re-scan every attached zip — full recipe in the
+`skill-pack-publishing` skill's "Public docs" section.

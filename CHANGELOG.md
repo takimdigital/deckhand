@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-20 — release hygiene: the leak gate (pack v0.12.2)
+
+- **New gate — `scripts/leak_sweep.py`:** one command scans the repo tree, the commit history and
+  every harness copy for private-project terms (list kept privately at `~/.deckhand/private-terms.txt`
+  — never in this repo), and `--file` gates a release-notes draft too. Non-zero exit on any hit.
+- **New — `RELEASING.md`:** the release checklist at the repo root where the work happens — load
+  `skill-pack-publishing` → run the gate → parity → zip → tag → release with product-only notes
+  (improvements + fixes).
+- **Fixed:** the public-record rule now explicitly covers release notes and commit messages, and it
+  is enforced mechanically instead of by memory — two releases shipped a private project name
+  because the rule lived in a skill that wasn't loaded when the notes were written.
+
 ## 2026-09-20 — shipped means released (vps-ops v0.8.0 / pack v0.12.0)
 
 A live app's repo shipped with **no releases, no real README, and a stray starter LICENSE** — the
