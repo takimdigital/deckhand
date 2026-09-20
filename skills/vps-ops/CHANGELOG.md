@@ -1,5 +1,21 @@
 # Changelog — vps-ops
 
+## 0.7.0 — 2026-09-20
+
+**The local-S3 home target (Docker Desktop + RustFS) + last-mile hardening**
+
+- ref 55 §0b/§7: the home copy gains a target choice — plain folder (default) or a **local RustFS S3**
+  with a browseable console: `templates/vps-backup/rustfs-local.compose.yml` (`rustfs/rustfs:1.0.0`
+  pinned, **loopback-only** 9000/9001, creds via `.env`, named volumes). Console at
+  `http://localhost:9001` (`/rustfs/console/` — `/` is 403 to curl, fine in a browser); rclone remote
+  uses `force_path_style`; `LOCAL_S3_REMOTE` mirrors each provider in; **target down = one logged
+  skip, never a failed run**. Verified live on Docker Desktop (health at 18s, put/get/delete, full
+  mirror, PGDMP readback). Docker Desktop free for personal use; Podman/Rancher/WSL2 alternatives noted.
+- `templates/vps-backup/local-pull.sh`: **clock-skew preflight** (warns before SigV4 dies — the exact
+  failure the first drill hit, now impossible to hit silently), optional `LOCAL_S3_REMOTE`, unreachable
+  target tolerated.
+- ref 56: cross-link — a local RustFS can serve as a third browseable copy of app uploads.
+
 ## 0.6.0 — 2026-09-20 — **the first live drill** (backups, end-to-end on a real app)
 
 Every layer exercised on CitiQuiz; the traps found live are now baked in so the next run skips them:

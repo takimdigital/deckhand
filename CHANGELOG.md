@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-20 — the home S3 option (vps-ops v0.7.0 / pack v0.9.0)
+
+The backup destination question gains another flavour: put the home copy behind a **local S3 with a
+real UI** — RustFS in Docker (Docker Desktop), one compose file, browseable console at
+`localhost:9001`, and the pipeline's pull mirrors every provider into it automatically (with a
+graceful skip when Docker isn't running). Plus a **clock-skew preflight** in the home pull, so the one
+failure the first live drill hit can't recur silently.
+
 ## 2026-09-20 — the first live drill (vps-ops v0.6.0 / pack v0.8.0)
 
 The backup pipeline went through a full production drill on a real app — every layer is now proven
