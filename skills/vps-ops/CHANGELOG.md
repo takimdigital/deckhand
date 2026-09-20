@@ -1,5 +1,14 @@
 # Changelog — vps-ops
 
+## 0.7.1 — 2026-09-20
+
+**The pending ledger hooks** — human tasks can no longer vanish into chat scroll:
+
+- The promise now reads BOTH portable files (`profile.md` + `pending.md`, skill `deckhand-profile`):
+  surface open items in every report, record new human tasks the moment they appear.
+- ref 00: record/surface/close rules for `~/.deckhand/pending.md` (id · what · WHY · HOW · asked date · status).
+- `OPS.md` template: TL;DR item 9 points at the ledger (project-tagged) before asking the owner anything.
+
 ## 0.7.0 — 2026-09-20
 
 **The local-S3 home target (Docker Desktop + RustFS) + last-mile hardening**

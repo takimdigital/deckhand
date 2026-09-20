@@ -15,6 +15,7 @@ pointed to from here. Machine-readable twin: `.vps-ops.json` (repo root). Skill:
 6. Secrets: all in `~/.vps-ops/secrets/` (see inventory below). **Never commit secrets.**
 7. Deploy a change: commit + push `<branch>` → redeploy via Coolify (command below) → smoke test.
 8. Load skill `vps-ops` before ops work; ref 40 = change pipeline, ref 50 = logs/backups.
+9. Human-pending items live in `~/.deckhand/pending.md` (project-tagged) — check it before asking the owner for anything, and record new asks there.
 
 ## What this app is
 

@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.7.0
+version: 0.7.1
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -26,7 +26,7 @@ all from the harness, without the user ever touching the server.
 
 ## The promise (what the user does vs what you do)
 
-First read the user's portable profile `~/.deckhand/profile.md` (skill `deckhand-profile`) — accounts, providers and defaults live there; never re-ask what it answers.
+First read the user's portable files — `~/.deckhand/profile.md` (accounts, providers, defaults) and `~/.deckhand/pending.md` (the ledger of human tasks; skill `deckhand-profile`). Never re-ask what the profile answers. **Surface open pending items in every report** (short, with ages) and **record new human tasks the moment they appear** — keys to paste, clicks, escrows, rotations.
 The user provides ONLY: VPS + domain (+ optionally a provider API token). Everything else is your job.
 Two one-time browser moments are unavoidable and are guided click-by-click in `references/00-user-checklist.md`:
 1. Create the Coolify admin account + copy one API token.

@@ -118,6 +118,12 @@ agent creates the bucket via API** so the storage class is right; a console-crea
 serves 0-byte reads). Both **card-free**. R2 only if the user accepts a card. Ask for all of it in ONE
 message; buckets, scoped keys, schedules, drills — agent work.
 
+**Pending ledger (every project — skill `deckhand-profile`):** whenever a human action is needed —
+keys to paste, a click to make, a password to escrow/rotate, an account to create — record it in
+`~/.deckhand/pending.md` (id · what · WHY · HOW · asked date · status · nag) in the same message where
+you ask. Close items with a date once done/confirmed. **Every report back to the user ends with the
+open list** (short, with ages). Never silently drop an item — that is the one failure this exists to prevent.
+
 Rule: the agent reads `.env.example` in the repo and asks for exactly those values — nothing more.
 Secrets go only into `~/.vps-ops/secrets/` and Coolify env vars, never into a repo, commit, or chat echo.
 

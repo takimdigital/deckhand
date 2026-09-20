@@ -1,5 +1,16 @@
 # Changelog — deckhand-profile
 
+## 0.2.0 — 2026-09-20
+
+**The pending ledger** — the skill now owns a second portable file besides the profile:
+`~/.deckhand/pending.md`, the ledger of things ONLY the human can do. Strict machine-parsable format
+(`id · what · WHY · HOW · asked date · status: open|waiting-confirm · nag: yes|no`, optional
+`project:` and `when:`), lifecycle open → waiting-confirm → done/dropped, close with a date, verify
+when verifiable. Read-first now covers BOTH files and every report ends with the open list while items
+exist; the never-drop-because-the-conversation-moved-on rule is the core invariant. Template added at
+`templates/pending.md`. Born from the first live deploy: ~10 human tasks (escrow, rotate, keys) were
+scattered across chat — no more.
+
 ## 0.1.1 — 2026-09-19
 
 Cold start made first-class (the ~90% case). The create flow now has two explicit branches:

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-20 — the pending ledger (deckhand-profile v0.2.0 / vps-ops v0.7.1 / pack v0.10.0)
+
+Users don't lose track anymore. A second portable file joins the profile: **`~/.deckhand/pending.md`** —
+the ledger of things only the human can do, with status (`open` / `waiting-confirm`), asked-dates,
+"WHY it matters" and one-line HOWs. The skills now record items the moment they ask, surface the open
+list in every report, close items with a date when done — and the scheduled watchdog nags until each
+item is closed. Conditional items (`when: paid launch`) don't nag before their trigger. The profile
+template now also carries the standing card-free rule and the backup/automation stack.
+
 ## 2026-09-20 — the home S3 option (vps-ops v0.7.0 / pack v0.9.0)
 
 The backup destination question gains another flavour: put the home copy behind a **local S3 with a
