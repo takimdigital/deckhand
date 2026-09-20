@@ -1,5 +1,18 @@
 # Changelog — vps-ops
 
+## 0.5.2 — 2026-09-20
+
+**Backups are a choice, and home is an option** — same spirit as the Track P/F ask:
+
+- ref 55 §0b: one deploy-time question — **cloud dual (default) / cloud + home copy / home only** —
+  an offer, never forced; ③ keeps identical restic tooling (local repo) so drills/alerts carry over.
+- ref 55 §7: home copies via the **pull model** (works behind NAT): `rclone sync` from the cloud, or
+  SSH-pull of `pg_dump` + volume tarballs straight off the VPS when there's no cloud at all; local
+  RustFS if an S3 interface is wanted; schedulers = cron / Task Scheduler / **agent cronjob ("the
+  bot")**; alerting from home posts to the app's alert endpoint.
+- `templates/vps-backup/local-pull.sh` — both modes, one small script; alert + trap built in.
+- ref 00: the destination question is now step zero of the backup hand-off.
+
 ## 0.5.1 — 2026-09-20
 
 **The card-free rule, enforced by the provider list** — the first live user hit two walls: Cloudflare R2

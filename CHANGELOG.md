@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-20 — backups are a choice (vps-ops v0.5.2 / pack v0.7.2)
+
+Every user gets the same deploy-time question the tracks get: **where should the backups live?** —
+cloud dual (smart default), cloud + a home copy, or home only (no cloud accounts at all). The home
+copy is a **pull** model, so it works behind NAT and nothing ever reaches into the user's network:
+mirror the cloud buckets with rclone, or SSH-pull dumps straight off the VPS into a local restic repo
+with the exact same tooling the cloud path uses. Scheduling is the user's pick too — plain cron,
+Task Scheduler, or an **agent cronjob ("the bot")** that also runs the freshness check and emails on
+failure. One script covers both modes: `templates/vps-backup/local-pull.sh`.
+
 ## 2026-09-20 — the card-free rule (vps-ops v0.5.1 / pack v0.7.1)
 
 The first live user hit two card walls: R2 won't activate without one, and B2's caps UI is gated too.

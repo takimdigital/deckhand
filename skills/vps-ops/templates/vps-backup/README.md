@@ -32,6 +32,10 @@ WantedBy=timers.target
 
 Weekly verify = a second timer calling `ExecStart=/opt/backup/coolify-backup.sh verify` (Sunday 04:30).
 
+## A home copy (ref 55 §7 — choices ② and ③)
+
+`local-pull.sh` runs on the USER'S machine (never the VPS): mode `cloud` mirrors the backup buckets down; mode `vps` pulls fresh dumps straight from the server over SSH (works behind NAT — nothing ever reaches into the home network). Schedule it with plain cron / Task Scheduler, or — if the user runs an agent harness with scheduling (e.g. Hermes cronjobs, “the bot”) — as a scheduled agent session that also checks freshness and emails the owner on failure. Optional local S3: RustFS in Docker (ref 56), written by rclone.
+
 ## Provider traps
 
 - **B2:** set the bucket lifecycle to **“keep only the last version”** — restic's S3 backend hides deletions, and hidden versions still accrue storage. Card-less accounts are hard-capped — alert on `cap_exceeded`.

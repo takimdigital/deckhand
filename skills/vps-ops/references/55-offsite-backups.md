@@ -27,6 +27,18 @@ Field cheat sheet (endpoint has NO bucket name, no trailing slash, keep `https:/
 
 **B2 without a card — verified Sept 2026:** non-paying accounts are hard-capped; crossing the boundary returns `403 cap_exceeded` / `transaction_cap_exceeded` — **refused, never billed** (no payment method, nothing to charge). Caps can NOT be set via API/CLI (UI only, card-gated) — so treat 10 GB as a wall: keep the backup set (versions included — B2 is versioned by default; add a “keep only the last version” lifecycle rule) under it, and **alert loudly on `cap_exceeded`** — a silent stop is the only real failure mode. Never shard accounts to dodge the limit (AUP). Egress free up to 3× stored.
 
+## 0b. Destination choices — ask ONCE, batched (offer, never force)
+
+Same spirit as the Track P/F ask — one question at deploy time: **“Where should the backups live?”**
+
+| Choice | What it means | Role |
+|---|---|---|
+| ① **Cloud dual** — B2 + Tigris | Both card-free, $0, nothing to run at home | **smart default** (recommend it) |
+| ② **Cloud dual + a home copy** | The same cloud, PLUS a mirrored copy pulled down to the user's own machine on a schedule (§7) | offer — belt & braces (3-2-1) |
+| ③ **Home only** — no cloud accounts | Backups pulled straight off the VPS over the existing SSH key onto the user's machine (plain folder, or a local RustFS if they want an S3 interface). Most private; least durable if that machine dies | offer — for anti-cloud users |
+
+Rules: one choice per run · ③ keeps the same restic tooling (a local repo instead of cloud repos) so drills and alerts are unchanged · with only one target the retention math (§5) shrinks — say in one sentence that home must never become the only copy of anything irreplaceable, then respect the choice.
+
 ## 1. Wire it in Coolify — API, not dashboard
 
 ```bash
@@ -93,3 +105,12 @@ The Coolify-native schedules above cover resource DBs + mounts. For **full-VPS d
 ## 6. Known gaps (v4.3.23) — don't rediscover them live
 
 No restore API (dashboard-only) · no GET for volume-backup schedules/executions · volume backups emit NO notifications · DB backups reject `disable_local_backup` (422; volume schedules accept it) · instance self-backup is API-less · file download is UI-only.
+
+## 7. Home copies (pull model — works behind NAT; the VPS is never asked to reach the home machine)
+
+- **Choice ② — from the cloud:** `rclone sync b2:<bucket>/coolify ~/deckhand-backups/b2` (same for Tigris), or `restic copy` into a local repo. rclone/restic install once; credentials in a 0600 config.
+- **Choice ③ — straight from the VPS:** the staging dir is transient by design (§5), so pull live: `ssh root@<vps> "docker exec <db-uuid> pg_dump --format=custom --no-acl --no-owner -U <user> <db>" > ~/backups/<db>.dump` and `ssh root@<vps> "docker run --rm -v <vol>:/src:ro alpine tar czf - -C /src ." > ~/backups/<vol>.tgz`, then `restic backup ~/backups` into a LOCAL repo (`restic -r /path/repo` — same tooling, so the drills and status checks carry over).
+- **Local S3 if wanted:** RustFS in Docker on the user's machine (ref 56 compose, pinned image) — when other local tools want an S3 endpoint; the pull writes into it via rclone.
+- **Schedulers — use what the user has:** plain **cron / Windows Task Scheduler** (agent sets it up once) · an **agent cronjob** (“the bot” — a scheduled agent session that runs the pull, checks freshness, and emails on failure; where the dead-man's switch lives when a harness is around) · the VPS-side systemd stays ONLY for VPS→cloud.
+- **Alerting from home:** POST to the deployed app's alert endpoint (public URL) — same path as §2; home-side failures are otherwise invisible.
+- Ready-made: `templates/vps-backup/local-pull.sh` (both modes). `[verify at live drill]`

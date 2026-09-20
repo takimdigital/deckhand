@@ -111,9 +111,11 @@ agent — it vaults them (`~/.vps-ops/secrets/`, chmod 600) and sets the Coolify
 again; or ask for the click-by-click Coolify guide. Which key per provider: ref 70 §2. DNS records,
 env wiring, and the failover router are agent work (refs 70 + 80).
 
-Offsite backups (every project — ref 55): the human steps are Backblaze (account + enable B2 + copy the
-master key) and Tigris (account + bucket + access keys) — both **card-free**. R2 only if the user
-accepts a card. Ask for all of it in ONE message; buckets, scoped keys, schedules, drills — agent work.
+Offsite backups (every project — ref 55): **first ask the destination question once: cloud dual (default)
+/ cloud + a home copy / home only** (ref 55 §0b — an offer, never forced). Then the human steps are
+Backblaze (account + enable B2 + copy the master key) and Tigris (account + bucket + access keys) —
+both **card-free**. R2 only if the user accepts a card. Ask for all of it in ONE message; buckets,
+scoped keys, schedules, drills — agent work.
 
 Rule: the agent reads `.env.example` in the repo and asks for exactly those values — nothing more.
 Secrets go only into `~/.vps-ops/secrets/` and Coolify env vars, never into a repo, commit, or chat echo.
