@@ -1,5 +1,10 @@
 # Changelog — vps-ops
 
+## 0.7.6 — 2026-09-20
+
+- **The tunnel self-heals now** (`tunnel` subcommand + deploy preflight): the dashboard is loopback-only, so a dead tunnel used to surface as a bare `10061` mid-deploy. `coolify_api.py tunnel` health-checks and — when `VPS_SSH_HOST`/`VPS_SSH_KEY` are set (vault env / config, one-time) — starts it as a **detached background ssh**; `deploy` preflights it automatically; the refused-connection message points at it. Live-proven: tunnel down after a reboot → one command → health OK.
+- refs 10/40 updated; +5 tests (28 total).
+
 ## 0.7.5 — 2026-09-20
 
 - **The home-pull hardening** (born from the first real STALE email — the watchdog caught a pull that was killed mid-run; the server side was green the whole time): `local-pull.sh` v3 — fast-fail local-S3 probe (`--contimeout/--retries`), **one** probe per run, per-step `done … (Ns)` lines + `pull OK (total Ns)`. A stopped Docker Desktop previously made the probe retry for minutes and blow an agent-tool timeout — start-only logs then made it *look* like a tigris hang (it wasn't; tigris answered in 0.3 s).

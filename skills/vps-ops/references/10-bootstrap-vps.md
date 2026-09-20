@@ -153,7 +153,7 @@ with `Host key verification failed` (silently, when started in background). Crea
 known_hosts once — `ssh-keyscan -t ed25519 $VPS_IP | tr -d '' > ~/.vps-ops/ssh/known_hosts`
 (verify the fingerprint before trusting!) — and always pass both options above. **Dead-tunnel
 symptom:** every `coolify_api.py` call fails with `10061 / actively refused` — that is the tunnel,
-not Coolify; restart it (background) and `curl -s http://127.0.0.1:8000/api/health` before deploying.
+not Coolify; run `py scripts/coolify_api.py tunnel` (health-checks and auto-starts it; `deploy` preflights it too - set `VPS_SSH_HOST`/`VPS_SSH_KEY` once in the vault env), or restart it manually (background) and `curl -s http://127.0.0.1:8000/api/health` before deploying.
 
 Windows note (live-verified): forwarding 6001/6002 can die with `bind [127.0.0.1]:6002: Permission
 denied` (Windows reserved port ranges) and `ExitOnForwardFailure` then kills the whole tunnel —

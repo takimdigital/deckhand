@@ -170,5 +170,49 @@ class CmdEnvsetTests(unittest.TestCase):
         self.assertEqual(rc, 0)
 
 
+class TunnelTests(unittest.TestCase):
+    HOME_NX = "Z:/deckhand-no-home"
+
+    def test_tunnel_command_shape(self):
+        cmd = ca.tunnel_command("root@1.2.3.4", "C:/k/id_ed25519", "C:/k/known_hosts", 8010, 8000)
+        self.assertEqual(cmd[:3], ["ssh", "-N", "-L"])
+        self.assertIn("8010:127.0.0.1:8000", cmd)
+        self.assertIn("BatchMode=yes", cmd)
+        self.assertIn("StrictHostKeyChecking=yes", cmd)
+        self.assertEqual(cmd[-1], "root@1.2.3.4")
+
+    def test_tunnel_settings_from_env(self):
+        t = ca.tunnel_settings(env={"VPS_SSH_HOST": "root@x", "VPS_SSH_KEY": "C:/k"},
+                               home=self.HOME_NX)
+        self.assertEqual(t["host"], "root@x")
+        self.assertEqual(t["key"], "C:/k")
+        self.assertTrue(t["known_hosts"].endswith("known_hosts"))
+        self.assertEqual(t["remote_port"], 8000)
+
+    def test_tunnel_settings_unconfigured_is_none(self):
+        self.assertIsNone(ca.tunnel_settings(env={}, home=self.HOME_NX))
+
+    def test_ensure_tunnel_spawns_once_and_waits(self):
+        state = {"n": 0}
+        spawned = []
+
+        def health(port, timeout=3):
+            state["n"] += 1
+            return state["n"] > 1  # down first, up after the "spawn"
+
+        with mock.patch.object(ca, "_health_ok", health), \
+             mock.patch.object(ca, "_spawn_detached", lambda cmd: spawned.append(cmd)), \
+             mock.patch.object(ca.time, "sleep", lambda s: None):
+            rc = ca.ensure_tunnel(8000, log=lambda *a, **k: None,
+                                  settings={"host": "root@x", "key": "k",
+                                            "known_hosts": "kh", "remote_port": 8000})
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(spawned), 1)
+
+    def test_ensure_tunnel_healthy_is_silent(self):
+        with mock.patch.object(ca, "_health_ok", lambda port, timeout=3: True):
+            self.assertEqual(ca.ensure_tunnel(8000, log=lambda *a, **k: None), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

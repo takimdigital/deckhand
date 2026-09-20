@@ -57,6 +57,8 @@ curl -sS -X POST "$COOLIFY_URL/api/v1/deploy?uuid=<APP_UUID>&force=false" \
   -H "Authorization: Bearer $COOLIFY_TOKEN"
 ```
 
+**Tunnel preflight (built in).** The dashboard is loopback-only on the VPS — every command here goes through the SSH tunnel, and `deploy` now **health-checks the tunnel and starts it automatically** when `VPS_SSH_HOST`/`VPS_SSH_KEY` are set (vault env; one-time setup — otherwise it prints the exact manual command). If any call ever returns `10061/refused`: run `py scripts/coolify_api.py tunnel` — it health-checks and starts it; `tunnel OK` means go.
+
 **5 — Wait for a terminal status.**
 
 ```bash

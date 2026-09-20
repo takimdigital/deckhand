@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-20 — the tunnel that heals itself (vps-ops v0.7.6 / pack v0.10.6)
+
+The dashboard tunnel had to be remembered after every reboot — now it doesn't: `coolify_api.py
+tunnel` health-checks and starts it as a detached background ssh (given `VPS_SSH_HOST`/`VPS_SSH_KEY`,
+a one-time vault setting), and `deploy` preflights it automatically. Live-proven after a real reboot:
+tunnel down → one command → `tunnel OK`. Deploys self-heal; nobody has to remember the tunnel.
+
 ## 2026-09-20 — the pull that never was (vps-ops v0.7.5 / pack v0.10.5)
 
 The first real STALE email arrived — and the autopsy found three independent faults stacked into

@@ -8,6 +8,7 @@ See references/10-bootstrap-vps.md for setup, references/40-change-pipeline.md f
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 import urllib.error
@@ -148,6 +149,101 @@ def smoke(target, expect=200, contains=None, timeout=30, http=None):
     return 0 if ok else 4
 
 
+# ----------------------------- tunnel -------------------------------------
+# The dashboard is loopback-only on the VPS: every call goes through an ssh -L tunnel.
+# `tunnel` health-checks and (when VPS_SSH_HOST/VPS_SSH_KEY are configured) starts the
+# tunnel itself as a detached background process; `deploy` preflights it automatically.
+
+def _url_port(url, default=8000):
+    try:
+        return urllib.parse.urlsplit(url).port or default
+    except ValueError:
+        return default
+
+
+def tunnel_settings(env=None, home=None):
+    """Resolve the SSH tunnel target from env > ~/.vps-ops/config.json. None if unset.
+
+    Env/config keys: VPS_SSH_HOST (e.g. root@1.2.3.4), VPS_SSH_KEY (private key path),
+    optional VPS_KNOWN_HOSTS (default <home>/ssh/known_hosts), VPS_DASH_PORT (remote, 8000).
+    """
+    env = os.environ if env is None else env
+    home = Path(home) if home is not None else HOME
+    host = env.get("VPS_SSH_HOST")
+    key = env.get("VPS_SSH_KEY")
+    if not host or not key:
+        cfg_path = home / "config.json"
+        if cfg_path.exists():
+            try:
+                cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            except Exception:
+                cfg = {}
+            host = host or cfg.get("vps_ssh_host")
+            key = key or cfg.get("vps_ssh_key")
+    if not host or not key:
+        return None
+    return {
+        "host": host,
+        "key": key,
+        "known_hosts": env.get("VPS_KNOWN_HOSTS") or str(home / "ssh" / "known_hosts"),
+        "remote_port": int(env.get("VPS_DASH_PORT") or 8000),
+    }
+
+
+def tunnel_command(host, key, known_hosts, local_port=8000, remote_port=8000):
+    return ["ssh", "-N", "-L", f"{local_port}:127.0.0.1:{remote_port}", "-i", key,
+            "-o", "BatchMode=yes", "-o", "ExitOnForwardFailure=yes",
+            "-o", f"UserKnownHostsFile={known_hosts}",
+            "-o", "StrictHostKeyChecking=yes",
+            "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", host]
+
+
+def _health_ok(port, timeout=3):
+    try:
+        st, _body = _http_url(f"http://127.0.0.1:{port}/api/health", timeout)
+        return st == 200
+    except Exception:
+        return False
+
+
+def _spawn_detached(cmd):
+    kwargs = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+              "stderr": subprocess.DEVNULL}
+    if os.name == "nt":
+        kwargs["creationflags"] = 0x00000008 | 0x00000200  # DETACHED_PROCESS | NEW_PROCESS_GROUP
+    else:
+        kwargs["start_new_session"] = True
+    return subprocess.Popen(cmd, **kwargs)
+
+
+def ensure_tunnel(port=8000, log=print, wait=20, spawn=True, settings=None):
+    """0 when 127.0.0.1:<port> answers (auto-starting the tunnel when configured), else 4."""
+    if _health_ok(port):
+        return 0
+    t = settings or tunnel_settings()
+    if not t:
+        log("tunnel DOWN — VPS_SSH_HOST/VPS_SSH_KEY not set, cannot auto-start. Manual:")
+        log('  ssh -N -L %d:127.0.0.1:8000 -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" '
+            '-o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@<VPS_IP>' % port)
+        return 4
+    cmd = tunnel_command(t["host"], t["key"], t["known_hosts"], port, t["remote_port"])
+    if not spawn:
+        log("tunnel DOWN. Run: " + " ".join(cmd))
+        return 4
+    try:
+        _spawn_detached(cmd)
+    except Exception as exc:
+        log(f"tunnel spawn failed ({exc}). Run manually: " + " ".join(cmd))
+        return 4
+    for _ in range(int(wait)):
+        time.sleep(1)
+        if _health_ok(port):
+            log("tunnel was down — started it (detached ssh).")
+            return 0
+    log("tunnel spawned but /api/health still failing — check the key + known_hosts. Manual: " + " ".join(cmd))
+    return 4
+
+
 # ----------------------------- subcommands -------------------------------
 
 def cmd_health(a, url, token):
@@ -177,6 +273,9 @@ def cmd_app(a, url, token):
 
 
 def cmd_deploy(a, url, token):
+    rc = ensure_tunnel(_url_port(url))
+    if rc != 0:
+        return rc
     params = {"uuid": a.uuid}
     if a.force:
         params["force"] = "true"
@@ -256,6 +355,14 @@ def cmd_smoke(a):
     return smoke(a.target, expect=a.expect, contains=a.contains)
 
 
+def cmd_tunnel(a, url, token):
+    port = a.port or _url_port(url)
+    if _health_ok(port):
+        print(f"tunnel OK (127.0.0.1:{port})")
+        return 0
+    return ensure_tunnel(port, wait=a.wait)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="coolify_api.py", description="vps-ops Coolify client")
     p.add_argument("--url")
@@ -279,6 +386,7 @@ def main(argv=None):
     sp = add("envs", cmd_envs); sp.add_argument("uuid")
     sp = add("envset", cmd_envset); sp.add_argument("uuid"); sp.add_argument("pairs", nargs="+")
     add("status", cmd_status)
+    sp = add("tunnel", cmd_tunnel); sp.add_argument("--port", type=int, default=0); sp.add_argument("--wait", type=int, default=20)
     sp = add("smoke", cmd_smoke, cfg=False); sp.add_argument("target")
     sp.add_argument("--expect", type=int, default=200); sp.add_argument("--contains")
 
@@ -294,7 +402,8 @@ def main(argv=None):
         msg = str(e)
         if isinstance(e, urllib.error.URLError) and ("10061" in msg or "refused" in msg.lower()):
             print("CONNECTION REFUSED — the Coolify dashboard tunnel is dead (this is the tunnel, not Coolify).")
-            print("Restart it as a BACKGROUND process, then re-run:")
+            print("Try: py scripts/coolify_api.py tunnel   (health-checks and auto-starts it when VPS_SSH_HOST/VPS_SSH_KEY are set)")
+            print("Or restart it as a BACKGROUND process, then re-run:")
             print('  ssh -N -o ExitOnForwardFailure=yes -L 8000:127.0.0.1:8000 -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@<VPS_IP>')
             print("  curl -s http://127.0.0.1:8000/api/health   # expect OK")
             return 6
