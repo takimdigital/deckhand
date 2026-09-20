@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-09-20 — access before asks (vps-ops v0.9.0 · deckhand-profile v0.3.0 / pack v0.13.0)
+
+Learning loop from a real deployment phase — fixed at the instruction level so it cannot recur:
+
+- **Upfront scopes + capability probes:** Cloudflare tokens are created with the full pipeline scope
+  set in one go (Zone read + DNS edit + Email Routing edit), and Cloudflare-touching phases open with
+  cheap probe reads. The Email-Routing wall that bounced back to the user mid-task — because the
+  token predated the need — is designed out; a later gap is a one-click token EDIT, never a new
+  secret. A wall found in planning is one batched ask; found mid-wiring it is a stall.
+- **Brand mailboxes end-to-end:** `support@`-style addresses are set up start-to-finish by the agent
+  (probe → routing → destination → rule → DNS confirm); the flow's single unavoidable user click is
+  batched + ledgered; contact-route smoke item added — a founder's personal inbox never appears on a
+  live product.
+- **deckhand-profile: access before asks + labeled asks.** Inventory existing access before ANY
+  request; do it yourself when a token/API covers it; missing access = one batched ask with exact
+  scope + click path. Every ask is `DECISION NEEDED` / `ACTION NEEDED` / `FYI` — no more "are you
+  asking me a question?". Deferrals are recorded decisions, never re-asked.
+- **New hard rule (ref 40):** reads mask credential-looking strings — a masked `Bearer …` retyped
+  into an edit fails at runtime; edit around secret lines and grep for `***` after. Ship receipts
+  (the 5-line deploy block) go in every shipped-pass report — they answer "did it deploy?".
+
 ## 2026-09-20 — release hygiene: the leak gate (pack v0.12.2)
 
 - **New gate — `scripts/leak_sweep.py`:** one command scans the repo tree, the commit history and

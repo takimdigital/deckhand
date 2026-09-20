@@ -1,5 +1,11 @@
 # Changelog — vps-ops
 
+## 0.9.0 — 2026-09-20
+
+- **Access before asks (new invariant + refs 21/70):** the Cloudflare token is created with the FULL pipeline scope set in one go (`Zone → Zone → Read` + `Zone → DNS → Edit` + **`Zone → Email Routing → Edit`**) and Cloudflare-touching phases open with cheap capability probes — a scope wall found in planning is one batched ask; found mid-wiring it is a stall (live-seen: Email Routing bounced back to the user because the token predated the need). A later gap = EDIT the same token (one click, no new secret).
+- **Brand mailboxes (`support@`) end-to-end in ref 70:** scope probe → routing → destination → rule → DNS confirm, with the single unavoidable user click (destination verification) batched + ledgered; product mail leaves `Reply-To: support@`; contact-route smoke check added — the founder's personal inbox never appears on a live product.
+- **ref 40:** new hard rule — reads MASK credential-looking strings (`Bearer …` → `***`); never retype such a line into an edit, and grep for `***` after editing credential-bearing files (a pasted mask fails at runtime). Ship receipts: the 5-line report block goes in every shipped-pass report — it is the answer to "did it deploy?".
+
 ## 0.8.1 — 2026-09-20
 
 - **gh target trap documented** (ref 40 §6b + repo-presence README): a repo with a second remote (`upstream` = the starter) makes `gh` aim at upstream — releases and `repo edit` 404 unless `gh repo set-default <owner>/<repo>` ran once (or `-R` is passed). Live-verified; the kit already prints the set-default step.

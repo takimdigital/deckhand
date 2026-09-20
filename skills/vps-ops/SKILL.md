@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.8.1
+version: 0.9.0
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -66,6 +66,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 - Every invariant above applies to BOTH tracks. The free preview is a DISPOSABLE host: never present it as production-grade durability — say "preview" in reports; ref `60` is the exit path.
 - Keep Coolify's dashboard OFF the public internet on EVERY track: loopback-bind its ports in Coolify's own compose (ref 10 Step 3b) + SSH tunnel — host firewall rules alone do NOT stop Docker-published ports (live-verified on Docker 29, 2026-09-19).
 - A shipped runtime change ends **released**: pushed → deployed → smoke green → `git tag` + GitHub Release with ≤ 8 user-facing bullets (ref 40 §6b). Docs-only commits deploy nothing and release nothing. The user should never have to ask why their repo has no releases.
+- **Access before asks:** probe existing credentials at phase start (cheap read endpoints); a capability wall gets ONE batched ask — exact scope + exact click path — and anything a future phase will also need is provisioned in the same ask (e.g. the Cloudflare token carries DNS **and** Email Routing scopes from day one, ref 21). Asking for what an existing token/API can already do is a defect (live-seen: an Email Routing wall bounced back to the user because the token predated the need).
 
 ## Layout & routing table
 
@@ -84,7 +85,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 | Offsite backups — dual target (B2 + Tigris, both card-free; R2 optional), schedules, verification, restore reality · home copy (plain folder or a local RustFS S3) | `references/55-offsite-backups.md` |
 | App uploads — S3-compatible storage (RustFS) via Coolify + its offsite copy | `references/56-app-object-storage.md` |
 | Leave the preview → paid host: what moves, cutover, rollback | `references/60-migrate-to-paid.md` |
-| Auth + login email: verdict, free email chain, deliverability DNS, failover router | `references/70-auth-and-email.md` |
+| Auth + login email: verdict, free email chain, deliverability DNS, failover router, brand mailboxes (`support@`) | `references/70-auth-and-email.md` |
 | MCP integrations catalog (DNS/registrar, email — modular, extend per domain) | `references/80-mcp-integrations.md` |
 
 ## Tools of the trade

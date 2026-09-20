@@ -1,5 +1,12 @@
 # Changelog — deckhand-profile
 
+## 0.3.0 — 2026-09-20
+
+- **Access before asks (new section):** inventory profile §Access map + project `OPS.md` + vault + Coolify envs before asking anything; if existing access can do it — DO IT; missing access = ONE batched ask (exact scope + click path + where to save), ledgered in the same message; capability walls are proven with a probe, never assumed.
+- **Labeled asks:** every ask is `DECISION NEEDED —` / `ACTION NEEDED —` / `FYI —`; questions are never ledger items (the ledger holds only tasks the human performs); an unclear ask is a defect (re-issue it labeled, with steps + WHERE).
+- **Deferrals are decisions:** "later / not now" → recorded with `when: <trigger>`, never re-asked in the same or later sessions.
+- `profile.md` gains an **Access map** section (locations + scopes, never values) — template + live file.
+
 ## 0.2.2 — 2026-09-20
 
 - Fresh-eyes audit fixes: read-first scope widened to **“before starting any work”** (was “before asking”); **`asked` declared REQUIRED on every open item** (conditional included) — rules + template aligned; profile guidance sharpened: run session-autopsy after *pipeline* failures (a retry, red run, or missed step — not every app bug).

@@ -122,6 +122,9 @@ Status:     SUCCESS
 Smoke:      OK 200 https://<domain>
 ```
 
+The user reads this block as the **receipt** — carry it in every shipped-pass report even when nobody
+asked; it is also the answer to "did it deploy?" (a receipt, not reassurance).
+
 ## Hard rules
 
 1. Never deploy a red tree — local tests pass first.
@@ -132,6 +135,7 @@ Smoke:      OK 200 https://<domain>
 6. A change that needs a new env var: sync first (`coolify app env sync <APP_UUID> --file .env.production`), then deploy.
 7. **Checkpoint rule (§2b):** commit at every coherent milestone; never end a turn with more than one milestone of uncommitted edits; wide requests ship in passes. An interrupted run must leave shippable work.
 8. **Release rule (§6b):** a runtime change isn't done until it's tagged + released once smoke is green; docs-only changes deploy nothing and release nothing.
+9. **Masked secrets in reads:** tool output masks credential-looking strings (`Bearer …`, API keys → `***`). Never retype such a line from a read into an edit — match the surrounding text instead; after editing a credential-bearing file run `grep -n '\*\*\*' <file>` + the build. A pasted mask passes review and fails at runtime (live-seen on an email-sender auth line, caught only by `tsc`).
 
 ## Failure classification
 

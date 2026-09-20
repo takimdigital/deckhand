@@ -1,7 +1,7 @@
 ---
 name: deckhand-profile
 description: "Use when reading or writing the portable user files. Covers profile.md + pending.md (the human-task ledger)."
-version: 0.2.2
+version: 0.3.0
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -21,6 +21,23 @@ Two small files, both harness-independent, user-owned, human-editable — copy t
 Before starting any work in a session — and before asking the user anything about accounts, providers, domains, defaults or preferences — read `~/.deckhand/profile.md`. Fields present there are DONE — never re-ask them.
 Also read `~/.deckhand/pending.md`: while open items exist, every report back to the user ends with the
 open list (short, with ages). If a file does not exist: continue normally and offer to create it once (never mid-task).
+
+## Access before asks — do it yourself (every skill, every session)
+
+Before asking the user for ANYTHING: inventory what you already hold —
+profile §Access map + the project's `OPS.md` + the vault file names (`~/.vps-ops/secrets/`)
++ the project's Coolify env names + the scripts/MCPs on hand.
+
+- **Possible with existing access → DO IT.** Asking for something a token/API/script already
+  covers is a defect, not caution. (Wanting a brand email when the mail providers are configured
+  and a DNS token exists = build it; ask only for the missing tool, never for the outcome.)
+- **Missing access → ONE batched ask:** the exact scope, the exact click path, the exact place to
+  save it — ledgered in the same message (`ACTION NEEDED`). Never mid-execution scramble; never a
+  second round-trip: anything a FUTURE phase will also need gets provisioned in the same ask.
+- **Deferrals are decisions:** "later / not now / I'll do it later" → record with `when: <trigger>`
+  and never re-ask — not in the same session, not in later ones, until the trigger fires.
+- **A capability wall must be PROVEN, not assumed:** probe the cheap read endpoint first and quote
+  its verbatim error. "I don't have access" is a claim that carries evidence or it doesn't count.
 
 ## The pending ledger — `~/.deckhand/pending.md`
 
@@ -43,6 +60,12 @@ Rules:
 - Nagging: surface open items in every deploy/ops report (short) and in scheduled runs; when the user
   says "done", verify when verifiable (re-check the env var, the object, the key) — otherwise confirm on their word.
 - **Never drop an item because the conversation moved on.** That is the one failure this file exists to prevent.
+- **Every ask is labeled** so the user never has to decode it: `DECISION NEEDED — <question> (options)` ·
+  `ACTION NEEDED — P-0NN: <one line, exact steps>` · `FYI — no action`. A question is never a ledger item —
+  the ledger holds only tasks the HUMAN performs; anything needing no human action belongs in neither.
+- **An unclear ask is a defect.** If the user has to reply "are you asking me a question?", "what do you
+  need from me?", or "you are not clear on what should i do" — the ask was written wrong: re-issue it as
+  one labeled line with steps and WHERE, and note the lesson in the next report.
 
 Template to copy: `templates/pending.md`.
 

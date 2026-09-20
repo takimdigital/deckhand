@@ -49,8 +49,12 @@ Let's Encrypt]`. The Let's Encrypt mechanics are unchanged from `20-domain-dns-s
 ## B. Agent steps
 
 1. After the zone is Active, create the records — DNS-only (grey cloud) is MANDATORY for Coolify's
-   HTTP-01 certs. User clicks, or use the API if the user handed over a scoped token (Zone → DNS →
-   Edit) — store it as `$CF_API_TOKEN` in `~/.vps-ops/secrets/env.sh`:
+   HTTP-01 certs. User clicks, or use the API with the token in `~/.vps-ops/secrets/env.sh`
+   (`$CF_API_TOKEN`). **Create that token with the FULL pipeline scope set in one go:**
+   `Zone → Zone → Read` + `Zone → DNS → Edit` + **`Zone → Email Routing → Edit`** — the last is what
+   brand mailboxes (`support@`) need later; without it every future mail phase bounces back to the
+   user (live-seen). Missing a scope later? **EDIT the same token** (dash.cloudflare.com → My
+   Profile → API Tokens → Edit → add the permission) — no new token, no new paste:
    ```bash
    curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
      -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
@@ -58,6 +62,10 @@ Let's Encrypt]`. The Let's Encrypt mechanics are unchanged from `20-domain-dns-s
    ```
    Records: `@` → server IP · `www` → server IP · optionally `coolify` → server IP (for the dashboard
    domain later). All DNS-only.
+
+   **Probe before promising** (any phase that touches Cloudflare starts here): `GET /zones/$CF_ZONE_ID/email/routing`
+   → 200 = routing usable, `Authentication error` = scope missing · `GET /zones/$CF_ZONE_ID/dns_records?per_page=1`
+   → DNS read. A wall found in planning is one batched ask; a wall found mid-wiring is a stall.
 2. Verify BEFORE touching Coolify: `dig +short name.pp.ua @1.1.1.1` → the server IP exactly.
 3. Continue in `20-domain-dns-ssl.md` from "Coolify side" (attach the domain — Cloudflare = the
    manual-registrar route there), then `30-deploy-app.md`. Certs issue over HTTP-01 (ports 80/443

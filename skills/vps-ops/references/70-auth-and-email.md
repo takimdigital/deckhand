@@ -47,6 +47,20 @@ Substitutes / rejects (one-liners): SMTP2GO 1,000/mo · 200/day — no branding,
 
 Reading inbound replies (agent): **AgentMail** — free, 3,000/mo, official MCP, no card (best). Cloudflare Email Routing — free unlimited inbound (sending needs Workers Paid $5/mo).
 
+**Brand mailboxes (`support@`, `infos@`) — agent-set end to end (live-verified flow):**
+- **Scope first (probe, don't assume):** `GET /zones/{zone_id}/email/routing` — 200 = ready;
+  `Authentication error` = the token lacks `Zone → Email Routing → Edit`. The fix is EDITING the
+  existing token (My Profile → API Tokens → Edit → add the permission, ref 21) — never ask for a
+  new token paste. One ask, batched, with the exact click path.
+- **Then it is all agent work:** enable routing on the zone → add the owner's inbox as a
+  **destination address** → create the custom-address rule `support@<domain>` → confirm receiving
+  from DNS (`route1/2/3.mx.cloudflare.net` MX + SPF on the apex).
+- **The flow's ONE user click:** Cloudflare mails a verification link to the destination inbox
+  (first time per destination — non-designable). Batch it with other asks, ledger it
+  (`ACTION NEEDED` + WHERE), and never block the phase on it — sending keeps working meanwhile.
+- **Finish:** contact/help surfaces point at the brand address and product mail carries
+  `Reply-To: support@<domain>` — the founder's personal inbox never appears on a live product.
+
 **Human-once (ONE batched message):** create the free accounts (email signup, no card) and hand over one key each — then everything else is agent work.
 
 Getting the RIGHT key (walk the user through exactly this — they will have no idea):
@@ -119,6 +133,8 @@ emailAndPassword: { sendResetPassword: async ({ user, url }) => {
 2. Trigger reset → mail arrives → new password works; old sessions revoked.
 3. `SELECT provider, outcome, count(*) FROM email_attempt GROUP BY 1,2;` — confirm which provider carried each mail.
 4. Temporarily break provider A's key in env → next signup still delivers (live failover) → restore key.
+5. Contact route: the help/contact surface points at the **brand mailbox** (not a personal address) and a
+   message sent to it arrives; the founder's inbox is absent from every user-facing page.
 
 ## 6. Capacity to quote
 

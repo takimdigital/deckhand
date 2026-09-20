@@ -100,6 +100,7 @@ still nothing that runs on the server.
 | Offsite backups — Backblaze B2 (primary, ref 55) | Free account → enable B2 → copy the master key ONCE (no card; skip Caps & Alerts — card-gated) | provider dashboard | offsite backups — agent then creates bucket + scoped key via API |
 | Offsite backups — Tigris (default second target, ref 55) | Free account (no card) → create bucket + access keys | tigrisdata.com | second offsite target; 5 GB, zero egress, official MCP |
 | Offsite backups — Cloudflare R2 (optional; REQUIRES a card to activate) | only if a card is acceptable: enable R2 → one token | dash.cloudflare.com → R2 | richer second target for users fine with a card |
+| Cloudflare API token — DNS + brand mailboxes (refs 20/21) | Create ONE token with `Zone → Zone → Read` + `Zone → DNS → Edit` + `Zone → Email Routing → Edit` (all zones in the account) → save as `CF_API_TOKEN` in `~/.vps-ops/secrets/env.sh` | dash.cloudflare.com → My Profile → API Tokens → Create Token | DNS records, brand mailboxes (`support@`), future zone work — one token covers every phase by design; a scope a later phase needs is provisioned in the same ask, so the pipeline never bounces back |
 | SMTP | host, port, user, pass | your mail provider's SMTP settings | apps that only speak SMTP |
 | OAuth (GitHub / Google) | OAuth app → client id + secret (redirect URI = app domain) | provider developer console | social login |
 | Analytics (Plausible / Umami / PostHog) | site id / project API key | provider dashboard | product analytics |

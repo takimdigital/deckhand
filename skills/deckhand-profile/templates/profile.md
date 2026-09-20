@@ -15,6 +15,14 @@ Portable across harnesses and machines: copy this one file; any agent reads it b
 - providers: <panel + preference order + region>
 - services in use: <names only> · not yet: <names>
 
+## Access map (locations only — never values)
+- GitHub: `gh` CLI authenticated — repo create / push / releases
+- Vault `~/.vps-ops/secrets/`: `env.sh` (Coolify URL+token · Cloudflare `CF_API_TOKEN` — Zone read,
+  DNS edit, Email Routing edit · VPS SSH key/host), `mail.env.sh` (Resend/Mailgun/Brevo API keys),
+  backup + escrow files (B2, Tigris, restic, RustFS, home-pull)
+- Coolify envs per project (the app's runtime secrets live there — names readable by agents)
+- Agents: use this FIRST — an action possible with what's here gets DONE, not asked about
+
 ## Defaults
 - stack: <framework + DB + package manager>
 - deploy: <platform + dashboard policy>
