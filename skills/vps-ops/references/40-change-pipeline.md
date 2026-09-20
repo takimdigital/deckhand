@@ -103,6 +103,10 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 gh release create vX.Y.Z --latest --title "<Product> vX.Y.Z" --notes "<≤8 bullets of what the user sees>"
 ```
 
+> **gh target trap:** with a second remote (a starter kept as `upstream`), `gh` resolves the repo by
+> itself and can aim at upstream (404 / wrong repo). Run `gh repo set-default <owner>/<repo>` once in
+> the repo, or pass `-R <owner>/<repo>` — the repo-presence kit prints the set-default step for you.
+
 - **SemVer judged by the user's world:** patch = fixes/copy/UX polish · minor = new features/flows · major = relaunch/breaking. First release in an app's life = **v1.0.0**.
 - **Notes:** ≤ 8 short bullets, user-facing only — features, fixes, prices, availability — plus one line for anything the user must still do. No internal narration, no file lists, no fluff.
 - Keep `package.json` `version` == newest tag; keep the README's status line current.

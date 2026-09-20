@@ -29,3 +29,5 @@ Then finish with the release (ref 40 §6b): `git tag vX.Y.Z && git push origin v
 - Version in `package.json` == the newest tag; the README's status line says what's live **today**.
 - Public repo? Set `license` to `mit`/`apache-2.0` and delete `license_derived_from` if not applicable.
 - Re-run only when the face changed — don't churn the README every deploy.
+- Repo with a second remote (a template kept as `upstream`)? `gh` may aim at upstream — the kit's printed
+  `gh repo set-default <repo>` step fixes that permanently; or pass `-R <repo>` on release commands.

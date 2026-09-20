@@ -16,6 +16,8 @@ and a stray Vercel-MIT LICENSE** — and he had to ask. Fixed in the pipeline so
 - **Corrected reality in ref 40:** "deploy: automatic via GitHub App" was false for a loopback-locked
   dashboard (verified live: zero webhooks, every deploy explicitly triggered). The loop, hard rule #8,
   and the SKILL invariant now say what actually happens.
+- **v0.12.1:** the `gh`-target trap documented (a repo with an `upstream` remote makes gh aim at
+  upstream — `gh repo set-default` or `-R`; live-hit twice on CitiQuiz).
 
 ## 2026-09-20 — the fresh-eyes audit (audit fixes across all five skills / pack v0.11.0)
 

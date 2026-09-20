@@ -1,5 +1,9 @@
 # Changelog — vps-ops
 
+## 0.8.1 — 2026-09-20
+
+- **gh target trap documented** (ref 40 §6b + repo-presence README): a repo with a second remote (`upstream` = the starter) makes `gh` aim at upstream — releases and `repo edit` 404 unless `gh repo set-default <owner>/<repo>` ran once (or `-R` is passed). Live-hit twice on CitiQuiz; the kit already prints the set-default step.
+
 ## 0.8.0 — 2026-09-20
 
 - **New: the repo-presence kit** — `templates/repo-presence/` + `scripts/repo_presence.py`: fill ONE JSON (facts only; our style) and the script renders README (empty sections dropped), LICENSE (proprietary notice; upstream MIT retained), `package.json` metadata, and sets the repo description + topics (`--gh`). Fails loudly on missing fields — never a half-README. 7 new tests (37 total). Nobody hand-builds a README again.
