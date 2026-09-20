@@ -34,8 +34,8 @@ Weekly verify = a second timer calling `ExecStart=/opt/backup/coolify-backup.sh 
 
 ## Provider traps
 
-- **B2:** set the bucket lifecycle to **“keep only the last version”** — restic's S3 backend hides deletions, and hidden versions still accrue storage.
-- **R2:** free egress makes it the drill source; B2 restores monthly at most (egress allowance = 3× stored).
+- **B2:** set the bucket lifecycle to **“keep only the last version”** — restic's S3 backend hides deletions, and hidden versions still accrue storage. Card-less accounts are hard-capped — alert on `cap_exceeded`.
+- **Second target:** Tigris S3 (card-free) — or Cloudflare R2 if a card is fine. Card-free via rclone instead: **Koofr** (10 GB, app-password) with `-r rclone:koofr:coolify/restic-b -o rclone.program=/usr/local/bin/rclone`; `flock` every run (restic#5582).
 - Provider-side caps/alerts on both (B2 Caps & Alerts is the hard stop).
 
 ## What the harness checks weekly (dead-man's switch)

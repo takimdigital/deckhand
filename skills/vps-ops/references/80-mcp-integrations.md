@@ -50,6 +50,9 @@ No-MCP fallback that always works: provider webhook → our own endpoint (determ
 | Service | MCP | License | Install | Note |
 |---|---|---|---|---|
 | Backblaze B2 | official (Backblaze Labs) | MIT | `npx -y @backblaze-labs/b2-mcp` (env `B2_APPLICATION_KEY_ID`, `B2_APPLICATION_KEY`) | 40 tools; a scoped key is enough; capability-aware |
+| Tigris (card-free S3, ref 55) | official | MIT | `npx -y @tigrisdata/tigris-mcp-server run` · hosted `mcp.storage.dev` (OAuth) | 5 GB free, zero egress; Coolify partner |
+| Koofr (card-free consumer option) | no MCP — use rclone | — | `rclone config create koofr koofr user=… pass="$(rclone obscure …)"` | 10 GB free; restic rclone backend |
+| Filebase (fallback S3) | none official — generic S3 MCPs work (`txn2/mcp-s3`) | MIT | — | 5 GB free, `s3.filebase.io`, region `auto` |
 | Cloudflare R2 | — use the Cloudflare API MCP row above (Code Mode) | Apache-2.0 | `mcp.cloudflare.com/mcp` | no R2-specific official server exists; npm `r2-mcp`-style packages are 404s — ignore them |
 | RustFS (app storage, ref 56) | official | Apache-2.0 | build from `rustfs/mcp` (`cargo install rustfs-mcp`) — no prebuilt image | list/upload/get bucket tools |
 

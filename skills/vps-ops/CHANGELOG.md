@@ -1,5 +1,22 @@
 # Changelog — vps-ops
 
+## 0.5.1 — 2026-09-20
+
+**The card-free rule, enforced by the provider list** — the first live user hit two walls: Cloudflare R2
+demands a card to activate, and Backblaze's Caps & Alerts UI is card-gated. Three research agents went
+out (no-card S3 alternatives; rclone fallbacks; B2-without-card policy) and the refs now carry:
+
+- ref 55: second target is now **Tigris** (5 GB free, zero egress, official MIT MCP, Coolify partner —
+  no card) with Filebase + Koofr as fallbacks; **R2 demoted to optional** (card required). New
+  "B2 without a card" block: non-paying accounts are hard-capped — boundary = `403 cap_exceeded`
+  (refused, never billed); caps cannot be set via API/CLI; treat 10 GB as a wall, alert loudly on
+  `cap_exceeded`, never shard accounts (AUP).
+- ref 55 §5: deep-layer second repo = Tigris (S3) or **Koofr via restic's rclone backend** (10 GB,
+  app-password, verified end-to-end; `flock` serialization; Proton Drive blocks rclone, Telegram has no
+  backend).
+- ref 80: storage MCP domain gains Tigris (official) and the rclone/Koofr + Filebase notes.
+- ref 00: the backup ask is now Backblaze + Tigris, both card-free.
+
 ## 0.5.0 — 2026-09-19
 
 **Offsite backups become the day-one default** — "a backup never stays on the same VPS". Researched by

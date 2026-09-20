@@ -1,6 +1,14 @@
 # Changelog
 
-## 2026-09-19 — offsite backups as the default (vps-ops v0.5.0 / pack v0.7.0)
+## 2026-09-20 — the card-free rule (vps-ops v0.5.1 / pack v0.7.1)
+
+The first live user hit two card walls: R2 won't activate without one, and B2's caps UI is gated too.
+The pipeline rule is now explicit — **the free path never asks for a card** — and the provider list was
+re-researched to match: the second backup target defaults to **Tigris** (5 GB free, zero egress,
+official MCP, no card), with Filebase and Koofr as verified fallbacks; R2 stays as an optional
+card-holders' upgrade. Verified live: card-less Backblaze hard-caps accounts at the free-tier boundary
+(refused with 403 `cap_exceeded` — never billed), so the primary target is safe without a card, with
+loud `cap_exceeded` alerting as the guardrail.
 
 "A backup never stays on the same VPS" is now the pipeline's default: dual offsite targets — Backblaze
 B2 primary (hard spend caps, fully API-driven after signup) + Cloudflare R2 secondary (free egress) —

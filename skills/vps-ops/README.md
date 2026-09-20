@@ -9,8 +9,8 @@ Coolify — or prove it live at $0 first on the free-preview track.
 - **Ship** — repo → Coolify app + Postgres + envs + domain → first deploy → smoke.
 - **Auth + email** — login email that actually arrives: the free failover chain (Resend → Mailgun →
   Brevo) behind a drop-in router, deliverability DNS, and a modular MCP catalog (refs 70/80).
-- **Backups offsite, always** — dual cloud targets (B2 + R2), 3-copy retention, verified restore drills;
-  RustFS S3 storage for app uploads (refs 55/56).
+- **Backups offsite, always** — dual cloud targets (B2 + Tigris, both card-free; R2 optional), 3-copy
+  retention, verified restore drills; RustFS S3 storage for app uploads (refs 55/56).
 - **Operate** — change pipeline (push → auto-deploy → wait → smoke → report), rollback, logs, metrics, backups, updates.
 - **Move** — free → paid cutover with a verified integrity gate and a rollback matrix.
 - **Handoff** — every deploy writes the app's `OPS.md` (ref 30 §9): access, secret *locations*, and the

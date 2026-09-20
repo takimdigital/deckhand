@@ -97,8 +97,9 @@ still nothing that runs on the server.
 |---|---|---|---|
 | Stripe | Secret key + webhook signing secret | dashboard.stripe.com → Developers → API keys / Webhooks | payments, webhook verification |
 | Transactional email — the free chain (ref 70) | Free accounts at Resend + Mailgun + Brevo → one API key each | provider dashboard → API keys | signup verify, password reset, receipts — agent wires DNS + env + failover |
-| Offsite backups — Backblaze B2 (primary, ref 55) | Free account → enable B2 → copy the master key ONCE → set Caps & Alerts (daily $ cap) | provider dashboard | offsite backups — agent then creates bucket + scoped key via API |
-| Offsite backups — Cloudflare R2 (secondary, ref 55) | Enable R2 (card dialog) → then either the “Create additional tokens” bootstrap token (agent mints keys) or one R2 token (Object Read & Write) | dash.cloudflare.com → R2 | second offsite target; free egress |
+| Offsite backups — Backblaze B2 (primary, ref 55) | Free account → enable B2 → copy the master key ONCE (no card; skip Caps & Alerts — card-gated) | provider dashboard | offsite backups — agent then creates bucket + scoped key via API |
+| Offsite backups — Tigris (default second target, ref 55) | Free account (no card) → create bucket + access keys | tigrisdata.com | second offsite target; 5 GB, zero egress, official MCP |
+| Offsite backups — Cloudflare R2 (optional; REQUIRES a card to activate) | only if a card is acceptable: enable R2 → one token | dash.cloudflare.com → R2 | richer second target for users fine with a card |
 | SMTP | host, port, user, pass | your mail provider's SMTP settings | apps that only speak SMTP |
 | OAuth (GitHub / Google) | OAuth app → client id + secret (redirect URI = app domain) | provider developer console | social login |
 | Analytics (Plausible / Umami / PostHog) | site id / project API key | provider dashboard | product analytics |
@@ -111,8 +112,8 @@ again; or ask for the click-by-click Coolify guide. Which key per provider: ref 
 env wiring, and the failover router are agent work (refs 70 + 80).
 
 Offsite backups (every project — ref 55): the human steps are Backblaze (account + enable B2 + copy the
-master key; set Caps & Alerts) and Cloudflare R2 (enable with a card; then one bootstrap token or one
-R2 token). Ask for both in ONE message; buckets, scoped keys, schedules, drills — agent work.
+master key) and Tigris (account + bucket + access keys) — both **card-free**. R2 only if the user
+accepts a card. Ask for all of it in ONE message; buckets, scoped keys, schedules, drills — agent work.
 
 Rule: the agent reads `.env.example` in the repo and asks for exactly those values — nothing more.
 Secrets go only into `~/.vps-ops/secrets/` and Coolify env vars, never into a repo, commit, or chat echo.

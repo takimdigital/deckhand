@@ -8,8 +8,9 @@
 
 | Step | Where | ~time |
 |---|---|---|
-| Backblaze: create account → **enable B2** → copy the master key (keyID + key) once → set **Caps & Alerts** daily $ cap (the hard stop that makes a runaway impossible) | backblaze.com | 10 min, no card |
-| Cloudflare R2: **enable R2** (card dialog — mandatory; R2 has no hard cap, only billing) → then EITHER Dashboard → API Tokens → template **“Create additional tokens”** (lets the agent mint bucket keys itself) OR create one R2 token manually (Object Read & Write) and hand over Access Key ID + Secret | dash.cloudflare.com | 5 min |
+| Backblaze: create account → **enable B2** → copy the master key (keyID + key) once. **No card** — and non-paying accounts are hard-capped (see below), so Caps & Alerts (card-gated) can be skipped | backblaze.com | 10 min |
+| **Tigris** (default second target, card-free): sign up → create a bucket → create access keys | tigrisdata.com | 5 min |
+| *Optional, only if a card is acceptable* — Cloudflare R2: **enable R2** (card dialog mandatory) → one token (Object Read & Write) or the “Create additional tokens” bootstrap template | dash.cloudflare.com | skip on the card-free path |
 | Coolify S3 storages + schedules + drills | — | **agent, via API (below)** |
 
 Field cheat sheet (endpoint has NO bucket name, no trailing slash, keep `https://`):
@@ -21,6 +22,10 @@ Field cheat sheet (endpoint has NO bucket name, no trailing slash, keep `https:/
 | Access/Secret | app key keyID / applicationKey | token id / SHA-256 of token value (API-minted) or the dashboard pair |
 | Free tier | 10 GB, hard caps available, ops free, egress 3× stored | 10 GB, 1M/10M ops, free egress — but **soft cap (it just bills)** |
 | Why this order | cheapest, hard-capped, fully API-driven after signup | zero egress = the drill source |
+
+**Tigris** (card-free second target): endpoint `https://t3.storage.dev` · region `auto` · access-key pair from the dashboard · 5 GB free, zero egress · official MIT MCP (`npx -y @tigrisdata/tigris-mcp-server`, hosted `mcp.storage.dev`); Coolify partner. If signup ever asks for a card, fall back to **Filebase** (5 GB, `https://s3.filebase.io`, region `auto`, no card) or **Koofr via rclone** (§5).
+
+**B2 without a card — verified Sept 2026:** non-paying accounts are hard-capped; crossing the boundary returns `403 cap_exceeded` / `transaction_cap_exceeded` — **refused, never billed** (no payment method, nothing to charge). Caps can NOT be set via API/CLI (UI only, card-gated) — so treat 10 GB as a wall: keep the backup set (versions included — B2 is versioned by default; add a “keep only the last version” lifecycle rule) under it, and **alert loudly on `cap_exceeded`** — a silent stop is the only real failure mode. Never shard accounts to dodge the limit (AUP). Egress free up to 3× stored.
 
 ## 1. Wire it in Coolify — API, not dashboard
 
@@ -63,10 +68,11 @@ Events emitted: `backup_success`, `backup_failed`, `backup_missing`, `backup_suc
 
 ## 3. Verification — the only honest proofs
 
-1. **List the bucket.** A “success” execution is a claim; the object is the proof. B2 has a plain REST API (`b2_list_file_names` with the app key — no SigV4 needed); R2 via `rclone ls`/`mc ls`.
+1. **List the bucket.** A “success” execution is a claim; the object is the proof. B2 has a plain REST API (`b2_list_file_names` with the app key — no SigV4 needed); S3 targets via `rclone ls`/`mc ls`.
 2. **Object counts match retention** (3 per target) — retention DOES delete from S3; both rules (`amount/days`) are independent.
 3. **Restore drill** (weekly/monthly): download the NEWEST object from EACH provider, `pg_restore` into a scratch container, run a sanity query (row counts + `max(created_at)`). Never trust "scheduled".
 4. Record `status.json`-style results somewhere the weekly harness check reads; alert on silence, not only on errors.
+5. **Watch for the cap.** Any `cap_exceeded` / `account_trouble` 403 in logs or Coolify execution messages = that provider stopped; alert it, don't retry-loop.
 
 ## 4. Restore reality (the one thing the API can't do)
 
@@ -77,11 +83,11 @@ Events emitted: `backup_success`, `backup_failed`, `backup_missing`, `backup_suc
 
 The Coolify-native schedules above cover resource DBs + mounts. For **full-VPS disaster recovery** (Coolify's own `coolify-db`, EVERY database, every app volume — one consistent snapshot set):
 
-- **restic** (BSD-2, single static binary) → two S3 repos: R2 primary (free egress = drill source) + B2 mirror. `keep-last 3 --prune`; `check --read-data-subset=10%` (plain `check` reads NO data).
+- **restic** (BSD-2, single static binary) → two repos: **B2 (S3)** + the second target — **Tigris (S3)** by default, or **Koofr** (10 GB, no card, app-password auth) through restic's rclone backend: `-r rclone:koofr:coolify/restic-b -o rclone.program=/usr/local/bin/rclone` (verified end-to-end; serialize runs with `flock` — restic#5582; avoid Proton Drive — it blocks rclone — and Telegram — no rclone backend exists). `keep-last 3 --prune`; `check --read-data-subset=10%` (plain `check` reads NO data).
 - `pg_dump --format=custom --no-acl --no-owner` per DB container incl. `coolify-db`; `tar czf` of an explicit volume allowlist; staging wiped+trapped per run — success only after BOTH providers hold the snapshot.
 - **B2 trap:** restic's S3 backend hides deletions as versions — set the B2 lifecycle **“keep only the last version”** or storage grows silently.
 - **Escrow `restic-*.pass` OFF the box** (password manager). Without it every backup is unreadable — one secret to rule the design.
-- Weekly drill from the R2 repo: freshness (<26 h) → subset check → restore latest → pg_restore into a throwaway `postgres:16` → sanity query → PASS heartbeat / FAIL email via the alert endpoint. Harness weekly check on `status.json` = the dead-man's switch (fires on silence).
+- Weekly drill from the primary repo (B2, or whichever has free egress): freshness (<26 h) → subset check → restore latest → pg_restore into a throwaway `postgres:16` → sanity query → PASS heartbeat / FAIL email via the alert endpoint. Harness weekly check on `status.json` = the dead-man's switch (fires on silence).
 - Ready-made: **`templates/vps-backup/`** (`coolify-backup.sh` + systemd units + secrets layout). `[verify at live drill]`
 
 ## 6. Known gaps (v4.3.23) — don't rediscover them live
