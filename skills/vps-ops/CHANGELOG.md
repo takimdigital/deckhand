@@ -1,5 +1,11 @@
 # Changelog — vps-ops
 
+## 0.7.5 — 2026-09-20
+
+- **The home-pull hardening** (born from the first real STALE email — the watchdog caught a pull that was killed mid-run; the server side was green the whole time): `local-pull.sh` v3 — fast-fail local-S3 probe (`--contimeout/--retries`), **one** probe per run, per-step `done … (Ns)` lines + `pull OK (total Ns)`. A stopped Docker Desktop previously made the probe retry for minutes and blow an agent-tool timeout — start-only logs then made it *look* like a tigris hang (it wasn't; tigris answered in 0.3 s).
+- **Windows Task Scheduler trap list** (ref 55 §7 + templates README): bash path discovery (`where bash`; System32 bash = WSL), HOME pinning, PATH for %USERPROFILE%\bin, battery conditions (`0x800710E0`), `StartWhenAvailable` catch-up, `PT1H` cap, CRLF+ASCII `.cmd` — plus the rule: **fire it once, require Last Result 0 + a fresh `pull OK`; an unverified schedule is not a backup** (the original task had a nonexistent bash path and never could have run).
+- New template `run-pull.cmd`; `local-pull.sh` template → v3; counts/codes that lie documented (directory markers; scoped-key 403 `not entitled`; `provider = Other` for B2-S3).
+
 ## 0.7.4 — 2026-09-20
 
 - **Tunnel-death trap fixed + documented** (ref 10): MSYS ssh on Windows resolves `$HOME` to `/home/<user>` → a tunnel without a durable `known_hosts` dies with "Host key verification failed", silently when backgrounded. Canonical tunnel command now carries `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes`; symptom → cause table added (`10061/refused` = tunnel dead, not Coolify).

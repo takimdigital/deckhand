@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-20 — the pull that never was (vps-ops v0.7.5 / pack v0.10.5)
+
+The first real STALE email arrived — and the autopsy found three independent faults stacked into
+it: (1) the Windows Task Scheduler leg **never worked** (the wrapper pointed at a bash.exe that
+doesn't exist on this machine, and battery conditions blocked the catch-up — an unverified schedule);
+(2) the home pull looked like "tigris hangs" but tigris answered in 0.3 s — the real time-eater was
+the local-S3 reachability probe retrying for minutes while Docker Desktop was off, killing the run
+inside a 300-s tool budget; (3) start-only log lines made a kill indistinguishable from a hang.
+All three are fixed and live-proven: probe fails in 0.17 s, pull completes in ~2 s with per-step
+timings, the scheduled task fires with `Last Result: 0`. The server side was green through all of it.
+
 ## 2026-09-20 — the dead-tunnel trap (vps-ops v0.7.4 / pack v0.10.4)
 
 A deploy failed with `10061 connection refused` on `127.0.0.1:8000` — the SSH tunnel had died
