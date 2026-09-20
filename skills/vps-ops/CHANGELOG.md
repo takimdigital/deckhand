@@ -2,13 +2,13 @@
 
 ## 0.8.1 — 2026-09-20
 
-- **gh target trap documented** (ref 40 §6b + repo-presence README): a repo with a second remote (`upstream` = the starter) makes `gh` aim at upstream — releases and `repo edit` 404 unless `gh repo set-default <owner>/<repo>` ran once (or `-R` is passed). Live-hit twice on CitiQuiz; the kit already prints the set-default step.
+- **gh target trap documented** (ref 40 §6b + repo-presence README): a repo with a second remote (`upstream` = the starter) makes `gh` aim at upstream — releases and `repo edit` 404 unless `gh repo set-default <owner>/<repo>` ran once (or `-R` is passed). Live-verified; the kit already prints the set-default step.
 
 ## 0.8.0 — 2026-09-20
 
 - **New: the repo-presence kit** — `templates/repo-presence/` + `scripts/repo_presence.py`: fill ONE JSON (facts only; our style) and the script renders README (empty sections dropped), LICENSE (proprietary notice; upstream MIT retained), `package.json` metadata, and sets the repo description + topics (`--gh`). Fails loudly on missing fields — never a half-README. 7 new tests (37 total). Nobody hand-builds a README again.
 - **§6b — the release rule: a shipped change is a published change.** The change loop now ends *tag + GitHub Release* once smoke is green (SemVer judged by the user's world; ≤ 8 user-facing bullets, no internal narration; first release in an app's life = v1.0.0). Docs-only commits deploy nothing and release nothing. The **first release also runs the one-time repo-presence pass** — via the kit.
-- **§4 de-mystified: "automatic via GitHub App" was wrong for our default.** A loopback-locked dashboard receives no webhooks — the push alone deploys nothing; trigger explicitly (`deploy` / REST) and confirm the newest deployment's commit. Verified against the live CitiQuiz repo (zero webhooks; deploys were explicit) and folded into the loop diagram + hard rule #8.
+- **§4 de-mystified: "automatic via GitHub App" was wrong for our default.** A loopback-locked dashboard receives no webhooks — the push alone deploys nothing; trigger explicitly (`deploy` / REST) and confirm the newest deployment's commit. Verified against a live deployment (zero webhooks; deploys were explicit) and folded into the loop diagram + hard rule #8.
 
 ## 0.7.7 — 2026-09-20
 
@@ -70,7 +70,7 @@
 
 ## 0.6.0 — 2026-09-20 — **the first live drill** (backups, end-to-end on a real app)
 
-Every layer exercised on CitiQuiz; the traps found live are now baked in so the next run skips them:
+Every layer exercised live; the traps found are now baked in so the next run skips them:
 
 - **Deep layer verified**: restic → B2 + Tigris, nightly timers + weekly restore drill that really
   restores (both repos, `pg_restore`, sanity query, PASS email delivered). Templates replaced with the

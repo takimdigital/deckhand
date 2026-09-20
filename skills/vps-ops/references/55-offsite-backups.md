@@ -102,7 +102,7 @@ The Coolify-native schedules above cover resource DBs + mounts. For **full-VPS d
 - **B2 trap:** restic's S3 backend hides deletions as versions — set the B2 lifecycle **“keep only the last version”** or storage grows silently.
 - **Escrow `restic-*.pass` OFF the box** (password manager). Without it every backup is unreadable — one secret to rule the design.
 - Weekly drill from the free-egress repo (Tigris): freshness (<26 h) → subset check → restore latest → each dump into its own scratch DB → real sanity query on the APP db (`SANITY_DB`/`SANITY_SQL`) → PASS heartbeat / FAIL email via the alert endpoint. Harness weekly check on `status.json` = the dead-man's switch (fires on silence).
-- Ready-made: **`templates/vps-backup/`** — `coolify-backup.sh` (all fixes baked in) + systemd units in its README. `[verified live 2026-09-20: both repos restored, sanity query passed, PASS email delivered — citiquiz drill]`
+- Ready-made: **`templates/vps-backup/`** — `coolify-backup.sh` (all fixes baked in) + systemd units in its README. `[verified live 2026-09-20: both repos restored, sanity query passed, PASS email delivered — live drill]`
 
 ## 6. Known gaps (v4.3.23) — don't rediscover them live
 

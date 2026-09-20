@@ -2,8 +2,8 @@
 
 ## 2026-09-20 — shipped means released (vps-ops v0.8.0 / pack v0.12.0)
 
-Caught by the user on CitiQuiz: the app was live, but its repo had **no releases, no real README,
-and a stray Vercel-MIT LICENSE** — and he had to ask. Fixed in the pipeline so nobody ever asks again:
+A live app's repo shipped with **no releases, no real README, and a stray starter LICENSE** — the
+user had to ask. Fixed in the pipeline so nobody ever asks again:
 
 - **The release rule (ref 40 §6b):** a deployed runtime change now ends *tag + GitHub Release* once
   smoke is green — SemVer, ≤8 user-facing bullets, no internal narration, no fluff. Docs-only commits
@@ -17,7 +17,7 @@ and a stray Vercel-MIT LICENSE** — and he had to ask. Fixed in the pipeline so
   dashboard (verified live: zero webhooks, every deploy explicitly triggered). The loop, hard rule #8,
   and the SKILL invariant now say what actually happens.
 - **v0.12.1:** the `gh`-target trap documented (a repo with an `upstream` remote makes gh aim at
-  upstream — `gh repo set-default` or `-R`; live-hit twice on CitiQuiz).
+  upstream — `gh repo set-default` or `-R`; live-verified).
 
 ## 2026-09-20 — the fresh-eyes audit (audit fixes across all five skills / pack v0.11.0)
 

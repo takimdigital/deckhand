@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # vps-ops deep backup layer (ref 55 §5) — restic → TWO offsite S3 providers (B2 + Tigris).
-# LIVE-VERIFIED 2026-09-20 (citiquiz drill): backup + prune + weekly restore drill all pass.
+# LIVE-VERIFIED 2026-09-20 (live drill): backup + prune + weekly restore drill all pass.
 # Backs up: every Coolify DB container (incl. coolify-db, logical dumps) + an explicit app-volume allowlist.
 # Install on the VPS: restic (UPSTREAM static binary — apt lags), jq, docker. Secrets under /etc/backup (root, 600).
 # systemd: coolify-backup.timer (03:15 daily) + coolify-verify.timer (Sun 04:30) — see README.
