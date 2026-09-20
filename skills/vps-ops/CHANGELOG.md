@@ -1,5 +1,10 @@
 # Changelog — vps-ops
 
+## 0.7.4 — 2026-09-20
+
+- **Tunnel-death trap fixed + documented** (ref 10): MSYS ssh on Windows resolves `$HOME` to `/home/<user>` → a tunnel without a durable `known_hosts` dies with "Host key verification failed", silently when backgrounded. Canonical tunnel command now carries `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes`; symptom → cause table added (`10061/refused` = tunnel dead, not Coolify).
+- `coolify_api.py`: connection-refused now prints the exact tunnel-restart command instead of a bare traceback.
+
 ## 0.7.3 — 2026-09-20
 
 - ref 40 §2b **checkpoints** became a hard rule: milestone → verify early (typecheck, not at the end) → **commit** → continue; wide requests are passes, each shipped end-to-end; rule #7 — never end a turn with more than one milestone of uncommitted edits. Born from a real interrupted run: 27 files, one hour, zero commits, stream cut — nothing shippable. An interrupted run must leave shippable, committed work.

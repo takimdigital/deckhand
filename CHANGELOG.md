@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-20 — the dead-tunnel trap (vps-ops v0.7.4 / pack v0.10.4)
+
+A deploy failed with `10061 connection refused` on `127.0.0.1:8000` — the SSH tunnel had died
+silently (Windows/MSYS ssh resolves `$HOME` to `/home/<user>`, which was absent, so a tunnel started
+without a durable `known_hosts` exits on "Host key verification failed"). Fixed durably: verified
+`known_hosts` in the vault, canonical tunnel command carries `UserKnownHostsFile` +
+`StrictHostKeyChecking=yes`, `coolify_api.py` now prints the restart command when it sees a refused
+connection, and ref 10 documents the symptom → cause mapping. Same session: the interrupted
+theme/a11y work was resumed, verified (`tsc` + `next build` clean), committed, deployed, and
+smoke-verified live (`cqtheme` marker on the production HTML).
+
 ## 2026-09-20 — the checkpoint rule (buildout v0.3.1 / vps-ops v0.7.3 / pack v0.10.3)
 
 A real session test went red in an instructive way: the pipeline triggered correctly (loaded the

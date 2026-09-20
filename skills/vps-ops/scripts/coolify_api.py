@@ -291,6 +291,13 @@ def main(argv=None):
     except SystemExit:
         raise
     except Exception as e:
+        msg = str(e)
+        if isinstance(e, urllib.error.URLError) and ("10061" in msg or "refused" in msg.lower()):
+            print("CONNECTION REFUSED — the Coolify dashboard tunnel is dead (this is the tunnel, not Coolify).")
+            print("Restart it as a BACKGROUND process, then re-run:")
+            print('  ssh -N -o ExitOnForwardFailure=yes -L 8000:127.0.0.1:8000 -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@<VPS_IP>')
+            print("  curl -s http://127.0.0.1:8000/api/health   # expect OK")
+            return 6
         print(f"unexpected error: {type(e).__name__}: {e}")
         return 6
 

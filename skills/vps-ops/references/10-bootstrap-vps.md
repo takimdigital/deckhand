@@ -143,8 +143,17 @@ Dashboard access from then on = **SSH tunnel only** (run in background from the 
 
 ```bash
 ssh -N -o ExitOnForwardFailure=yes -L 8000:127.0.0.1:8000 \
+  -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes \
   -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP
 ```
+
+**Tunnel-death trap (live-verified 2026-09-20).** On Windows/git-bash, MSYS ssh resolves `$HOME` to
+`/home/<user>` — often absent/unwritable — so a tunnel started without a durable `known_hosts` dies
+with `Host key verification failed` (silently, when started in background). Create the vault
+known_hosts once — `ssh-keyscan -t ed25519 $VPS_IP | tr -d '' > ~/.vps-ops/ssh/known_hosts`
+(verify the fingerprint before trusting!) — and always pass both options above. **Dead-tunnel
+symptom:** every `coolify_api.py` call fails with `10061 / actively refused` — that is the tunnel,
+not Coolify; restart it (background) and `curl -s http://127.0.0.1:8000/api/health` before deploying.
 
 Windows note (live-verified): forwarding 6001/6002 can die with `bind [127.0.0.1]:6002: Permission
 denied` (Windows reserved port ranges) and `ExitOnForwardFailure` then kills the whole tunnel —
