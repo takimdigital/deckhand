@@ -104,13 +104,19 @@ def _deployment_rows(body):
 
 
 def wait_for_deploy(url, token, uuid, timeout=900, interval=10, api_fn=None,
-                    sleep=time.sleep, now=time.time, log=print):
-    """Poll the newest deployment for <uuid> until terminal status. Returns 0/3/5."""
+                    sleep=time.sleep, now=time.time, log=print, expect_commit=None):
+    """Poll the newest deployment for <uuid> until terminal status. Returns 0/3/5.
+
+    With expect_commit set, a finished/failed deployment carrying a DIFFERENT commit is
+    treated as stale (the push's build may not have registered yet) and polling continues
+    until YOUR commit reaches a terminal state — or the timeout fires.
+    """
     api_fn = api_fn or api
     t0 = now()
     while True:
         if now() - t0 > timeout:
-            log(f"TIMEOUT after {timeout}s")
+            tail = f" — never saw a terminal deployment for commit {expect_commit}" if expect_commit else ""
+            log(f"TIMEOUT after {timeout}s{tail}")
             return 5
         status, body = api_fn(url, token, "GET", f"/deployments/applications/{uuid}")
         rows = _deployment_rows(body)
@@ -118,11 +124,16 @@ def wait_for_deploy(url, token, uuid, timeout=900, interval=10, api_fn=None,
         if latest:
             st = str(latest.get("status", "")).lower()
             dep = latest.get("deployment_uuid") or latest.get("uuid") or "?"
-            log(f"  [{int(now() - t0):>4}s] {st}")
+            commit = str(latest.get("commit") or "")
+            log(f"  [{int(now() - t0):>4}s] {st}" + (f" {commit}" if commit else ""))
+            mine = (not expect_commit) or commit.startswith(expect_commit)
             if st in OK_STATUS:
-                log(f"SUCCESS ({int(now() - t0)}s, deployment {dep})")
-                return 0
-            if st in FAIL_STATUS:
+                if not mine:
+                    log(f"  finished {commit or '?'} != your {expect_commit} — stale deployment, still waiting for your build")
+                else:
+                    log(f"SUCCESS ({int(now() - t0)}s, deployment {dep}" + (f", commit {commit}" if commit else "") + ")")
+                    return 0
+            if st in FAIL_STATUS and mine:
                 log(f"DEPLOY FAILED ({st}, deployment {dep})")
                 return 3
         sleep(interval)
@@ -299,7 +310,8 @@ def cmd_deployments(a, url, token):
 
 
 def cmd_wait(a, url, token):
-    return wait_for_deploy(url, token, a.uuid, timeout=a.timeout, interval=a.interval)
+    return wait_for_deploy(url, token, a.uuid, timeout=a.timeout, interval=a.interval,
+                           expect_commit=a.expect_commit)
 
 
 def cmd_logs(a, url, token):
@@ -380,7 +392,7 @@ def main(argv=None):
     sp = add("deploy", cmd_deploy); sp.add_argument("uuid"); sp.add_argument("--force", action="store_true")
     sp = add("deployments", cmd_deployments); sp.add_argument("uuid"); sp.add_argument("--limit", type=int, default=10)
     sp = add("wait", cmd_wait); sp.add_argument("uuid")
-    sp.add_argument("--timeout", type=int, default=900); sp.add_argument("--interval", type=int, default=10)
+    sp.add_argument("--timeout", type=int, default=900); sp.add_argument("--interval", type=int, default=10); sp.add_argument("--expect-commit", default=None)
     sp = add("logs", cmd_logs); sp.add_argument("uuid")
     sp.add_argument("--lines", type=int, default=200); sp.add_argument("--timestamps", action="store_true")
     sp = add("envs", cmd_envs); sp.add_argument("uuid")

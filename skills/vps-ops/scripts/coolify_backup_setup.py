@@ -55,8 +55,10 @@ def ensure_storage(name, endpoint, bucket, region, key, secret):
 
 def main():
     db = sys.argv[1]
-    b2 = ensure_storage("b2-backups", "https://s3.us-east-005.backblazeb2.com",
-                        E["B2_BUCKET"], "us-east-005", E["B2_APP_KEY_ID"], E["B2_APP_KEY"])
+    b2_host = E.get("B2_HOST", "https://s3.us-east-005.backblazeb2.com")
+    b2_region = E.get("B2_REGION", "us-east-005")
+    b2 = ensure_storage("b2-backups", b2_host,
+                        E["B2_BUCKET"], b2_region, E["B2_APP_KEY_ID"], E["B2_APP_KEY"])
     tg = ensure_storage("tigris-backups", "https://t3.storage.dev", E["TIGRIS_BUCKET"], "auto",
                         E["TIGRIS_ACCESS_KEY_ID"], E["TIGRIS_SECRET_ACCESS_KEY"])
     for label, uuid in (("B2", b2), ("Tigris", tg)):

@@ -9,7 +9,7 @@
     { "query": "review my deploy pipeline for rollback gaps", "expect": "trigger" },
     { "query": "design the onboarding flow for my marketplace", "expect": "trigger" },
     { "query": "write a subagent brief to implement the auth token rotation", "expect": "trigger" },
-    { "query": "update the expert pack with what we learned this session", "expect": "trigger" },
+    { "query": "update the buildout pack with what we learned this session", "expect": "trigger" },
     { "query": "my Postgres migration is locking tables, what is the safe pattern", "expect": "trigger" },
     { "query": "plan the launch checklist for my SaaS before we announce", "expect": "trigger" },
     { "query": "we keep re-deriving the same fix every time, save it properly", "expect": "trigger" },

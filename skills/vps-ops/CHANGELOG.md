@@ -1,5 +1,12 @@
 # Changelog — vps-ops
 
+## 0.7.7 — 2026-09-20
+
+- **`wait --expect-commit`** — the deploy wait can no longer green-light a stale build: a finished/failed deployment carrying a different commit is skipped until YOUR commit is terminal, and SUCCESS prints the commit it verified. ref 40 now binds the wait to `git rev-parse --short HEAD`. +2 tests (30 total).
+- ref 10: **Step 3b marked ⏩ run-AFTER-Step-4** (it edits installer-created files) + a pointer from Step 4; Step 5 now **appends** (`>>` — no more clobbering Step 1a's provider token) and writes `VPS_SSH_HOST`/`VPS_SSH_KEY` (the tunnel auto-start keys).
+- **B2 region de-hardcoded**: `b2_setup.py [region]` writes `B2_HOST`/`B2_REGION`; `coolify_backup_setup.py` reads them (default `us-east-005`).
+- ref 55 / README / templates README: "both modes" claim dropped (the script is a cloud-mode mirror pull; choice ③ is the documented manual ssh recipe), `status.json` contract aligned to `{status,step,ts}`, scoped-key root-403 wording fixed, `fix-clock.cmd` shipped as a template, dangling `cf_dns_upsert` reference removed, test counts fixed.
+
 ## 0.7.6 — 2026-09-20
 
 - **The tunnel self-heals now** (`tunnel` subcommand + deploy preflight): the dashboard is loopback-only, so a dead tunnel used to surface as a bare `10061` mid-deploy. `coolify_api.py tunnel` health-checks and — when `VPS_SSH_HOST`/`VPS_SSH_KEY` are set (vault env / config, one-time) — starts it as a **detached background ssh**; `deploy` preflights it automatically; the refused-connection message points at it. Live-proven: tunnel down after a reboot → one command → health OK.

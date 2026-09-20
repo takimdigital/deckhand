@@ -1,7 +1,7 @@
 ---
 name: deckhand-profile
 description: "Use when reading or writing the portable user files. Covers profile.md + pending.md (the human-task ledger)."
-version: 0.2.1
+version: 0.2.2
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -18,8 +18,7 @@ Two small files, both harness-independent, user-owned, human-editable — copy t
 
 ## Read-first rule (every skill, every session)
 
-Before asking the user anything about accounts, providers, domains, defaults or preferences: read
-`~/.deckhand/profile.md`. Fields present there are DONE — never re-ask them.
+Before starting any work in a session — and before asking the user anything about accounts, providers, domains, defaults or preferences — read `~/.deckhand/profile.md`. Fields present there are DONE — never re-ask them.
 Also read `~/.deckhand/pending.md`: while open items exist, every report back to the user ends with the
 open list (short, with ages). If a file does not exist: continue normally and offer to create it once (never mid-task).
 
@@ -31,7 +30,7 @@ you ask; NEVER keep human tasks only in chat history.
 
 Format (strict — agents parse it):
 `- [ ] P-0NN · <what> · WHY: <consequence if skipped> · HOW: <the action, one line> · WHERE: <exact place — file path / URL / menu chain> · asked YYYY-MM-DD · status: open|waiting-confirm · nag: yes|no`
-(optional `· project: <name>`, `· when: <trigger>` for conditional items)
+(`asked` is required on every OPEN item — conditional ones included; optional `· project: <name>`, `· when: <trigger>` for conditional items)
 
 Rules:
 - **HOW vs WHERE:** HOW = what to do; WHERE = exactly where to find it — a full file path, a URL, or a

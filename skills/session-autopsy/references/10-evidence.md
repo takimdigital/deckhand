@@ -20,8 +20,7 @@ gh run view <run-id> --log-failed | tail -40
 ssh <host> "docker logs --tail 100 <container>"
 ```
 
-Transcript stores, when needed: Hermes `session_search`; Claude Code `~/.claude/projects/*.jsonl`;
-Codex `~/.codex/sessions/` [verify per harness].
+Transcript stores, when needed: Hermes `session_search` (primary — by session id or keywords; fallback: `request_dump_*.json` under the Hermes data dir + its session DB); Claude Code `~/.claude/projects/*.jsonl`; Codex `~/.codex/sessions/` [verify per harness].
 
 ## 3. Transcript extraction (grep, not read)
 

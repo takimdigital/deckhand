@@ -62,14 +62,19 @@ curl -sS -X POST "$COOLIFY_URL/api/v1/deploy?uuid=<APP_UUID>&force=false" \
 **5 — Wait for a terminal status.**
 
 ```bash
-py scripts/coolify_api.py wait <APP_UUID> --timeout 900      # polls /deployments/applications/{uuid}
+py scripts/coolify_api.py wait <APP_UUID> --timeout 900 --expect-commit $(git rev-parse --short HEAD)
+#   polls /deployments/applications/{uuid} AND binds the result to YOUR commit: a finished
+#   deployment with a different commit is treated as stale (your push may not have registered
+#   yet) and polling continues; SUCCESS then prints the commit it verified.
 #   live-verified (Coolify 4.3.21): response wrapper {"count":N,"deployments":[...]}; terminal OK status = "finished".
 #   deploy trigger returns {"deployments":[{ "message", "resource_uuid", "deployment_uuid" }]} — grab the uuid for logs/tracking.
 ```
 
+**Bind the wait to YOUR commit.** `wait` polls the *newest* deployment — called too early it could see the *previous* finished build (a bare smoke 200 can't tell). Pass `--expect-commit <short-sha>` (you have it from §3) and the wait only returns for your build. Belt: `py scripts/coolify_api.py deployments <APP_UUID> --limit 1` and compare its `commit`.
+
 | exit | meaning |
 |---|---|
-| 0 | `SUCCESS (<Ns>, deployment <id>)` — terminal OK |
+| 0 | `SUCCESS (<Ns>, deployment <id>, commit <sha>)` — terminal OK **and** (with `--expect-commit`) the sha is yours |
 | 3 | `DEPLOY FAILED (<status>)` — build failed → classification table |
 | 5 | `TIMEOUT` — still running or stuck; check logs, do not assume success |
 

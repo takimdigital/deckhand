@@ -1,5 +1,9 @@
 # Changelog — deckhand-profile
 
+## 0.2.2 — 2026-09-20
+
+- Fresh-eyes audit fixes: read-first scope widened to **“before starting any work”** (was “before asking”); **`asked` declared REQUIRED on every open item** (conditional included) — rules + template aligned; profile guidance sharpened: run session-autopsy after *pipeline* failures (a retry, red run, or missed step — not every app bug).
+
 ## 0.2.1 — 2026-09-20
 
 - **`WHERE:` joins the item format** (after HOW): the exact place to find the thing — a full file path,

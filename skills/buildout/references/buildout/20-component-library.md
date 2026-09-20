@@ -2,7 +2,7 @@
 
 Load when: a component was built/refined and is worth keeping, or the user asks to save/reuse/find components.
 
-The companion skill `component-library` owns the store; this doc explains how buildout uses it.
+The companion skill `component-library` owns the store and its script — it lives at `component-library/scripts/library.py`, so run the commands below **from that skill's directory**; this doc explains how buildout uses it.
 
 ## Save (end of a section or session)
 
@@ -23,14 +23,14 @@ Rules: token-based files only (no raw hex — `--strict` enforces); provenance i
 ## Reuse (before hand-building anything)
 
 1. `py scripts/library.py find "<query>"` → `show <name>` → `copy <name> --to <project>/src/components/ui/`.
-2. If the store is pushed to a public GitHub repo, it is a valid **GitHub registry**: `npx shadcn@latest add <owner>/expert-build-library/<name>` (pin `#v1.0.0` or a commit SHA).
+2. If the store is pushed to a public GitHub repo, it is a valid **GitHub registry**: `npx shadcn@latest add <owner>/<library-repo>/<name>` (pin `#v1.0.0` or a commit SHA).
 3. After copying, run the same verify gates as buildout: build, hex-lint, tokens in use, contrast.
 
 ## Growth discipline
 
 - Dedupe by name (`--force` to replace); `remove` archives to `_archive/` (never deletes).
 - Keep tags small and stable: section (`hero`, `pricing`, `dashboard`, `forms`) + aesthetic (`animated`, `minimal`, `editorial`).
-- The store is machine-local by default (`~/expert-build-library`, override `EXPERT_BUILD_LIBRARY`); `git init` it if it should travel.
+- The store is machine-local by default (`~/deckhand-library`, override `DECKHAND_LIBRARY`; the legacy `EXPERT_BUILD_LIBRARY` is still honored); `git init` it if it should travel.
 - Index stays greppable: one JSONL line per component — the query surface is designed to stay token-cheap at hundreds of items.
 
 ## Verification

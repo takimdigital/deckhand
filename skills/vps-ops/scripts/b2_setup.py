@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """b2_setup.py — B2 bucket + lifecycle + scoped app key via the B2 Native API. LIVE-VERIFIED 2026-09-20.
 
-Usage:  python3 b2_setup.py <bucket-name> <key-name>
+Usage:  python3 b2_setup.py <bucket-name> <key-name> [region]  (region default: $B2_REGION or us-east-005)
 Reads the master key from ~/.vps-ops/secrets/backup.env.sh (B2_MASTER_KEY_ID/_KEY).
 Idempotent-ish: existing bucket is reused (lifecycle re-applied); a fresh scoped key is minted.
 Writes scoped creds to ~/.vps-ops/secrets/b2-scoped.env.sh (prints NOTHING secret to stdout).
@@ -46,6 +46,7 @@ def api(url, token=None, payload=None, basic=None, raw_token=None):
 
 def main():
     bucket_name, key_name = sys.argv[1], sys.argv[2]
+    region = sys.argv[3] if len(sys.argv) > 3 else os.environ.get("B2_REGION", "us-east-005")
     env = load(VAULT)
     kid, key = env["B2_MASTER_KEY_ID"], env["B2_MASTER_KEY"]
 
@@ -87,6 +88,8 @@ def main():
         f.write(f"export B2_APP_KEY='{k['applicationKey']}'\n")
         f.write(f"export B2_BUCKET='{bucket_name}'\n")
         f.write(f"export B2_BUCKET_ID='{bid}'\n")
+        f.write(f"export B2_HOST='https://s3.{region}.backblazeb2.com'\n")
+        f.write(f"export B2_REGION='{region}'\n")
     print(f"scoped key minted ({k['applicationKeyId'][:8]}…) → {OUT}  [lock it down: chmod 600 / icacls inheritance:r]")
 
 

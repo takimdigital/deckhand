@@ -117,7 +117,12 @@ Never remove the port-22 rule — Coolify manages the server over SSH.
 
 ## Step 3b — lock the dashboard: the docker-aware way (live-verified 2026-09-19)
 
-Do NOT rely on host firewalls for Coolify's own published ports. On Docker 29 with the default
+> ⏩ **Ordering:** run this step AFTER Step 4 (install) — it edits
+> `/data/coolify/source/docker-compose.prod.yml`, which the installer creates. The section
+> order below is reference order; **execution order is 3 → 4 → 3b → 5** (and re-run 3b after
+> every Coolify update).
+
+Do NOT rely on host firewalls for Coolify's own published ports.
 userland proxy, traffic to published ports (8000/6001/6002) bypasses host iptables entirely —
 DOCKER-USER **and** INPUT DROP rules were live-tested and stayed at **0 packets** while the ports
 remained fully reachable from the internet. Providers WITH a cloud firewall (Oracle) still block
@@ -175,6 +180,8 @@ ssh -o BatchMode=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'docker ps --form
 Expected: install finishes (several minutes); health → `200`; container list = `coolify`, `coolify-db`,
 `coolify-redis`, `coolify-realtime`, `coolify-proxy`, `coolify-sentinel` (validated live: Ubuntu 24.04 + Coolify 4.3.21).
 
+→ Now run **Step 3b** (dashboard lock) before continuing to Step 5.
+
 > Rehearsal note (WSL2 only): Docker's own install script refuses WSL ("we recommend Docker Desktop") and
 > the Coolify installer aborts along with it. Pre-install Docker first:
 > `apt-get install -y docker.io docker-compose-v2` → the installer then detects Docker and skips its step.
@@ -182,10 +189,11 @@ Expected: install finishes (several minutes); health → `200`; container list =
 
 ## Step 5 — token handoff + storage
 
-Guide the user through `00-user-checklist.md` §4A (one browser session). Then:
+Guide the user through `00-user-checklist.md` §4A (one browser session). Then — **append (`>>`), never clobber (Step 1a's provider token may already live in this file; Windows: use a `C:/…` path for `VPS_SSH_KEY`)**:
 
 ```bash
-printf "export COOLIFY_URL='%s'\nexport COOLIFY_TOKEN='%s'\n" "http://$VPS_IP:8000" "<token>" > ~/.vps-ops/secrets/env.sh
+printf "export COOLIFY_URL='%s'\nexport COOLIFY_TOKEN='%s'\n" "http://$VPS_IP:8000" "<token>" >> ~/.vps-ops/secrets/env.sh
+printf "export VPS_SSH_HOST='root@%s'\nexport VPS_SSH_KEY='%s/.vps-ops/ssh/id_ed25519'\n" "$VPS_IP" "$HOME" >> ~/.vps-ops/secrets/env.sh
 chmod 600 ~/.vps-ops/secrets/env.sh
 . ~/.vps-ops/secrets/env.sh
 curl -sS -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_URL/api/v1/applications"

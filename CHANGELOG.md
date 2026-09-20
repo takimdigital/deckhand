@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-20 — the fresh-eyes audit (audit fixes across all five skills / pack v0.11.0)
+
+Five **zero-context sub-agent audits** read every skill exactly as a first-time consumer would — then
+every finding was fixed: buildout's dangling `library.py` path + working-directory/`python3` clarity;
+vps-ops ref 10's Step-3b ordering trap (now ⏩ run-after-Step-4) and the env.sh clobber (`>` → `>>`,
+plus `VPS_SSH_HOST/KEY` written); **`wait --expect-commit`** so a deploy can never be green-lit on the
+previous build; backup docs aligned with reality (both-modes claim, `status.json` contract,
+B2 region de-hardcoded + `B2_HOST/B2_REGION` emitted, `fix-clock.cmd` shipped, scoped-key 403
+wording); session-autopsy's ref-budget conflict + a missing CHANGELOG; deckhand-profile's `asked`
+field made required + read-first widened to "before starting any work"; component-library's store
+renamed (`~/deckhand-library`, legacy honored) + `store-format.md` linked; pack "36 tests" → 44.
+**44 tests green.**
+
 ## 2026-09-20 — the tunnel that heals itself (vps-ops v0.7.6 / pack v0.10.6)
 
 The dashboard tunnel had to be remembered after every reboot — now it doesn't: `coolify_api.py

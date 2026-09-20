@@ -214,5 +214,44 @@ class TunnelTests(unittest.TestCase):
             self.assertEqual(ca.ensure_tunnel(8000, log=lambda *a, **k: None), 0)
 
 
+class WaitCommitTests(unittest.TestCase):
+    def test_wait_skips_stale_finished_then_matches(self):
+        seq = [
+            {"deployments": [{"status": "finished", "commit": "aaaaaaa", "deployment_uuid": "d1",
+                              "created_at": "2026-09-20T01:00:00"}]},
+            {"deployments": [{"status": "finished", "commit": "bbbbbbb", "deployment_uuid": "d2",
+                              "created_at": "2026-09-20T02:00:00"}]},
+        ]
+        calls = {"i": 0}
+
+        def api_fn(url, token, method, path):
+            i = min(calls["i"], len(seq) - 1)
+            calls["i"] += 1
+            return 200, seq[i]
+
+        times = iter(range(0, 20))
+        logs = []
+        rc = ca.wait_for_deploy("http://x", "t", "u", timeout=100, interval=0, api_fn=api_fn,
+                                sleep=lambda s: None, now=lambda: next(times),
+                                log=lambda *a: logs.append(" ".join(str(x) for x in a)),
+                                expect_commit="bbb")
+        self.assertEqual(rc, 0)
+        self.assertEqual(calls["i"], 2)
+        self.assertTrue(any("SUCCESS" in ln for ln in logs))
+
+    def test_wait_without_expect_commit_unchanged(self):
+        row = {"deployments": [{"status": "finished", "commit": "aaaaaaa", "deployment_uuid": "d1",
+                                "created_at": "2026-09-20T01:00:00"}]}
+
+        def api_fn(url, token, method, path):
+            return 200, row
+
+        times = iter(range(0, 10))
+        rc = ca.wait_for_deploy("http://x", "t", "u", timeout=100, interval=0, api_fn=api_fn,
+                                sleep=lambda s: None, now=lambda: next(times),
+                                log=lambda *a: None)
+        self.assertEqual(rc, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

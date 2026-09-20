@@ -8,7 +8,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 class LibraryTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.env = mock.patch.dict(os.environ, {"EXPERT_BUILD_LIBRARY": self.tmp.name})
+        self.env = mock.patch.dict(os.environ, {"DECKHAND_LIBRARY": self.tmp.name})
         self.env.start()
         self.lib = importlib.reload(importlib.import_module("library"))
         self.src = Path(self.tmp.name) / "pricing-card.tsx"
@@ -40,6 +40,13 @@ class LibraryTests(unittest.TestCase):
         self.lib.cmd_add(self.lib.parse_args(["add", "--name", "zz", "--file", str(self.src)]))
         reg = json.loads((Path(self.tmp.name) / "registry.json").read_text(encoding="utf-8"))
         self.assertEqual(reg["items"][0]["name"], "zz")
+
+    def test_legacy_env_still_honored(self):
+        with mock.patch.dict(os.environ, {"EXPERT_BUILD_LIBRARY": self.tmp.name + "-legacy"}, clear=False):
+            os.environ.pop("DECKHAND_LIBRARY", None)
+            lib = importlib.reload(importlib.import_module("library"))
+            self.assertEqual(lib.store_root(), Path(self.tmp.name + "-legacy"))
+
 
 if __name__ == "__main__":
     unittest.main()

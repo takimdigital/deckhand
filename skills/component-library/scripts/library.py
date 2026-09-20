@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """library.py - personal component library (add | find | list | show | copy | remove).
 
-Store: $EXPERT_BUILD_LIBRARY or ~/expert-build-library
+Store: $DECKHAND_LIBRARY > $EXPERT_BUILD_LIBRARY (legacy) > ~/deckhand-library
   index.jsonl (query surface) | registry.json | r/<name>.json | items/<name>/ | _archive/
 
 Stdlib only, Python 3.10+.
@@ -19,7 +19,14 @@ def now():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def store_root():
-    return Path(os.environ.get("EXPERT_BUILD_LIBRARY", str(Path.home() / "expert-build-library")))
+    for var in ("DECKHAND_LIBRARY", "EXPERT_BUILD_LIBRARY"):
+        val = os.environ.get(var)
+        if val:
+            return Path(val).expanduser()
+    legacy = Path.home() / "expert-build-library"
+    if legacy.is_dir():
+        return legacy  # don't orphan a store made before the rename
+    return Path.home() / "deckhand-library"
 
 def extract_deps(text):
     deps = set()

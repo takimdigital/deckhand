@@ -6,7 +6,7 @@ Policy (never violate):
 - NEVER install MCP servers globally or by default. Wire a server workspace-scoped ONLY when the current step needs it or the user explicitly asks.
 - Prefer official servers; record license + exact install line here.
 - Auth tokens: created by the human ONCE, stored in `~/.vps-ops/secrets/` (chmod 600) and/or Coolify env — never in a repo.
-- MCP is convenience, never a dependency: everything here is also plain REST, reachable by our stdlib scripts (`scripts/coolify_api.py`, the `cf_dns_upsert` pattern). Use MCP for interactive sessions; scripts for deterministic pipeline steps.
+- MCP is convenience, never a dependency: everything here is also plain REST, reachable by our stdlib scripts (`scripts/coolify_api.py`, `scripts/hostinger_api.py`; DNS = plain Cloudflare API calls, as in the bootstrap refs). Use MCP for interactive sessions; scripts for deterministic pipeline steps.
 
 ## Domain: DNS + registrar
 

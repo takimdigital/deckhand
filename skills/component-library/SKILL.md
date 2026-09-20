@@ -1,11 +1,11 @@
 ---
 name: component-library
 description: "Save, find, and reuse UI components across projects."
-version: 0.1.0
+version: 0.1.1
 author: Takim, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
-compatibility: "Agent Skills layout. Needs Python 3.10+ (stdlib) for scripts/library.py. Store at ~/expert-build-library (override: EXPERT_BUILD_LIBRARY)."
+compatibility: "Agent Skills layout. Needs Python 3.10+ (stdlib) for scripts/library.py. Store at ~/deckhand-library (override: DECKHAND_LIBRARY; legacy EXPERT_BUILD_LIBRARY honored)."
 metadata:
   hermes:
     tags: [components, reuse, library, shadcn, store, tokens]
@@ -13,7 +13,7 @@ metadata:
 
 # Component Library
 
-Personal store for UI components the user builds or adapts, so they can be found and reused in any later project instead of rebuilt. The store is a shadcn-compatible folder (`registry.json` + `r/<name>.json` + `items/`) plus a flat `index.jsonl` the agent can grep cheaply even with hundreds of items. Companion to `buildout` (used at the end of buildout sessions to keep what was built).
+Personal store for UI components the user builds or adapts, so they can be found and reused in any later project instead of rebuilt. The store is a shadcn-compatible folder (`registry.json` + `r/<name>.json` + `items/`) plus a flat `index.jsonl` the agent can grep cheaply even with hundreds of items. Companion to `buildout` (used at the end of buildout sessions to keep what was built). Store format spec: `references/store-format.md`.
 
 ## When to Use
 
@@ -37,7 +37,7 @@ py scripts/library.py copy <name> --to <dir>
 py scripts/library.py remove <name>
 ```
 
-(On macOS/Linux use `python3`. Store location follows `EXPERT_BUILD_LIBRARY` if set.)
+(On macOS/Linux use `python3`. Store location = `DECKHAND_LIBRARY` if set, else `~/deckhand-library`; a legacy `EXPERT_BUILD_LIBRARY` is still honored.)
 
 ## Procedure
 

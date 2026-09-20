@@ -38,7 +38,7 @@ references/   00-user-checklist · 10-bootstrap-vps · 11-oracle-free-tier · 20
               80-mcp-integrations
 assets/       oci-cloud-init.yaml    (Oracle first-boot: root key + VM firewall)
 templates/    OPS-handoff-template.md · mail-router/ (send.ts · schema.sql · .env.example · README) ·
-              vps-backup/ (restic deep layer: coolify-backup.sh · README)
+              vps-backup/ (coolify-backup.sh · local-pull.sh · run-pull.cmd · fix-clock.cmd · rustfs-local.compose.yml · README)
 scripts/      coolify_api.py · hostinger_api.py      (stdlib only)
 tests/        test_coolify_api.py · test_hostinger_api.py
 ```
@@ -53,7 +53,7 @@ Optional: `gh` (repo creation), `coolify` CLI (MIT).
 ```
 py -m unittest discover -s tests -v        # or python3 -m unittest ...
 ```
-23 tests, no network needed.
+30 tests, no network needed.
 
 ## License notes
 

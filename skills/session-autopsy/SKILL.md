@@ -1,7 +1,7 @@
 ---
 name: session-autopsy
 description: "Use when a session failed — fix the instruction itself."
-version: 0.1.1
+version: 0.1.2
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -26,7 +26,7 @@ an edited instruction, verified — never "a lesson learned".
 ## Token discipline (hard rules)
 
 - Never read a full transcript — grep for error strings and the fix commit (ref 10 §2–3).
-- Load ≤ 2 refs of this skill per autopsy; report ≤ 40 lines; interview = one batch of ≤ 6 questions.
+- Load only the ref the current phase names (10 → 20 → 30, one at a time — three max per autopsy); report ≤ 40 lines; interview = one batch of ≤ 6 questions.
 - Chat output = the report only (symptom → cause → fix → proof). No narration of the process.
 
 ## Phases — in order, no skipping

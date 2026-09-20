@@ -27,4 +27,4 @@ Portable across harnesses and machines: copy this one file; any agent reads it b
 - No secrets in any file, chat, or log — locations only
 - Optional paths stay optional
 - <tone/brand rules · honesty rules · host quirks>
-- After every real failure: run session-autopsy and update the skills
+- After a pipeline failure (a retry, a red run, a missed step — not every app bug): run session-autopsy and update the skills

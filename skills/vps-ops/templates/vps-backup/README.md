@@ -42,7 +42,7 @@ Enable: `systemctl daemon-reload && systemctl enable --now coolify-backup.timer 
 
 ## A home copy (ref 55 §7 — choices ② and ③)
 
-`local-pull.sh` **v3** runs on the USER'S machine (never the VPS): mode `cloud` mirrors the backup buckets down (restic repos included → a full local restore works); mode `vps` pulls fresh dumps straight off the server over SSH (works behind NAT). Schedulers: plain cron / **Windows Task Scheduler** (`run-pull.cmd` template + `schtasks /Create /TN … /SC DAILY /ST 10:00`) / an **agent cronjob** (Hermes needs its gateway installed & running or scheduled fires never happen). Windows notes: native exes need `C:/…` paths; **check the PC clock** — SigV4 fails ("Timestamp … is in the future") at >15 min skew (`w32time` + `w32tm /resync /force`, elevated). The pull also runs a clock-skew preflight and warns before signing breaks.
+`local-pull.sh` **v3** runs on the USER'S machine (never the VPS): it mirrors the backup buckets down (restic repos included → a full local restore works) into a folder and — when reachable — the local RustFS S3. (The "pull straight from the VPS" option is the documented manual ssh recipe in ref 55 §7.) Schedulers: plain cron / **Windows Task Scheduler** (`run-pull.cmd` template + `schtasks /Create /TN … /SC DAILY /ST 10:00`) / an **agent cronjob** (Hermes needs its gateway installed & running or scheduled fires never happen). Windows notes: native exes need `C:/…` paths; **check the PC clock** — SigV4 fails ("Timestamp … is in the future") at >15 min skew (ready-made `fix-clock.cmd`; or `w32time` + `w32tm /resync /force`, elevated). The pull also runs a clock-skew preflight and warns before signing breaks.
 
 **Windows Task Scheduler — four silent killers (all live-hit 2026-09-20):** ① **bash path** — discover it (`where bash`); `C:\Windows\System32\bash.exe` is the WSL launcher, not MSYS, and Git's default path may not exist at all. ② **HOME** — pin it in the `-lc` string (`HOME=/c/Users/<you>`), or MSYS falls back to `/home/<user>`, the vault env file is missing → silent exit 1. ③ **PATH** — prepend `%USERPROFILE%\bin` (rclone/restic live there). ④ **conditions** — battery flags default to true (laptop on battery = `0x800710E0` refused); set both false + `StartWhenAvailable=true` (a missed run catches up after boot) + `ExecutionTimeLimit PT1H`. The `.cmd` must be **CRLF + ASCII only** (a stray `\b` escape byte in a path = "filename … syntax is incorrect"). **Always fire once (`schtasks /Run`) and require `Last Result: 0` + a fresh `pull OK` — an unverified schedule is not a backup.**
 
@@ -53,7 +53,6 @@ Enable: `systemctl daemon-reload && systemctl enable --now coolify-backup.timer 
 - **B2:** lifecycle “keep only the last version” (set at bucket create, `scripts/b2_setup.py`) — restic's S3 backend hides deletions; hidden versions keep accruing. Card-less accounts are hard-capped — alert on `cap_exceeded`.
 - **Tigris:** create buckets via API (STANDARD); deleted names sit in a ~10-min cooldown (`409 BucketInaccessible`) — pick a new name. 5 GB free — size the pruned set accordingly.
 
-## What the harness checks weekly (dead-man's switch)
+## What the harness checks (dead-man's switch)
 
-SSH in, read `/opt/backup/state/status.json`:
-`status=ok` · `last backup < 26 h` · `last verify < 8 d` · both repo snapshot ids present. Silence = failure; alert the owner through the same mail chain.
+SSH in and read `/opt/backup/state/status.json` — `{status, step, ts}`, overwritten every run (`status=ok` + the phase in `step`). Freshness comes from the artifacts themselves: `restic … snapshots --latest 1` < 26 h for the backup, and the weekly drill's own PASS/FAIL email < 8 d. Silence = failure; alert the owner through the same mail chain.
