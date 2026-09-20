@@ -1,7 +1,7 @@
 ---
 name: session-autopsy
 description: "Use when a session failed — fix the instruction itself."
-version: 0.1.0
+version: 0.1.1
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -18,7 +18,8 @@ an edited instruction, verified — never "a lesson learned".
 
 ## When to use
 
-- "Learn from this session / why did it fail / fix the skill so this can't happen again" (+ a session ID, log, or pasted error).
+- "Learn from this session / why did it fail / fix the skill so this can't happen again."
+- **The phrase that always works, said in the session that went wrong: "run session-autopsy"** — that session can grep its own transcript for the errors, nothing else needed. From ANOTHER session (or later): pass the session ID (it is read via `session_search`) or paste the key errors + what finally worked — evidence is required, the whole log is not.
 - Standing rule: any pipeline task that needed a retry — run the autopsy before closing it.
 - Not for: the app itself being broken (`systematic-debugging`), publishing mechanics (`skill-pack-publishing`), missing knowledge (the buildout update-loop).
 

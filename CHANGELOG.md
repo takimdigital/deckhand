@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-20 — the autopsy trigger, spoken plainly (session-autopsy v0.1.1 / pack v0.10.2)
+
+The question every user asks: "can I just ASK it to learn?" — yes, and now the skill says so in the
+exact words to use: **"run session-autopsy"**, said in the session that went wrong (it greps its own
+transcript — nothing else needed). From another session: pass the session ID or paste the key errors
++ what finally worked. Evidence required, whole log not.
+
 ## 2026-09-20 — the WHERE field (deckhand-profile v0.2.1 / vps-ops v0.7.2 / pack v0.10.1)
 
 Pending items now say **where** — not just what and how. Every item carries `WHERE:` with the exact
