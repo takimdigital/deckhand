@@ -1,7 +1,7 @@
 # 40 — The change pipeline (implement → push → deploy → wait → smoke → report)
 
 **Purpose:** the canonical loop for every change after the first deploy. This is where the project will actually live.
-**Use when:** the user asks for any change to an already-deployed app ("add X", "fix Y", "ship this", "make the button green").
+**Use when:** the user asks for any change to an already-deployed app ("add X", "fix Y", "ship this", "make the button green") — including when they simply hand you a project directory that contains `OPS.md`/`.vps-ops.json` (that IS a deployed app; local-only is never done).
 **Prerequisites:** `30-deploy-app.md` completed; `<project>/.vps-ops.json` exists in the repo.
 **Companion refs:** `30-deploy-app.md` (app/env/domain setup) · `50-ops-monitoring.md` (logs, status, incidents) · `20-domain-dns-ssl.md` (DNS/SSL failures).
 
@@ -27,6 +27,15 @@ cat .vps-ops.json        # {"server_uuid","project_uuid","app_uuid","db_uuid","d
 ```
 
 **2 — Implement.** Buildout-pack protocols (inspect → change → test). The change must be green locally before any push: red tree never gets deployed.
+
+**2b — Checkpoints (mandatory for every multi-file or open-ended change).**
+Restate the work as passes the first time you touch the repo: `Pass 1: <coherent milestone> → ship
+(steps 3–6) · Pass 2: <next> → ship …`. After every milestone: run the local verify (cheapest:
+`pnpm typecheck` / the app's test script — early, not at the end), **commit the checkpoint**, and move
+on. Ship each wide pass end-to-end before starting the next — a "do X and also fix Y etc." request is
+passes, not one hour of uncommitted edits. Why this is a hard rule: runs get interrupted (model
+streams stall, sessions are stopped, machines sleep) — **an interrupted run must leave committed,
+shippable work; uncommitted work is work lost**. Never go more than one milestone without a commit.
 
 **3 — Commit + push.**
 
@@ -91,6 +100,7 @@ Smoke:      OK 200 https://<domain>
 4. Max **2** fix-forward attempts, then roll back. No unbounded retry loops.
 5. Secrets live only in Coolify envs (`30-deploy-app.md` §3) — never echoed, never on a command line, never committed.
 6. A change that needs a new env var: sync first (`coolify app env sync <APP_UUID> --file .env.production`), then deploy.
+7. **Checkpoint rule (§2b):** commit at every coherent milestone; never end a turn with more than one milestone of uncommitted edits; wide requests ship in passes. An interrupted run must leave shippable work.
 
 ## Failure classification
 

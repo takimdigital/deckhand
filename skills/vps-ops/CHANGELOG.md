@@ -1,5 +1,10 @@
 # Changelog — vps-ops
 
+## 0.7.3 — 2026-09-20
+
+- ref 40 §2b **checkpoints** became a hard rule: milestone → verify early (typecheck, not at the end) → **commit** → continue; wide requests are passes, each shipped end-to-end; rule #7 — never end a turn with more than one milestone of uncommitted edits. Born from a real interrupted run: 27 files, one hour, zero commits, stream cut — nothing shippable. An interrupted run must leave shippable, committed work.
+- ref 40 "Use when" now names the cold-start case: a project directory with `OPS.md`/`.vps-ops.json` handed over IS a deployed app — local-only is never done.
+
 ## 0.7.2 — 2026-09-20
 
 - Pending-ledger format gains **`WHERE:`** (exact file path / URL / menu chain) — ref 00 updated; the

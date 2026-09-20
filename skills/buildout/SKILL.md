@@ -1,7 +1,7 @@
 ---
 name: buildout
 description: "Build/ship SaaS and online businesses with expert refs."
-version: 0.2.2
+version: 0.3.1
 author: Takim, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -15,7 +15,7 @@ metadata:
 
 A portable knowledge-and-protocol pack for building an online business/SaaS end to end: ideation → foundations → build → design → git → deploy → maintain. It carries: (1) **expert reference files** (jargon, constraints, procedures, anti-patterns), (2) **three operational protocols** — execution-first loops, machine-first state/handoffs, and a verified update loop that keeps the refs current, and (3) a **buildout engine** (v0.2): start from a verified-MIT boilerplate, assemble the UI coherently from the live shadcn registry pool, and store what you build for reuse (`references/buildout/`). Harness-agnostic: the layout follows the agentskills.io spec, so the same folder works in Hermes, Claude Code, Codex/ChatGPT, Cursor, and any spec-conformant runtime.
 
-**Loading discipline.** This file is a router. Load reference files by task phase — never load the whole pack. Do not paste reference content wholesale into prompts; use it to write precise briefs. Before asking the user anything, read `~/.deckhand/profile.md` (skill `deckhand-profile`) — never re-ask what it answers.
+**Loading discipline.** This file is a router. Load reference files by task phase — never load the whole pack. Do not paste reference content wholesale into prompts; use it to write precise briefs. **Before starting work** (not only before asking), read both portable files: `~/.deckhand/profile.md` + `~/.deckhand/pending.md` (skill `deckhand-profile`) — never re-ask what they answer. **Deployed-app rule:** the moment you open a project directory, check for `OPS.md`/`.vps-ops.json` — if present this is a LIVE app: load `vps-ops`, read `OPS.md`, and the task is the change pipeline: **local edits are not done until committed → pushed → deployed → smoke-passed**, with a commit checkpoint at every milestone (`vps-ops` ref 40 §2b). An interrupted run must leave shippable, committed work — never an hour of uncommitted edits.
 
 ## When to Use
 

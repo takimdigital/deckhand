@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-20 — the checkpoint rule (buildout v0.3.1 / vps-ops v0.7.3 / pack v0.10.3)
+
+A real session test went red in an instructive way: the pipeline triggered correctly (loaded the
+skills, read `OPS.md` + the pending ledger), implemented for an hour across 27 files — and never
+committed once, so when the model stream was cut mid-turn, nothing was shippable. The fix is a hard
+rule, not advice: **milestone → verify early → commit → continue**; wide requests ship in **passes**,
+each deployed end-to-end; an interrupted run must leave committed, shippable work. Plus the
+**deployed-app rule** in buildout: a project directory with `OPS.md`/`.vps-ops.json` is a live app —
+local-only is never done.
+
 ## 2026-09-20 — the autopsy trigger, spoken plainly (session-autopsy v0.1.1 / pack v0.10.2)
 
 The question every user asks: "can I just ASK it to learn?" — yes, and now the skill says so in the
