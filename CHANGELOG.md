@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-20 — the first live drill (vps-ops v0.6.0 / pack v0.8.0)
+
+The backup pipeline went through a full production drill on a real app — every layer is now proven
+live, and every trap it surfaced is baked into the skill so nobody re-discovers them: a Tigris bucket
+that listed objects but served 0-byte reads (wrong storage class — agents now create buckets via API
+and prove readability with a 512 KB round-trip), Coolify's per-container DB users, empty executions
+endpoints (the bucket listing is the proof), restic's lack of per-repo credentials, CRLF env files
+that hang restic, and Windows clock skew breaking SigV4. The deep layer (restic → B2 + Tigris,
+nightly timers + a weekly restore drill that really restores and emails PASS/FAIL) and the home copy
+(rclone sync to the owner's PC; Windows Task Scheduler **or** an agent cronjob watchdog) are
+template-fresh and verified.
+
 ## 2026-09-20 — backups are a choice (vps-ops v0.5.2 / pack v0.7.2)
 
 Every user gets the same deploy-time question the tracks get: **where should the backups live?** —

@@ -12,7 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Tests: 36 passing" src="https://img.shields.io/badge/tests-36%20passing-brightgreen.svg">
-  <img alt="Version: 0.7.2" src="https://img.shields.io/badge/version-0.7.2-blueviolet.svg">
+  <img alt="Version: 0.8.0" src="https://img.shields.io/badge/version-0.8.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
@@ -120,7 +120,7 @@ Deployed and validated end to end against a real Coolify instance:
 | --- | --- |
 | [`buildout`](skills/buildout) | **Idea → codebase.** Expert references, execution-first build loops, verified MIT boilerplates, coherent-random design assembly from the live shadcn registry pool (MIT-only), design tokens locked once and applied everywhere. |
 | [`component-library`](skills/component-library) | **Build → reuse.** Save any component you build; the next project starts from what you already made. |
-| [`vps-ops`](skills/vps-ops) | **Codebase → live business.** Two tracks: **paid** (your VPS + domain) or **free preview** ($0 on Oracle Cloud Always Free + a free `.pp.ua` domain). Bootstraps Coolify, wires domain/SSL, deploys with Nixpacks or Dockerfile, then runs the everyday pipeline: deploy, monitor, env changes, database + backups, rollback — plus a migration runbook to move from the free preview to a paid host. And **login email that actually arrives**: a free multi-provider chain (Resend → Mailgun → Brevo) behind a drop-in failover router + deliverability DNS, with a modular MCP catalog for DNS/registrar/email. Backups are **offsite by default** — dual cloud targets (Backblaze B2 + Tigris, both **card-free**; R2 optional), 3-copy retention, verified restore drills — and apps with uploads get RustFS S3 storage, backed up the same way. |
+| [`vps-ops`](skills/vps-ops) | **Codebase → live business.** Two tracks: **paid** (your VPS + domain) or **free preview** ($0 on Oracle Cloud Always Free + a free `.pp.ua` domain). Bootstraps Coolify, wires domain/SSL, deploys with Nixpacks or Dockerfile, then runs the everyday pipeline: deploy, monitor, env changes, database + backups, rollback — plus a migration runbook to move from the free preview to a paid host. And **login email that actually arrives**: a free multi-provider chain (Resend → Mailgun → Brevo) behind a drop-in failover router + deliverability DNS, with a modular MCP catalog for DNS/registrar/email. Backups are **offsite by default** — dual cloud targets (Backblaze B2 + Tigris, both **card-free**; R2 optional), 3-copy retention, verified restore drills (all live-proven), an optional home copy with a scheduled watchdog — and apps with uploads get RustFS S3 storage, backed up the same way. |
 | [`session-autopsy`](skills/session-autopsy) | **Failure → fix.** When a run goes red, it dissects the session, finds the instruction that allowed the wrong path, and rewrites it — on a strength ladder (eliminate → pre-flight → reorder → gate → pitfall). Pitfalls are counted as debt, not solutions. |
 | [`deckhand-profile`](skills/deckhand-profile) | **You, once.** One portable file (`~/.deckhand/profile.md`) with your accounts, providers and defaults — every agent reads it first and never re-asks. Copy it to any harness or machine. |
 

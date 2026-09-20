@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.5.2
+version: 0.6.0
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -80,7 +80,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 | Already-deployed app, fresh session, zero context — the cold-start doc | the app repo's **`OPS.md`** first → then refs 40/50 (written at deploy time, ref 30 §9) |
 | The change loop: edit → push → auto-deploy → wait → smoke → report; rollback | `references/40-change-pipeline.md` |
 | Status, logs, metrics, backups, updates, incident playbook | `references/50-ops-monitoring.md` |
-| Offsite backups — dual target (B2 primary + R2), schedules, verification, restore reality | `references/55-offsite-backups.md` |
+| Offsite backups — dual target (B2 + Tigris, both card-free; R2 optional), schedules, verification, restore reality | `references/55-offsite-backups.md` |
 | App uploads — S3-compatible storage (RustFS) via Coolify + its offsite copy | `references/56-app-object-storage.md` |
 | Leave the preview → paid host: what moves, cutover, rollback | `references/60-migrate-to-paid.md` |
 | Auth + login email: verdict, free email chain, deliverability DNS, failover router | `references/70-auth-and-email.md` |

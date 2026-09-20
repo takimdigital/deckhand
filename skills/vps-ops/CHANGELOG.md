@@ -1,5 +1,29 @@
 # Changelog — vps-ops
 
+## 0.6.0 — 2026-09-20 — **the first live drill** (backups, end-to-end on a real app)
+
+Every layer exercised on CitiQuiz; the traps found live are now baked in so the next run skips them:
+
+- **Deep layer verified**: restic → B2 + Tigris, nightly timers + weekly restore drill that really
+  restores (both repos, `pg_restore`, sanity query, PASS email delivered). Templates replaced with the
+  battle-tested `coolify-backup.sh` (per-repo credential wrappers, per-container DB-user auto-detect,
+  LF-env guard, `flock`, per-db drill restore + `SANITY_DB`).
+- **New scripts**: `b2_setup.py` (bucket + lifecycle + scoped key; v4 `bucketIds` quirk), 
+  `tigris_bucket.py` (API-created STANDARD bucket + 512 KB readability proof), 
+  `coolify_backup_setup.py` (storages + schedules), `backup_verify.py` (bucket listing = the proof).
+- **Tigris class trap** (§0/§3/§5): a console-created bucket can be GLACIER class → lists objects but
+  serves every read >1 KB as HTTP 200 + **0 bytes** (rclone `unexpected EOF`, python `IncompleteRead`).
+  Agents create buckets via API; verify with a 512 KB round-trip. Deleted bucket names sit in a
+  ~10-min cooldown → pick a new name.
+- **Coolify v4.3.23 quirks**: DB users are per-container (auto-detect via `printenv`); on-demand
+  `backup_now` re-trigger via PATCH is unreliable (DELETE + re-POST); executions can stay empty —
+  **list the bucket**, the object is the proof.
+- **Home copy verified** (§7): rclone sync of both buckets to a Windows PC (restic repos included →
+  local restore works); Task Scheduler recipe + Hermes-cronjob watchdog (gateway must be running);
+  Windows pitfalls: `C:/…` native paths, **clock skew >15 min breaks SigV4** (fix: `w32time` +
+  `w32tm /resync /force`).
+- **Mail-router rule** (§2): alert bodies must contain a link — guarded alert routes append the app URL.
+
 ## 0.5.2 — 2026-09-20
 
 **Backups are a choice, and home is an option** — same spirit as the Track P/F ask:

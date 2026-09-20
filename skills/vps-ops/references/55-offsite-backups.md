@@ -1,6 +1,6 @@
 # 55 — Offsite backups (never on the same VPS)
 
-**Purpose:** backups that survive the VPS itself. Default = **dual offsite targets: Backblaze B2 (primary) + Cloudflare R2 (secondary)**, small retention (3 copies) → flat usage, free tiers never fill.
+**Purpose:** backups that survive the VPS itself. Default = **dual offsite targets: Backblaze B2 (primary) + Tigris (secondary) — both card-free**; R2 optional (card holders). Small retention (3 copies) → flat usage, free tiers never fill.
 **Use when:** a project goes live (day-one default), the user asks about backups/durability, or a drill/verification is due.
 **Prereqs:** ref 30 done; ref 50 §5 for the local dump + pg_restore recipe. Coolify v4.3.23 endpoint facts below are source-verified against tag v4.3.23 — `[verify at live drill]` markers until exercised.
 
@@ -9,7 +9,7 @@
 | Step | Where | ~time |
 |---|---|---|
 | Backblaze: create account → **enable B2** → copy the master key (keyID + key) once. **No card** — and non-paying accounts are hard-capped (see below), so Caps & Alerts (card-gated) can be skipped | backblaze.com | 10 min |
-| **Tigris** (default second target, card-free): sign up → create a bucket → create access keys | tigrisdata.com | 5 min |
+| **Tigris** (default second target, card-free): sign up → create access keys. **The agent creates the bucket via API** (`scripts/tigris_bucket.py`, default STANDARD class) — never the console: a console-picked GLACIER class lists objects fine but serves every read >1 KB as **0 bytes** | tigrisdata.com | 5 min |
 | *Optional, only if a card is acceptable* — Cloudflare R2: **enable R2** (card dialog mandatory) → one token (Object Read & Write) or the “Create additional tokens” bootstrap template | dash.cloudflare.com | skip on the card-free path |
 | Coolify S3 storages + schedules + drills | — | **agent, via API (below)** |
 
@@ -23,7 +23,7 @@ Field cheat sheet (endpoint has NO bucket name, no trailing slash, keep `https:/
 | Free tier | 10 GB, hard caps available, ops free, egress 3× stored | 10 GB, 1M/10M ops, free egress — but **soft cap (it just bills)** |
 | Why this order | cheapest, hard-capped, fully API-driven after signup | zero egress = the drill source |
 
-**Tigris** (card-free second target): endpoint `https://t3.storage.dev` · region `auto` · access-key pair from the dashboard · 5 GB free, zero egress · official MIT MCP (`npx -y @tigrisdata/tigris-mcp-server`, hosted `mcp.storage.dev`); Coolify partner. If signup ever asks for a card, fall back to **Filebase** (5 GB, `https://s3.filebase.io`, region `auto`, no card) or **Koofr via rclone** (§5).
+**Tigris** (card-free second target): endpoint `https://t3.storage.dev` · region `auto` · access-key pair from the dashboard (`tid_…` / `tsec_…`) · 5 GB free, zero egress · official MIT MCP (`npx -y @tigrisdata/tigris-mcp-server`, hosted `mcp.storage.dev`); Coolify partner. If signup ever asks for a card, fall back to **Filebase** (5 GB, `https://s3.filebase.io`, region `auto`, no card) or **Koofr via rclone** (§5). **Create buckets via API, not the console** (defaults to STANDARD; `scripts/tigris_bucket.py` also proves readability with a 512 KB round-trip). A deleted bucket NAME sits in a ~10-min cooldown (`409 BucketInaccessible "recently deleted"`) — pick a new name rather than waiting.
 
 **B2 without a card — verified Sept 2026:** non-paying accounts are hard-capped; crossing the boundary returns `403 cap_exceeded` / `transaction_cap_exceeded` — **refused, never billed** (no payment method, nothing to charge). Caps can NOT be set via API/CLI (UI only, card-gated) — so treat 10 GB as a wall: keep the backup set (versions included — B2 is versioned by default; add a “keep only the last version” lifecycle rule) under it, and **alert loudly on `cap_exceeded`** — a silent stop is the only real failure mode. Never shard accounts to dodge the limit (AUP). Egress free up to 3× stored.
 
@@ -49,7 +49,7 @@ curl -sS -X POST "$COOLIFY_URL/api/v1/s3-storages" -H "Authorization: Bearer $CO
 curl -sS -X POST "$COOLIFY_URL/api/v1/s3-storages/<uuid>/validate" -H "Authorization: Bearer $COOLIFY_TOKEN"
 
 # DB backup — ONE schedule PER target (a schedule carries exactly one s3_storage_uuid):
-#   B2 at 02:00, R2 at 02:15. backup_now:true proves the first dump immediately.
+#   B2 at 02:00, Tigris at 02:15. backup_now:true proves the first dump immediately.
 curl -sS -X POST "$COOLIFY_URL/api/v1/databases/$DB_UUID/backups" -H "Authorization: Bearer $COOLIFY_TOKEN" \
   -H 'Content-Type: application/json' -d '{"frequency":"0 2 * * *","enabled":true,"save_s3":true,
     "s3_storage_uuid":"<B2_UUID>","backup_now":true,"database_backup_retention_amount_s3":3,
@@ -76,7 +76,7 @@ curl -sS -X PATCH "$COOLIFY_URL/api/v1/notifications/webhook" -H "Authorization:
     "backup_success_webhook_notifications":false,"backup_failure_webhook_notifications":true}'
 ```
 
-Events emitted: `backup_success`, `backup_failed`, `backup_missing`, `backup_success_with_s3_warning`. The app-side endpoint is a tiny guarded route that forwards `{subject,text}` (or the raw Coolify payload) into the mail chain (ref 70) — owner gets an email; no monitoring UI needed.
+Events emitted: `backup_success`, `backup_failed`, `backup_missing`, `backup_success_with_s3_warning`. The app-side endpoint is a tiny guarded route that forwards `{subject,text}` (or the raw Coolify payload) into the mail chain (ref 70) — owner gets an email; no monitoring UI needed. **The mail router rejects bodies with no link** — the route must append the app URL (`text: \`${text}\n\n${link}\``).
 
 ## 3. Verification — the only honest proofs
 
@@ -85,6 +85,7 @@ Events emitted: `backup_success`, `backup_failed`, `backup_missing`, `backup_suc
 3. **Restore drill** (weekly/monthly): download the NEWEST object from EACH provider, `pg_restore` into a scratch container, run a sanity query (row counts + `max(created_at)`). Never trust "scheduled".
 4. Record `status.json`-style results somewhere the weekly harness check reads; alert on silence, not only on errors.
 5. **Watch for the cap.** Any `cap_exceeded` / `account_trouble` 403 in logs or Coolify execution messages = that provider stopped; alert it, don't retry-loop.
+6. **0-byte reads?** rclone `unexpected EOF` / python `IncompleteRead(0 bytes…)` while HEAD shows the correct size = wrong bucket storage class (GLACIER). Recreate the bucket STANDARD (§0) — don't debug clients.
 
 ## 4. Restore reality (the one thing the API can't do)
 
@@ -95,22 +96,24 @@ Events emitted: `backup_success`, `backup_failed`, `backup_missing`, `backup_suc
 
 The Coolify-native schedules above cover resource DBs + mounts. For **full-VPS disaster recovery** (Coolify's own `coolify-db`, EVERY database, every app volume — one consistent snapshot set):
 
-- **restic** (BSD-2, single static binary) → two repos: **B2 (S3)** + the second target — **Tigris (S3)** by default, or **Koofr** (10 GB, no card, app-password auth) through restic's rclone backend: `-r rclone:koofr:coolify/restic-b -o rclone.program=/usr/local/bin/rclone` (verified end-to-end; serialize runs with `flock` — restic#5582; avoid Proton Drive — it blocks rclone — and Telegram — no rclone backend exists). `keep-last 3 --prune`; `check --read-data-subset=10%` (plain `check` reads NO data).
-- `pg_dump --format=custom --no-acl --no-owner` per DB container incl. `coolify-db`; `tar czf` of an explicit volume allowlist; staging wiped+trapped per run — success only after BOTH providers hold the snapshot.
+- **restic** (BSD-2, single static binary — install the UPSTREAM build, apt lags) → two repos: **B2 (S3)** + **Tigris (S3)**. restic has no per-repo credentials → wrap per repo and inject keys+region per call: `rTG(){ AWS_ACCESS_KEY_ID=$TG_KEY_ID AWS_SECRET_ACCESS_KEY=$TG_SECRET AWS_DEFAULT_REGION=auto restic -r "s3:https://$TG_HOST/$TG_BUCKET/coolify" -p $TGPASS "$@"; }` / same for B2 with `AWS_DEFAULT_REGION=$B2_REGION`. (Koofr-via-rclone stays an option: `-o rclone.program=/usr/local/bin/rclone`; serialize with `flock` — restic#5582.) `keep-last 3 --prune`; `check --read-data-subset=10%` (plain `check` reads NO data).
+- **DB users are per-container!** Coolify DBs are NOT `postgres` (coolify-db → `coolify`, app DBs → the app name): auto-detect with `docker exec <c> printenv POSTGRES_USER POSTGRES_DB`. `pg_dump --format=custom --no-acl --no-owner` per DB container incl. `coolify-db`; `tar czf` of an explicit volume allowlist; staging wiped+trapped per run — success only after BOTH providers hold the snapshot; `flock` serializes runs.
+- **Env files must be LF.** A CRLF env makes restic read a mangled repo path (`bucket?/path`) and hang — write secrets/env with `\n` only.
 - **B2 trap:** restic's S3 backend hides deletions as versions — set the B2 lifecycle **“keep only the last version”** or storage grows silently.
 - **Escrow `restic-*.pass` OFF the box** (password manager). Without it every backup is unreadable — one secret to rule the design.
-- Weekly drill from the primary repo (B2, or whichever has free egress): freshness (<26 h) → subset check → restore latest → pg_restore into a throwaway `postgres:16` → sanity query → PASS heartbeat / FAIL email via the alert endpoint. Harness weekly check on `status.json` = the dead-man's switch (fires on silence).
-- Ready-made: **`templates/vps-backup/`** (`coolify-backup.sh` + systemd units + secrets layout). `[verify at live drill]`
+- Weekly drill from the free-egress repo (Tigris): freshness (<26 h) → subset check → restore latest → each dump into its own scratch DB → real sanity query on the APP db (`SANITY_DB`/`SANITY_SQL`) → PASS heartbeat / FAIL email via the alert endpoint. Harness weekly check on `status.json` = the dead-man's switch (fires on silence).
+- Ready-made: **`templates/vps-backup/`** — `coolify-backup.sh` (all fixes baked in) + systemd units in its README. `[verified live 2026-09-20: both repos restored, sanity query passed, PASS email delivered — citiquiz drill]`
 
 ## 6. Known gaps (v4.3.23) — don't rediscover them live
 
-No restore API (dashboard-only) · no GET for volume-backup schedules/executions · volume backups emit NO notifications · DB backups reject `disable_local_backup` (422; volume schedules accept it) · instance self-backup is API-less · file download is UI-only.
+No restore API (dashboard-only) · no GET for volume-backup schedules/executions · volume backups emit NO notifications · DB backups reject `disable_local_backup` (422; volume schedules accept it) · instance self-backup is API-less · file download is UI-only · on-demand `backup_now` re-trigger via PATCH is unreliable (DELETE + re-POST the config) · executions can stay empty for on-demand runs — **list the bucket, the object is the proof**.
 
 ## 7. Home copies (pull model — works behind NAT; the VPS is never asked to reach the home machine)
 
 - **Choice ② — from the cloud:** `rclone sync b2:<bucket>/coolify ~/deckhand-backups/b2` (same for Tigris), or `restic copy` into a local repo. rclone/restic install once; credentials in a 0600 config.
 - **Choice ③ — straight from the VPS:** the staging dir is transient by design (§5), so pull live: `ssh root@<vps> "docker exec <db-uuid> pg_dump --format=custom --no-acl --no-owner -U <user> <db>" > ~/backups/<db>.dump` and `ssh root@<vps> "docker run --rm -v <vol>:/src:ro alpine tar czf - -C /src ." > ~/backups/<vol>.tgz`, then `restic backup ~/backups` into a LOCAL repo (`restic -r /path/repo` — same tooling, so the drills and status checks carry over).
 - **Local S3 if wanted:** RustFS in Docker on the user's machine (ref 56 compose, pinned image) — when other local tools want an S3 endpoint; the pull writes into it via rclone.
-- **Schedulers — use what the user has:** plain **cron / Windows Task Scheduler** (agent sets it up once) · an **agent cronjob** (“the bot” — a scheduled agent session that runs the pull, checks freshness, and emails on failure; where the dead-man's switch lives when a harness is around) · the VPS-side systemd stays ONLY for VPS→cloud.
+- **Schedulers — use what the user has:** plain **cron / Windows Task Scheduler** (agent sets it up once; Windows: wrap in a `.cmd` → `bash.exe -lc …`, register `schtasks /Create /TN … /SC DAILY /ST 10:00`) · an **agent cronjob** (“the bot” — a scheduled agent session that runs the pull, checks freshness, and emails on failure; **Hermes needs its gateway installed/running or scheduled fires never happen**) · the VPS-side systemd stays ONLY for VPS→cloud.
+- **Windows home machines:** native tools need `C:/…` paths (not `/c/…` — e.g. rclone `--log-file` fails silently); **check the clock first** — SigV4 breaks (“Timestamp … is in the future”) when skew >15 min: start `w32time` + `w32tm /resync /force` (elevated), then retry.
 - **Alerting from home:** POST to the deployed app's alert endpoint (public URL) — same path as §2; home-side failures are otherwise invisible.
-- Ready-made: `templates/vps-backup/local-pull.sh` (both modes). `[verify at live drill]`
+- Ready-made: `templates/vps-backup/local-pull.sh` (both modes). `[verified live 2026-09-20: rclone sync of both buckets to the home PC, restic repos included → local restore works]`
