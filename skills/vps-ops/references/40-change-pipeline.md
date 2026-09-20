@@ -11,9 +11,10 @@
 1. read  <project>/.vps-ops.json           → server/project/app/db uuids + domain
 2. implement the change                    (buildout-pack protocols: inspect → change → test)
 3. commit + push to main
-4. deploy: automatic via GitHub App   |   fallback: coolify deploy uuid <APP_UUID>
-5. py scripts/coolify_api.py wait <APP_UUID> --timeout 900
+4. deploy: trigger it explicitly           (a loopback dashboard gets NOTHING from GitHub — §4)
+5. py scripts/coolify_api.py wait <APP_UUID> --timeout 900 --expect-commit $(git rev-parse --short HEAD)
 6. py scripts/coolify_api.py smoke https://<domain> --expect 200
+6b. release: tag + GitHub Release          (runtime changes only — §6b)
 7. report — 5-line template below
    └─ failure at 5 or 6 → logs → classify → fix-forward (max 2) or rollback
 ```
@@ -44,18 +45,22 @@ git add -A && git commit -m "<message>" && git push origin main
 git rev-parse --short HEAD        # record the short sha for the report
 ```
 
-**4 — Deploy.**
+**4 — Deploy — trigger it explicitly.**
+
+The dashboard is loopback-locked (our default), so GitHub webhooks cannot reach Coolify: **the push
+alone deployed nothing.** Trigger the build, then confirm the newest deployment is YOUR commit:
 
 ```bash
-# GitHub App route: the push above already queued it — confirm:
-py scripts/coolify_api.py deployments <APP_UUID> --limit 3
-
-# Other routes — explicit trigger:
-coolify deploy uuid <APP_UUID>
-# REST — query params only, no body:
+py scripts/coolify_api.py deploy <APP_UUID>            # in-repo script, tunnel-aware
+# fallback, REST — query params only, no body:
 curl -sS -X POST "$COOLIFY_URL/api/v1/deploy?uuid=<APP_UUID>&force=false" \
   -H "Authorization: Bearer $COOLIFY_TOKEN"
+
+py scripts/coolify_api.py deployments <APP_UUID> --limit 3   # newest entry's commit == your short sha
 ```
+
+(An app wired to a GitHub App integration on a PUBLICLY reachable Coolify may auto-queue on push —
+confirm via `deployments`; never assume.)
 
 **Tunnel preflight (built in).** The dashboard is loopback-only on the VPS — every command here goes through the SSH tunnel, and `deploy` now **health-checks the tunnel and starts it automatically** when `VPS_SSH_HOST`/`VPS_SSH_KEY` are set (vault env; one-time setup — otherwise it prints the exact manual command). If any call ever returns `10061/refused`: run `py scripts/coolify_api.py tunnel` — it health-checks and starts it; `tunnel OK` means go.
 
@@ -89,6 +94,20 @@ py scripts/coolify_api.py smoke https://<domain> --expect 200 --contains "<marke
 
 Exit `0` = pass, `4` = fail (wrong status, missing marker, or connection error). A passing smoke is the only proof the change is live.
 
+**6b — Release (runtime changes only, once smoke is green).**
+
+A shipped change is a *published* change — the user's repo should show it. Docs-only commits (README/OPS notes): no deploy, no release; say so in the report.
+
+```bash
+git tag vX.Y.Z && git push origin vX.Y.Z
+gh release create vX.Y.Z --latest --title "<Product> vX.Y.Z" --notes "<≤8 bullets of what the user sees>"
+```
+
+- **SemVer judged by the user's world:** patch = fixes/copy/UX polish · minor = new features/flows · major = relaunch/breaking. First release in an app's life = **v1.0.0**.
+- **Notes:** ≤ 8 short bullets, user-facing only — features, fixes, prices, availability — plus one line for anything the user must still do. No internal narration, no file lists, no fluff.
+- Keep `package.json` `version` == newest tag; keep the README's status line current.
+- **The first release also runs the one-time repo-presence pass — via the kit, never hand-built:** copy `templates/repo-presence/repo.example.json`, fill the content (facts only, our style), then `py scripts/repo_presence.py init repo.json --dir <project> --gh` renders README/LICENSE/package.json metadata and sets the repo description + topics. Re-run whenever the repo's face drifts. A repo the user is proud to open is part of "shipped".
+
 **7 — Report — exactly these 5 lines:**
 
 ```
@@ -108,6 +127,7 @@ Smoke:      OK 200 https://<domain>
 5. Secrets live only in Coolify envs (`30-deploy-app.md` §3) — never echoed, never on a command line, never committed.
 6. A change that needs a new env var: sync first (`coolify app env sync <APP_UUID> --file .env.production`), then deploy.
 7. **Checkpoint rule (§2b):** commit at every coherent milestone; never end a turn with more than one milestone of uncommitted edits; wide requests ship in passes. An interrupted run must leave shippable work.
+8. **Release rule (§6b):** a runtime change isn't done until it's tagged + released once smoke is green; docs-only changes deploy nothing and release nothing.
 
 ## Failure classification
 

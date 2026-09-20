@@ -1,5 +1,11 @@
 # Changelog — vps-ops
 
+## 0.8.0 — 2026-09-20
+
+- **New: the repo-presence kit** — `templates/repo-presence/` + `scripts/repo_presence.py`: fill ONE JSON (facts only; our style) and the script renders README (empty sections dropped), LICENSE (proprietary notice; upstream MIT retained), `package.json` metadata, and sets the repo description + topics (`--gh`). Fails loudly on missing fields — never a half-README. 7 new tests (37 total). Nobody hand-builds a README again.
+- **§6b — the release rule: a shipped change is a published change.** The change loop now ends *tag + GitHub Release* once smoke is green (SemVer judged by the user's world; ≤ 8 user-facing bullets, no internal narration; first release in an app's life = v1.0.0). Docs-only commits deploy nothing and release nothing. The **first release also runs the one-time repo-presence pass** — via the kit.
+- **§4 de-mystified: "automatic via GitHub App" was wrong for our default.** A loopback-locked dashboard receives no webhooks — the push alone deploys nothing; trigger explicitly (`deploy` / REST) and confirm the newest deployment's commit. Verified against the live CitiQuiz repo (zero webhooks; deploys were explicit) and folded into the loop diagram + hard rule #8.
+
 ## 0.7.7 — 2026-09-20
 
 - **`wait --expect-commit`** — the deploy wait can no longer green-light a stale build: a finished/failed deployment carrying a different commit is skipped until YOUR commit is terminal, and SUCCESS prints the commit it verified. ref 40 now binds the wait to `git rev-parse --short HEAD`. +2 tests (30 total).

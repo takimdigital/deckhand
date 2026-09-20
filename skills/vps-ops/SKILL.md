@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.7.7
+version: 0.7.8
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -65,6 +65,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 - Never print token values; reference them as `$COOLIFY_TOKEN` / `$HOSTINGER_API_TOKEN`.
 - Every invariant above applies to BOTH tracks. The free preview is a DISPOSABLE host: never present it as production-grade durability — say "preview" in reports; ref `60` is the exit path.
 - Keep Coolify's dashboard OFF the public internet on EVERY track: loopback-bind its ports in Coolify's own compose (ref 10 Step 3b) + SSH tunnel — host firewall rules alone do NOT stop Docker-published ports (live-verified on Docker 29, 2026-09-19).
+- A shipped runtime change ends **released**: pushed → deployed → smoke green → `git tag` + GitHub Release with ≤ 8 user-facing bullets (ref 40 §6b). Docs-only commits deploy nothing and release nothing. The user should never have to ask why their repo has no releases.
 
 ## Layout & routing table
 
@@ -78,7 +79,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 | Preview domain: free `.pp.ua` (nic.ua) or an owned domain at any registrar → Cloudflare DNS-only zone | `references/21-free-domain-cloudflare.md` |
 | Deploy an app: repo → project/app → envs → Postgres → domain → first deploy → smoke | `references/30-deploy-app.md` |
 | Already-deployed app, fresh session, zero context — the cold-start doc | the app repo's **`OPS.md`** first → then refs 40/50 (written at deploy time, ref 30 §9) |
-| The change loop: edit → push → auto-deploy → wait → smoke → report; rollback | `references/40-change-pipeline.md` |
+| The change loop: edit → push → deploy (explicit trigger) → wait → smoke → **release** → report; rollback | `references/40-change-pipeline.md` |
 | Status, logs, metrics, backups, updates, incident playbook | `references/50-ops-monitoring.md` |
 | Offsite backups — dual target (B2 + Tigris, both card-free; R2 optional), schedules, verification, restore reality · home copy (plain folder or a local RustFS S3) | `references/55-offsite-backups.md` |
 | App uploads — S3-compatible storage (RustFS) via Coolify + its offsite copy | `references/56-app-object-storage.md` |
@@ -91,6 +92,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 Universal path (works in ANY harness, stdlib only):
 
 - `scripts/coolify_api.py` — `health | apps | app <uuid> | deploy <uuid> [--force] | deployments <uuid> | wait <uuid> [--timeout 900] | logs <uuid> [--lines 200] [--timestamps] | envs <uuid> | envset <uuid> KEY=VAL... | status | smoke <url> [--expect 200] [--contains TEXT]`
+- `scripts/repo_presence.py` — the repo's public face from ONE filled JSON (README/LICENSE/package.json + gh description/topics) — ref 40 §6b, kit in `templates/repo-presence/`
 - `scripts/hostinger_api.py` — `vm list|get|metrics|restart` · `snapshot create|list` · `sshkey ensure --vm <id>` · `dns get|set-a` · `firewall ensure --vm <id>` · `actions <vm> [action_id]`
 
 Run with `py scripts/coolify_api.py --help` on Windows, `python3 ...` elsewhere.

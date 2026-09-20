@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-09-20 — shipped means released (vps-ops v0.8.0 / pack v0.12.0)
+
+Caught by the user on CitiQuiz: the app was live, but its repo had **no releases, no real README,
+and a stray Vercel-MIT LICENSE** — and he had to ask. Fixed in the pipeline so nobody ever asks again:
+
+- **The release rule (ref 40 §6b):** a deployed runtime change now ends *tag + GitHub Release* once
+  smoke is green — SemVer, ≤8 user-facing bullets, no internal narration, no fluff. Docs-only commits
+  deploy nothing and release nothing. First release in an app's life = **v1.0.0**, and it triggers the
+  one-time repo-presence pass.
+- **The repo-presence kit:** `templates/repo-presence/` + `scripts/repo_presence.py` — fill ONE JSON
+  (content only); the script renders README (empty sections dropped, placeholder drift fails loudly),
+  LICENSE (proprietary; upstream MIT retained when derived), `package.json` metadata, and sets the gh
+  description + topics. Fill content — never rebuild structure. 7 new tests (51 pack-wide).
+- **Corrected reality in ref 40:** "deploy: automatic via GitHub App" was false for a loopback-locked
+  dashboard (verified live: zero webhooks, every deploy explicitly triggered). The loop, hard rule #8,
+  and the SKILL invariant now say what actually happens.
+
 ## 2026-09-20 — the fresh-eyes audit (audit fixes across all five skills / pack v0.11.0)
 
 Five **zero-context sub-agent audits** read every skill exactly as a first-time consumer would — then

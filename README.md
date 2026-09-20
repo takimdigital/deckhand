@@ -11,8 +11,8 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Tests: 44 passing" src="https://img.shields.io/badge/tests-44%20passing-brightgreen.svg">
-  <img alt="Version: 0.11.0" src="https://img.shields.io/badge/version-0.11.0-blueviolet.svg">
+  <img alt="Tests: 51 passing" src="https://img.shields.io/badge/tests-51%20passing-brightgreen.svg">
+  <img alt="Version: 0.12.0" src="https://img.shields.io/badge/version-0.12.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
@@ -111,7 +111,7 @@ Deployed and validated end to end against a real Coolify instance:
 - [x] **Postgres** — provisioned via API → the app executes a real query over the internal network
 - [x] **Backups** — schedule → dump → **restore drill** (`pg_restore` into a scratch database, verified)
 - [x] **Build packs** — Nixpacks and Dockerfile · **ops** — logs, deployments, env vars, docker cleanup
-- [x] **44 unit tests** green (standard library only)
+- [x] **51 unit tests** green (standard library only)
 - [x] **Paid track validated live** — a real Next.js + Postgres SaaS deployed end-to-end on a rented VPS: Coolify → Cloudflare DNS-only → Let's Encrypt, with migrations, seed data and a production-owner flow — every error it surfaced is now folded back into the runbooks.
 
 ## ⚡ The skills
