@@ -80,6 +80,14 @@ Events emitted: `backup_success`, `backup_failed`, `backup_missing`, `backup_suc
 
 ## 3. Verification — the only honest proofs
 
+**A schedule is verified only by its own trigger.** Before anyone says "backups live", EVERY scheduled
+leg must fire once through the mechanism that will run it — `systemctl start <unit>` · `schtasks /Run`
+· the cronjob's real fire · Coolify's own schedule — and leave a fresh artifact from THAT run
+(`status.json` ok, a new snapshot on each repo, the PASS email). Manual script runs prove the script,
+**never the schedule** — live-hit twice: a Windows task that had never once run (2026-09-20), then a
+systemd unit that died on its first fire with `unable to locate cache directory: neither
+$XDG_CACHE_HOME nor $HOME are defined` while every manual drill passed (2026-09-21).
+
 1. **List the bucket.** A “success” execution is a claim; the object is the proof. B2 has a plain REST API (`b2_list_file_names` with the app key — no SigV4 needed); S3 targets via `rclone ls`/`mc ls`.
 2. **Object counts match retention** (3 per target) — retention DOES delete from S3; both rules (`amount/days`) are independent.
 3. **Restore drill** (weekly/monthly): download the NEWEST object from EACH provider, `pg_restore` into a scratch container, run a sanity query (row counts + `max(created_at)`). Never trust "scheduled".

@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.9.1
+version: 0.9.2
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -67,6 +67,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 - Keep Coolify's dashboard OFF the public internet on EVERY track: loopback-bind its ports in Coolify's own compose (ref 10 Step 3b) + SSH tunnel — host firewall rules alone do NOT stop Docker-published ports (live-verified on Docker 29, 2026-09-19).
 - A shipped runtime change ends **released**: pushed → deployed → smoke green → `git tag` + GitHub Release with ≤ 8 user-facing bullets (ref 40 §6b). Docs-only commits deploy nothing and release nothing. The user should never have to ask why their repo has no releases.
 - **Access before asks:** probe existing credentials at phase start (cheap read endpoints); a capability wall gets ONE batched ask — exact scope + exact click path — and anything a future phase will also need is provisioned in the same ask (e.g. the Cloudflare token carries DNS **and** Email Routing scopes from day one, ref 21). Asking for what an existing token/API can already do is a defect (live-seen: an Email Routing wall bounced back to the user because the token predated the need).
+- **A schedule is verified only by its own trigger:** every timer/Task/cronjob must fire once through the mechanism that will run it (`systemctl start`, `schtasks /Run`, the real fire) and leave a fresh artifact + `status ok` BEFORE "live" is claimed — manual runs prove the script, never the schedule (ref 55 §3; live-hit twice, 2026-09-20/21).
 
 ## Layout & routing table
 

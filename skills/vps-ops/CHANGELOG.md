@@ -1,5 +1,10 @@
 # Changelog — vps-ops
 
+## 0.9.2 — 2026-09-21
+
+- **"A schedule is verified only by its own trigger" (new invariant + ref 55 §3).** The verification section now requires EVERY scheduled leg — systemd unit, Windows task, cronjob, Coolify schedule — to fire once through the mechanism that will run it and leave a fresh artifact from THAT run before "backups live" may be claimed. Manual script runs prove the script, never the schedule (live-hit twice: a Windows task that had never run, then a systemd unit that died on its first fire while every manual drill passed).
+- **First-fire proof is now an install step** in the backup template README: fire both units by hand, require `rc=0` + `status ok` + a fresh snapshot on each repo + the verify PASS email.
+
 ## 0.9.1 — 2026-09-21
 
 - **First-scheduled-run hardening (live-hit):** the nightly backup failed under systemd — restic 0.19 hard-fails without `$HOME` (`unable to locate cache directory: neither $XDG_CACHE_HOME nor $HOME are defined`) while every manual drill passes in an interactive shell. The script now pins `RESTIC_CACHE_DIR` itself, and it was proven by re-running the exact failing unit (`status ok`, fresh snapshots on both repos).

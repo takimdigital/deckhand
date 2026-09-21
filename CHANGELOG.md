@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-09-21 — verified means the schedule ran (vps-ops v0.9.2 / pack v0.13.2)
+
+The first *scheduled* nightly failed while every manual drill passed. The deeper lesson is now a
+pipeline rule, not a platform-scoped trap:
+
+- **"A schedule is verified only by its own trigger"** — ref 55 §3 requires every scheduled leg
+  (systemd unit · Windows task · cronjob · Coolify schedule) to fire once through the mechanism that
+  will run it and leave a fresh artifact from THAT run before "backups live" may be claimed. Manual
+  runs prove the script — never the schedule.
+- **First-fire proof became an install step** in the backup template README: fire both units by hand,
+  require `rc=0` + `status ok` + a fresh snapshot on each repo + the verify PASS email.
+- Carried from the same incident (v0.9.1): `RESTIC_CACHE_DIR` pinned in the script (systemd carries no
+  `$HOME`), all restic steps tee to the log, and every run opens with a `=== run start ===` marker so
+  failure emails show the failing run.
+**Why:** "verified live" that only exercises the convenient invocation path is a false green — both
+backup legs had now failed exactly this way once.
+
 ## 2026-09-21 — the backup that never ran (vps-ops v0.9.1 / pack v0.13.1)
 
 The first *scheduled* nightly failed with a clean "FAILED" email whose body showed the last drill's

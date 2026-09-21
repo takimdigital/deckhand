@@ -29,6 +29,12 @@ Persistent=true
 WantedBy=timers.target
 ```
 
+**First-fire proof (required before “backups live”):** after enabling the timers, fire both units by
+hand — `systemctl start coolify-backup.service && systemctl start coolify-verify.service` — and require
+`rc=0` + `status.json` ok + a fresh snapshot on EACH repo + the verify PASS email. The units run with
+no `$HOME` and a minimal env: a manual script run proves only the script; **only the units prove the
+schedule** (live-hit 2026-09-21: the first scheduled nightly died while every manual drill passed).
+
 Weekly verify = a second pair (`coolify-verify.service` → `ExecStart=/opt/backup/coolify-backup.sh verify`, `coolify-verify.timer` → `OnCalendar=Sun *-*-* 04:30:00`).
 Enable: `systemctl daemon-reload && systemctl enable --now coolify-backup.timer coolify-verify.timer`.
 
