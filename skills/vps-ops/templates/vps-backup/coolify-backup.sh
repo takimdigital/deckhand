@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # vps-ops deep backup layer (ref 55 §5) — restic → TWO offsite S3 providers (B2 + Tigris).
 # LIVE-VERIFIED 2026-09-20 (live drill): backup + prune + weekly restore drill all pass.
+# 2026-09-21 hardening: RESTIC_CACHE_DIR pinned (systemd units carry NO $HOME — restic 0.19 hard-fails
+#   with "unable to locate cache directory" and the FIRST automated run dies while every manual test
+#   passes); all restic steps tee to $LOG so failure emails show the FAILING run, not the previous one;
+#   every run opens with a "=== <mode> run start ===" marker.
 # Backs up: every Coolify DB container (incl. coolify-db, logical dumps) + an explicit app-volume allowlist.
 # Install on the VPS: restic (UPSTREAM static binary — apt lags), jq, docker. Secrets under /etc/backup (root, 600).
 # systemd: coolify-backup.timer (03:15 daily) + coolify-verify.timer (Sun 04:30) — see README.
@@ -15,6 +19,8 @@
 #   SANITY_DB=<db-uuid>  SANITY_SQL="select count(*) from users"   # weekly drill checks the APP db
 set -euo pipefail
 source /etc/backup/env
+# systemd has no $HOME — pin restic's cache so the script cannot run in an env that breaks it:
+export RESTIC_CACHE_DIR="${RESTIC_CACHE_DIR:-/var/cache/restic}"; mkdir -p "$RESTIC_CACHE_DIR"
 B2PASS=/etc/backup/restic-b2.pass; TGPASS=/etc/backup/restic-tg.pass   # 600 root; ALSO escrow off-box
 TG="s3:https://${TG_HOST}/${TG_BUCKET}/coolify"
 B2="s3:s3.${B2_HOST#s3.}/${B2_BUCKET}/coolify"
@@ -36,6 +42,7 @@ rB2(){ AWS_ACCESS_KEY_ID="$B2_KEY_ID" AWS_SECRET_ACCESS_KEY="$B2_SECRET" AWS_DEF
 exec 9>/var/lock/coolify-backup.lock; flock -w 900 9   # serialize (restic#5582 habits)
 
 backup(){
+  log "=== backup run start ==="
   rm -rf "$STAGE"; mkdir -p "$STAGE/pg" "$STAGE/volumes"; trap 'rm -rf "$STAGE"' EXIT
   for c in $DB_CONTAINERS; do
     # Coolify DB users are per-container (NOT postgres): auto-detect
@@ -48,14 +55,15 @@ backup(){
     docker run --rm -v "$v":/src:ro -v "$STAGE/volumes":/out alpine tar czf "/out/$v.tgz" -C /src . \
       || die "tar $v"
   done
-  rTG backup "$STAGE" --tag daily --host coolify-vps || die "restic backup Tigris"
-  rB2 backup "$STAGE" --tag daily --host coolify-vps || die "restic backup B2"
-  rTG forget --keep-last 3 --prune || die "prune Tigris"
-  rB2 forget --keep-last 3 --prune || die "prune B2"
+  rTG backup "$STAGE" --tag daily --host coolify-vps >>"$LOG" 2>&1 || die "restic backup Tigris"
+  rB2 backup "$STAGE" --tag daily --host coolify-vps >>"$LOG" 2>&1 || die "restic backup B2"
+  rTG forget --keep-last 3 --prune >>"$LOG" 2>&1 || die "prune Tigris"
+  rB2 forget --keep-last 3 --prune >>"$LOG" 2>&1 || die "prune B2"
   state ok backup; log "backup OK"   # success is silent; the weekly verify sends the heartbeat
 }
 
 verify(){ # weekly drill: freshness + sampled bytes on BOTH repos + functional restore from Tigris (free egress)
+  log "=== verify run start ==="
   rc=0
   rTG snapshots --latest 1 --json >>"$LOG" 2>&1 || rc=1
   rB2 snapshots --latest 1 --json >>"$LOG" 2>&1 || rc=1

@@ -1,5 +1,10 @@
 # Changelog — vps-ops
 
+## 0.9.1 — 2026-09-21
+
+- **First-scheduled-run hardening (live-hit):** the nightly backup failed under systemd — restic 0.19 hard-fails without `$HOME` (`unable to locate cache directory: neither $XDG_CACHE_HOME nor $HOME are defined`) while every manual drill passes in an interactive shell. The script now pins `RESTIC_CACHE_DIR` itself, and it was proven by re-running the exact failing unit (`status ok`, fresh snapshots on both repos).
+- **Failure emails must show the FAILING run:** `die()` tails the append-only log — steps that don't tee their output made the failure email show the previous run's output (exactly what happened: the failed nightly's body was the last drill's tail). All restic steps now append to `$LOG`; every run opens with a `=== run start ===` marker. Template + templates README + ref 55 carry both traps.
+
 ## 0.9.0 — 2026-09-20
 
 - **Access before asks (new invariant + refs 21/70):** the Cloudflare token is created with the FULL pipeline scope set in one go (`Zone → Zone → Read` + `Zone → DNS → Edit` + **`Zone → Email Routing → Edit`**) and Cloudflare-touching phases open with cheap capability probes — a scope wall found in planning is one batched ask; found mid-wiring it is a stall (live-seen: Email Routing bounced back to the user because the token predated the need). A later gap = EDIT the same token (one click, no new secret).

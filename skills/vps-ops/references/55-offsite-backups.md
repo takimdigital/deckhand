@@ -101,6 +101,8 @@ The Coolify-native schedules above cover resource DBs + mounts. For **full-VPS d
 - **Env files must be LF.** A CRLF env makes restic read a mangled repo path (`bucket?/path`) and hang — write secrets/env with `\n` only.
 - **B2 trap:** restic's S3 backend hides deletions as versions — set the B2 lifecycle **“keep only the last version”** or storage grows silently.
 - **Escrow `restic-*.pass` OFF the box** (password manager). Without it every backup is unreadable — one secret to rule the design.
+- **systemd runs carry no `$HOME`** — restic 0.19 hard-fails (`neither $XDG_CACHE_HOME nor $HOME are defined`) and the FIRST scheduled run dies while every manual drill passes; the script pins `RESTIC_CACHE_DIR=/var/cache/restic` itself (live-hit 2026-09-21).
+- **Failure emails must show the FAILING run:** `die()` tails the log — any restic step that doesn't `>>"$LOG" 2>&1` leaves the email with the previous run's tail. Every step tees; every run opens with a `=== run start ===` marker.
 - Weekly drill from the free-egress repo (Tigris): freshness (<26 h) → subset check → restore latest → each dump into its own scratch DB → real sanity query on the APP db (`SANITY_DB`/`SANITY_SQL`) → PASS heartbeat / FAIL email via the alert endpoint. Harness weekly check on `status.json` = the dead-man's switch (fires on silence).
 - Ready-made: **`templates/vps-backup/`** — `coolify-backup.sh` (all fixes baked in) + systemd units in its README. `[verified live 2026-09-20: both repos restored, sanity query passed, PASS email delivered — live drill]`
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-21 — the backup that never ran (vps-ops v0.9.1 / pack v0.13.1)
+
+The first *scheduled* nightly failed with a clean "FAILED" email whose body showed the last drill's
+output, not the error. Two stacked traps, both designed out:
+
+- **systemd units carry no `$HOME`** → restic 0.19 hard-fails (`unable to locate cache directory:
+  neither $XDG_CACHE_HOME nor $HOME are defined`); every manual test passed because interactive
+  shells set HOME. The backup script now pins `RESTIC_CACHE_DIR=/var/cache/restic` itself.
+- **`die()` tails the append-only log** → steps that didn't tee their output made the failure email
+  show the PREVIOUS run. All restic steps now append to the log; each run opens with a
+  `=== run start ===` marker.
+Proven by re-running the exact failing unit end-to-end: status ok, fresh snapshots on both offsite
+repos. Template, templates README and ref 55 carry both traps.
+
 ## 2026-09-20 — access before asks (vps-ops v0.9.0 · deckhand-profile v0.3.0 / pack v0.13.0)
 
 Learning loop from a real deployment phase — fixed at the instruction level so it cannot recur:

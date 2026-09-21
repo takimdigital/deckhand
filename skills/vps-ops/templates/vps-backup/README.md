@@ -52,6 +52,8 @@ Enable: `systemctl daemon-reload && systemctl enable --now coolify-backup.timer 
 
 - **B2:** lifecycle “keep only the last version” (set at bucket create, `scripts/b2_setup.py`) — restic's S3 backend hides deletions; hidden versions keep accruing. Card-less accounts are hard-capped — alert on `cap_exceeded`.
 - **Tigris:** create buckets via API (STANDARD); deleted names sit in a ~10-min cooldown (`409 BucketInaccessible`) — pick a new name. 5 GB free — size the pruned set accordingly.
+- **systemd runs have NO `$HOME`** (live-hit 2026-09-21): restic 0.19 hard-fails (`unable to open cache: unable to locate cache directory: neither $XDG_CACHE_HOME nor $HOME are defined`) — the FIRST scheduled run dies while every manual SSH test passes. The script pins `RESTIC_CACHE_DIR` itself; keep that line.
+- **Failure emails tail the append-only LOG** (live-hit 2026-09-21): a step that doesn't tee its output leaves `die()`'s email showing the PREVIOUS run's tail (the failed nightly emailed the last drill's output — useless for diagnosis). Every restic step appends to `$LOG`; every run opens with a `=== run start ===` marker.
 
 ## What the harness checks (dead-man's switch)
 
