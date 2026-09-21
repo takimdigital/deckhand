@@ -119,7 +119,7 @@ failed with `EADDRINUSE: address already in use`, in output nobody was reading.
 - **`verify-ladder.md` gains a Freshness section**: the both-states observation (stale → 1 of 19 assets
   missing; after restart → all 200), the exact command block, and the note that a missing asset can
   surface as **500** as well as 404 — count any non-200 as stale.
-- **Windows/MSYS note**: `taskkill /F /PID <pid>` takes single slashes; `//F` is passed through
+- **Windows note**: `taskkill /F /PID <pid>` takes single slashes; `//F` is passed through
   literally and rejected (`Invalid argument/option - '//F'`).
 
 ## 2026-09-21 — verified means the schedule ran (vps-ops v0.9.2 / pack v0.13.2)
@@ -177,14 +177,14 @@ Learning loop from a real deployment phase — fixed at the instruction level so
 ## 2026-09-20 — release hygiene: the leak gate (pack v0.12.2)
 
 - **New gate — `scripts/leak_sweep.py`:** one command scans the repo tree, the commit history and
-  every harness copy for private-project terms (list kept privately at `~/.deckhand/private-terms.txt`
-  — never in this repo), and `--file` gates a release-notes draft too. Non-zero exit on any hit.
+  every installed skill copy for terms that must never appear in a public repo (the term list lives
+  outside the repo — never committed), and `--file` gates a release-notes draft too. Non-zero exit on any hit.
 - **New — `RELEASING.md`:** the release checklist at the repo root where the work happens — load
   `skill-pack-publishing` → run the gate → parity → zip → tag → release with product-only notes
   (improvements + fixes).
 - **Fixed:** the public-record rule now explicitly covers release notes and commit messages, and it
-  is enforced mechanically instead of by memory — two releases shipped a private project name
-  because the rule lived in a skill that wasn't loaded when the notes were written.
+  is enforced mechanically instead of depending on which skill was loaded when the notes were
+  written.
 
 ## 2026-09-20 — shipped means released (vps-ops v0.8.0 / pack v0.12.0)
 
@@ -222,34 +222,32 @@ renamed (`~/deckhand-library`, legacy honored) + `store-format.md` linked; pack 
 
 The dashboard tunnel had to be remembered after every reboot — now it doesn't: `coolify_api.py
 tunnel` health-checks and starts it as a detached background ssh (given `VPS_SSH_HOST`/`VPS_SSH_KEY`,
-a one-time vault setting), and `deploy` preflights it automatically. Live-proven after a real reboot:
+a one-time vault setting), and `deploy` preflights it automatically. **Proven:** after a reboot,
 tunnel down → one command → `tunnel OK`. Deploys self-heal; nobody has to remember the tunnel.
 
 ## 2026-09-20 — the pull that never was (vps-ops v0.7.5 / pack v0.10.5)
 
-The first real STALE email arrived — and the autopsy found three independent faults stacked into
-it: (1) the Windows Task Scheduler leg **never worked** (the wrapper pointed at a bash.exe that
-doesn't exist on this machine, and battery conditions blocked the catch-up — an unverified schedule);
-(2) the home pull looked like "tigris hangs" but tigris answered in 0.3 s — the real time-eater was
-the local-S3 reachability probe retrying for minutes while Docker Desktop was off, killing the run
-inside a 300-s tool budget; (3) start-only log lines made a kill indistinguishable from a hang.
-All three are fixed and live-proven: probe fails in 0.17 s, pull completes in ~2 s with per-step
-timings, the scheduled task fires with `Last Result: 0`. The server side was green through all of it.
+A stale-backup alert traced to three independent faults stacked into one: (1) the Windows Task
+Scheduler leg **never actually fired** (the wrapper pointed at a bash.exe that doesn't exist, and
+battery conditions blocked the catch-up — an unverified schedule is not a backup); (2) the home pull
+looked like "tigris hangs" but tigris answered in 0.3 s — the real time-eater was the local-S3
+reachability probe retrying for minutes while Docker Desktop was off, killing the run inside its
+time budget; (3) start-only log lines made a kill indistinguishable from a hang. All three are
+fixed and verified: probe fails in 0.17 s, pull completes in ~2 s with per-step timings, the
+scheduled task fires with `Last Result: 0`. The server side was green through all of it.
 
 ## 2026-09-20 — the dead-tunnel trap (vps-ops v0.7.4 / pack v0.10.4)
 
 A deploy failed with `10061 connection refused` on `127.0.0.1:8000` — the SSH tunnel had died
-silently (Windows/MSYS ssh resolves `$HOME` to `/home/<user>`, which was absent, so a tunnel started
+silently (on Windows/git-bash, ssh resolves `$HOME` to `/home/<user>`, so a tunnel started
 without a durable `known_hosts` exits on "Host key verification failed"). Fixed durably: verified
 `known_hosts` in the vault, canonical tunnel command carries `UserKnownHostsFile` +
 `StrictHostKeyChecking=yes`, `coolify_api.py` now prints the restart command when it sees a refused
-connection, and ref 10 documents the symptom → cause mapping. Same session: the interrupted
-theme/a11y work was resumed, verified (`tsc` + `next build` clean), committed, deployed, and
-smoke-verified live (`cqtheme` marker on the production HTML).
+connection, and ref 10 documents the symptom → cause mapping.
 
 ## 2026-09-20 — the checkpoint rule (buildout v0.3.1 / vps-ops v0.7.3 / pack v0.10.3)
 
-A real session test went red in an instructive way: the pipeline triggered correctly (loaded the
+One field failure is why this rule exists: the pipeline triggered correctly (loaded the
 skills, read `OPS.md` + the pending ledger), implemented for an hour across 27 files — and never
 committed once, so when the model stream was cut mid-turn, nothing was shippable. The fix is a hard
 rule, not advice: **milestone → verify early → commit → continue**; wide requests ship in **passes**,
@@ -285,13 +283,13 @@ template now also carries the standing card-free rule and the backup/automation 
 The backup destination question gains another flavour: put the home copy behind a **local S3 with a
 real UI** — RustFS in Docker (Docker Desktop), one compose file, browseable console at
 `localhost:9001`, and the pipeline's pull mirrors every provider into it automatically (with a
-graceful skip when Docker isn't running). Plus a **clock-skew preflight** in the home pull, so the one
-failure the first live drill hit can't recur silently.
+graceful skip when Docker isn't running). Plus a **clock-skew preflight** in the home pull, so a
+clock-skew failure can't recur silently.
 
-## 2026-09-20 — the first live drill (vps-ops v0.6.0 / pack v0.8.0)
+## 2026-09-20 — the backup drill, proven end-to-end (vps-ops v0.6.0 / pack v0.8.0)
 
-The backup pipeline went through a full production drill on a real app — every layer is now proven
-live, and every trap it surfaced is baked into the skill so nobody re-discovers them: a Tigris bucket
+The backup pipeline went through a full production drill on a live deployment — every layer is now
+proven, and every trap it surfaced is baked into the skill so nobody re-discovers them: a Tigris bucket
 that listed objects but served 0-byte reads (wrong storage class — agents now create buckets via API
 and prove readability with a 512 KB round-trip), Coolify's per-container DB users, empty executions
 endpoints (the bucket listing is the proof), restic's lack of per-repo credentials, CRLF env files
@@ -312,7 +310,7 @@ failure. One script covers both modes: `templates/vps-backup/local-pull.sh`.
 
 ## 2026-09-20 — the card-free rule (vps-ops v0.5.1 / pack v0.7.1)
 
-The first live user hit two card walls: R2 won't activate without one, and B2's caps UI is gated too.
+Two card walls confirmed in practice: R2 won't activate without one, and B2's caps UI is gated too.
 The pipeline rule is now explicit — **the free path never asks for a card** — and the provider list was
 re-researched to match: the second backup target defaults to **Tigris** (5 GB free, zero egress,
 official MCP, no card), with Filebase and Koofr as verified fallbacks; R2 stays as an optional
@@ -330,21 +328,20 @@ MinIO CE is dead) with its own two-layer offsite copy. Human steps stay at ONE b
 
 The chain's coverage is now complete and proven: Brevo's corner closed via its API (domain created,
 records added, `authenticate` → verified — plus the new-IP dance: a one-click email to the owner,
-both the setup machine and the server authorised). And the first non-dev feedback landed: owner
-alerts rewritten in plain language — what happened, that nothing is broken, and that no action is
-needed. Drilled live: every provider has carried real mail, and every restore returned the primary.
+both the setup machine and the server authorised). And the alerts got a plain-language pass:
+owner alerts now say what happened, that nothing is broken, and that no action is
+needed. Drilled end-to-end: every provider has carried real mail, and every restore returned the primary.
 
-The failover chain went through a real deployment end-to-end — password reset live, every hop
-watched — and the run's findings are folded back: Resend's onboarding key can't manage domains
+A full password-reset cycle ran on a live deployment, failover drill included — the run's findings,
+folded back: Resend's onboarding key can't manage domains
 (a Full-access key is needed for setup), Brevo needs the server's IP authorised before it will
 answer at all, Resend's DNS record set corrected to the API's actual output, Mailgun verified with
 SPF+DKIM alone, and two field rules for Next.js/Coolify deployments (read env lazily or the CI
-build breaks; env changes need a redeploy). The mail-router template carries the fixes. Verified
-live: full reset cycle + "drain primary → next provider carried → restore" drill.
+build breaks; env changes need a redeploy). The mail-router template carries the fixes. Verified: full reset cycle + "drain primary → next provider carried → restore" drill.
 
 ## 2026-09-19 — key handover, spelled out (vps-ops v0.4.1 / pack v0.6.1)
 
-First live key walkthrough surfaced the gap: users have no idea *which* key to create, and "add them to
+From real walkthroughs: users have no idea *which* key to create, and "add them to
 the Coolify env" means nothing outside of dev circles. Ref 70 now walks it provider by provider —
 Resend (key prompted at signup; testing address caveat), Mailgun (Settings → API security → Create key,
 **Developer** role), Brevo (**API key**, NOT the MCP server key) — and the hand-over ask has a clear
