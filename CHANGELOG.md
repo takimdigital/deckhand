@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-09-21 — the container baseline path, verified (buildout v0.4.3 / pack v0.14.3)
+
+The design-audit kit's one documented-only path — generating pixel baselines in the pinned
+Playwright container — is now exercised end-to-end on a real machine:
+
+- **Verified round-trip ships in the kit README:** image pulled from the registry, the container's
+  browsers rendering a host-run app (`AUDIT_BASE_URL` + `AUDIT_NO_SERVER=1` through
+  `host.docker.internal`), baselines written under a platform key, determinism confirmed by a second
+  comparing pass, and a copy-back step — all with the repo copied INSIDE the container so the host's
+  `node_modules` is never touched.
+- **Real defect fixed — baselines are now actually platform-keyed:** the snapshot path gained
+  `{platform}` (`win32` / `linux` / `darwin`); container and native sets coexist and can never be
+  compared across environments. Before this, the docs claimed platform keying while the config had
+  no platform key — the first Docker user would have hit silent cross-environment diffs.
+- **New `AUDIT_BASE_URL` knob:** the gate can target any already-running server (that is what makes
+  the container-to-host mode possible) — including the Lighthouse pass, which had kept its own copy
+  of the base URL until the container run exposed it. The same run documented a lasting rule:
+  Lighthouse budgets are environment-scoped (a container reaching the host is not a localhost
+  origin to Lighthouse — `is-on-https` fails by construction), so the container round-trip runs the
+  visual projects, and the spec now warns when its origin isn't localhost.
+- **Two pitfalls captured:** launching Docker Desktop from a harness shell (background-process form;
+  the `cmd //c start` form silently opens a stray interactive cmd), and the docker-credential-desktop
+  PATH failure that breaks pulls.
+
 ## 2026-09-21 — sharper checks, quieter failures (buildout v0.4.2 / vps-ops v0.9.5 / pack v0.14.2)
 
 Follow-up hardening from the same live validation run — three more wrong paths made unenterable:

@@ -5,6 +5,8 @@
 //
 // Env knobs: AUDIT_PORT (default 3000) · AUDIT_START_CMD (default 'pnpm build && pnpm start')
 //            AUDIT_NO_SERVER=1 to use an already-running server and skip webServer.
+//            AUDIT_BASE_URL — full base-URL override; e.g. http://host.docker.internal:3000 when
+//            the gate runs in a container and the app runs on the host (pair with AUDIT_NO_SERVER=1).
 // Pin overrides per invocation — a STALE ambient AUDIT_* value silently retargets the whole gate
 // (live-hit); whenever an override is active this config prints the resolved values.
 
@@ -12,9 +14,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = process.env.AUDIT_PORT ?? '3000';
 const START_CMD = process.env.AUDIT_START_CMD ?? 'pnpm build && pnpm start';
-const BASE_URL = `http://127.0.0.1:${PORT}`;
+const BASE_URL = process.env.AUDIT_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 
-if (process.env.AUDIT_PORT || process.env.AUDIT_START_CMD) {
+if (process.env.AUDIT_PORT || process.env.AUDIT_START_CMD || process.env.AUDIT_BASE_URL) {
   console.error(`[design-audit] env override active — baseURL=${BASE_URL} start="${START_CMD}"`);
 }
 
@@ -39,7 +41,7 @@ export default defineConfig({
       scale: 'css',
     },
   },
-  snapshotPathTemplate: '{testDir}/__screenshots__{/projectName}/{testFilePath}/{arg}{ext}',
+  snapshotPathTemplate: '{testDir}/__screenshots__/{platform}{/projectName}/{testFilePath}/{arg}{ext}',
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',

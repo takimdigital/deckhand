@@ -10,7 +10,15 @@ type Route = { name: string; path: string; key?: boolean };
 const cfg: { routes: Route[] } = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', 'routes.json'), 'utf-8'),
 );
-const BASE = `http://127.0.0.1:${process.env.AUDIT_PORT ?? '3000'}`;
+const BASE = process.env.AUDIT_BASE_URL ?? `http://127.0.0.1:${process.env.AUDIT_PORT ?? '3000'}`;
+if (!/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/.test(BASE)) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[design-audit] lighthouse origin is not localhost (${BASE}) — is-on-https/uses-http2 fail for ` +
+      `non-localhost HTTP origins by construction, so best-practices reads low (~0.78) on purpose. ` +
+      `Run the lh project where the app is localhost or HTTPS.`,
+  );
+}
 
 for (const route of cfg.routes.filter((r) => r.key)) {
   test(`lighthouse @lh: ${route.name}`, async ({ page }, testInfo) => {
