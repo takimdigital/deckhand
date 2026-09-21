@@ -137,6 +137,9 @@ def cmd_check(args):
     return 0
 
 def cmd_list(args):
+    if not SNAPSHOT.exists():
+        print("no snapshot - run: py scripts/registry_sync.py sync")
+        return 1
     d = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
     pat = args.match.lower()
     rows = [e for e in d["registries"] if not pat or pat in json.dumps(e, ensure_ascii=False).lower()]
@@ -147,6 +150,9 @@ def cmd_list(args):
     return 0
 
 def cmd_onboard(args):
+    if not SNAPSHOT.exists():
+        print("no snapshot - run: py scripts/registry_sync.py sync")
+        return 1
     d = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
     entry = next((e for e in d["registries"] if e["name"] == args.namespace), None)
     if entry is None:

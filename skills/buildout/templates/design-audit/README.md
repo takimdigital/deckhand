@@ -11,10 +11,10 @@ those plugins together in a single page load per route.
 |---|---|---|
 | 1 | Visual regression (pixel baselines per project) + stylesheet sanity (an empty-CSS build fails loudly, not as a wall of diffs) | Playwright `toHaveScreenshot` + layout assertion |
 | 2 | Device matrix: desktop 1440 · mobile 393 (Pixel 5) · iPhone 14 (WebKit) | Playwright projects |
-| 3 | Dark scheme + forced-colors/reduced-motion ready | Playwright `colorScheme` |
+| 3 | Light + dark scheme, forced-colors + reduced-motion checks | Playwright projects (`colorScheme`) + per-route `emulateMedia` — forced-colors overflow asserted |
 | 4 | Firefox smoke (tagged `@smoke` routes) | Playwright projects |
 | 5 | WCAG 2.2 A/AA violations with failing nodes | `@axe-core/playwright` |
-| 6 | Touch targets (< 24px) | layout assertion + axe `target-size` |
+| 6 | Touch targets below 24×24 (WCAG 2.5.8, inline text links exempted, ≤4px helpers ignored) | layout assertion + axe `target-size` (enabled explicitly) |
 | 7 | Console errors | Playwright listeners |
 | 8 | Page errors / unhandled rejections | Playwright listeners |
 | 9 | Failed requests + 4xx/5xx responses | Playwright listeners |

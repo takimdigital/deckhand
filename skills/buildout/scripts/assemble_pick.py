@@ -25,7 +25,10 @@ OVERRIDES = ROOT / "data" / "items" / "overrides.jsonl"
 def load_items(patterns, overrides_path=OVERRIDES):
     items = {}
     for pat in patterns:
-        for fp in sorted(glob.glob(pat)):
+        matches = sorted(glob.glob(pat))
+        if not matches:
+            raise FileNotFoundError(f"no item files matched {pat!r} - check the --items glob")
+        for fp in matches:
             p = Path(fp)
             if p.name == "overrides.jsonl":
                 continue
@@ -121,7 +124,11 @@ def main():
     ap_.add_argument("--allow-unthemed", action="store_true")
     ap_.add_argument("--list", action="store_true", help="list filtered pool instead of sampling")
     args = ap_.parse_args()
-    items = load_items(args.items or [DEFAULT_ITEMS])
+    try:
+        items = load_items(args.items or [DEFAULT_ITEMS])
+    except FileNotFoundError as err:
+        print(str(err))
+        return 2
     lock = json.loads(Path(args.lock).read_text(encoding="utf-8")) if args.lock else None
     tags = [t.strip() for t in args.tags.split(",") if t.strip()]
     if args.list:

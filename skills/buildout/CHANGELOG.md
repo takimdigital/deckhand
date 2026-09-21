@@ -1,5 +1,18 @@
 # Changelog - Buildout
 
+## 0.4.5 — 2026-09-21
+
+Verification hardening — every audit claim now matches what the gate actually runs.
+
+### Fixed
+- **axe `target-size` never ran** — the WCAG 2.5.8 rule is DISABLED BY DEFAULT in axe-core, so the tag list alone (which included `wcag22aa`) surfaced nothing; it is now enabled explicitly, and the `wcag22a` tag was added (no-op today — axe has no such rules — but future-proof).
+- **Touch targets were recorded but never asserted** — now a soft assertion: interactive elements below 24×24 CSS px fail the run; inline text links are exempted (WCAG 2.5.8 exception), boxes ≤4px (visually-hidden helpers such as skip links) are ignored, and the exemption is recorded per element.
+- **"Exactly one `<main>`" was doc-only** — the landmark budget is now machine-checked per route (axe's landmark rules are best-practice-tagged and were never in the tag list).
+- **The kit claimed forced-colors/reduced-motion readiness that did not exist** — now real: per-route `emulateMedia` checks (forced-colors overflow is asserted; the running-animation count is recorded) run in a mode restored before the baseline screenshot.
+- **`registry_sync.py list` + `onboard` tracebacked without a snapshot** — both now print `no snapshot - run: py scripts/registry_sync.py sync` and exit 1 (matching `check`).
+- **`assemble_pick.py` treated a bad `--items` glob as an empty pool** — a pattern matching no files is now a hard error (`no item files matched …`).
+- **CHANGELOG 0.1.0 said "18 reference files", enumerated 17** — corrected.
+
 ## 0.4.4 — 2026-09-21
 
 - **One source of truth for the gate's origin, everywhere it appears.** The Lighthouse spec derives its origin from `testInfo.project.use.baseURL` (the config — which itself resolves `AUDIT_BASE_URL` / `AUDIT_PORT`) instead of re-reading the env vars, and `design:links` resolves the same chain inside node — the last two copies (spec + link-check script) of a hardcoded `127.0.0.1:3000` are gone. The spec throws a named error if a config ever lacks `use.baseURL` (loud, never a silently dead localhost).
@@ -78,7 +91,7 @@ Buildout engine: boilerplate start + coherent design assembly from the living sh
 
 Initial release.
 
-- SKILL.md router + 18 reference files:
+- SKILL.md router + 17 reference files:
   - formats/: step-record, handoff-envelope, verify-ladder, terminal-states
   - playbooks/: update-loop, delegation-briefs
   - lifecycle/: 00-ideation, 10-foundations, 20-build, 30-design, 40-git, 50-deploy, 60-maintain

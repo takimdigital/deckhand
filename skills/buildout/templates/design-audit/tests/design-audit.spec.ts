@@ -32,12 +32,15 @@ async function layout(page: Page) {
     )
       .filter((el) => {
         const r = el.getBoundingClientRect();
-        return r.width > 0 && r.height > 0 && (r.width < 24 || r.height < 24);
+        // >4px excludes visually-hidden helpers (sr-only skip links render 1x1 clipped)
+        return r.width > 4 && r.height > 4 && (r.width < 24 || r.height < 24);
       })
-      .slice(0, 20)
+      .slice(0, 50)
       .map((el) => ({
         tag: el.tagName.toLowerCase(),
         text: (el.textContent ?? '').trim().slice(0, 40),
+        display: getComputedStyle(el).display,
+        exempt: getComputedStyle(el).display === 'inline', // WCAG 2.5.8 inline-text exception
       }));
     return {
       url: location.href,
@@ -46,6 +49,7 @@ async function layout(page: Page) {
       clientWidth: de.clientWidth,
       overflowX: de.scrollWidth > de.clientWidth + 1,
       dir: de.getAttribute('dir') ?? document.body?.getAttribute('dir') ?? 'ltr',
+      mains: document.querySelectorAll('main').length,
       smallTargets,
       css: (() => {
         let sheets = 0;
@@ -101,9 +105,10 @@ for (const route of cfg.routes) {
     await page.goto(route.path, { waitUntil: 'load' });
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
 
-    // 1) accessibility — WCAG 2.2 A/AA
+    // 1) accessibility — WCAG 2.2 A/AA (axe disables target-size by default: enable it)
     const axe = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'])
+      .options({ rules: { 'target-size': { enabled: true } } })
       .analyze();
 
     // 2) layout at the project viewport
@@ -118,6 +123,20 @@ for (const route of cfg.routes) {
       if (restore) await page.setViewportSize(restore);
     }
 
+    // 2c) alternate modes — forced colors + reduced motion, emulated then restored BEFORE the
+    //     baseline screenshot. Forced-colors overflow is asserted; the running-animation count
+    //     is recorded for the reduced-motion check.
+    await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+    await page.waitForTimeout(150);
+    const forcedLayout = await layout(page);
+    const modes = {
+      forcedColorsOverflowX: forcedLayout.overflowX,
+      reducedMotionRunningAnimations: await page.evaluate(
+        () => document.getAnimations().filter((a) => a.playState === 'running').length,
+      ),
+    };
+    await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'no-preference' });
+
     // 3) meta/OG + collect the full audit payload (ONE attachment per route)
     const seoReport = await seo(page);
     await attachJson(testInfo, `audit-${route.name}.json`, {
@@ -126,6 +145,7 @@ for (const route of cfg.routes) {
       axeViolations: axe.violations,
       layout: layoutReport,
       narrow320,
+      modes,
       seo: seoReport,
       console: events.console,
       pageErrors: events.pageError,
@@ -161,6 +181,12 @@ for (const route of cfg.routes) {
       `no committed CSS reached ${route.path} — the build likely shipped an empty stylesheet (check the Tailwind/@import form and the build config before trusting visual diffs)`,
     ).toBe(true);
     if (narrow320) expect.soft(narrow320.overflowX, 'horizontal overflow at 320px').toBe(false);
+    expect.soft(
+      layoutReport.smallTargets.filter((t) => !t.exempt),
+      `touch targets below 24x24 CSS px (WCAG 2.5.8, inline text links exempted) on ${route.path}`,
+    ).toEqual([]);
+    expect.soft(layoutReport.mains, `exactly one <main> landmark per page on ${route.path}`).toBe(1);
+    expect.soft(modes.forcedColorsOverflowX, `horizontal overflow under forced-colors on ${route.path}`).toBe(false);
     if (route.key) {
       expect.soft(seoReport.title, 'missing <title>').toBeTruthy();
       expect.soft(seoReport.description, 'missing meta description').toBeTruthy();

@@ -4,7 +4,7 @@ Load when: the UI is about to be called done (before deploy/handoff), or any des
 
 ## What it is
 
-One command runs a 16-check design matrix and emits ONE machine-readable report an agent reads cheaply: visual baselines + committed-CSS presence (an unstyled build fails loudly) · device matrix (desktop 1440 / Pixel 5 / iPhone 14 WebKit / Firefox smoke) · light+dark · WCAG 2.2 A/AA via axe · console+page errors · failed + 4xx/5xx requests · horizontal overflow (+ 320px reflow) · touch targets · title/description/OG · Lighthouse perf+SEO+best-practices · link crawl · HTML validity · CSS + jsx-a11y lint.
+One command runs a 16-check design matrix and emits ONE machine-readable report an agent reads cheaply: visual baselines + committed-CSS presence (an unstyled build fails loudly) · device matrix (desktop 1440 / Pixel 5 / iPhone 14 WebKit / Firefox smoke) · light+dark+forced-colors/reduced-motion checks · WCAG 2.2 A/AA via axe · console+page errors · failed + 4xx/5xx requests · horizontal overflow (+ 320px reflow) · touch targets (24×24, non-inline) · title/description/OG · Lighthouse perf+SEO+best-practices · link crawl · HTML validity · CSS + jsx-a11y lint.
 
 Stack pins live in `templates/design-audit/package.snippet.json` — all permissive OSS; `@axe-core/playwright` is MPL-2.0 (consume-only, no obligations). Every tool emits its own standard JSON — the pack adds **no custom serialization**; the CTRF reporter merges test results, CLI tools write beside it, and `pnpm design:fails` (a one-line node filter) is the ONLY thing the agent reads.
 

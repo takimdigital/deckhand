@@ -11,8 +11,10 @@ names slip in.
 3. **Sync.** Working install (hermes) → repo `skills/` → `~/.claude`, `~/.agents`, `~/.codex`;
    diff each for parity; strip `__pycache__` / `.pytest_cache`; bump versions together
    (frontmatter, CHANGELOG top entry, README badge).
-4. **Zip == repo.** Rebuild the distributable zip (pack-zip builder from the publishing skill) and
-   confirm its entry count equals `git ls-files`.
+4. **Zip == repo — byte-level.** Rebuild the distributable zip from the repo root (publishing
+   skill's builder) and verify EVERY entry is byte-identical, not just present:
+   `py scripts/zip_parity.py "C:/Users/Takim/deckhand.zip"` → must print `PARITY OK`.
+   Count parity is not parity — it passed a stale-content zip for two releases.
 5. **Notes.** Write release notes to a file — improvements + fixes only, ≤ 8 user-facing bullets,
    no internal narration, no project provenance — then gate the draft:
    `py scripts/leak_sweep.py --file <notes.md>` → must exit 0.

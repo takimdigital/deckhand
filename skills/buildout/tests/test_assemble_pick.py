@@ -43,6 +43,10 @@ class PickTests(unittest.TestCase):
     def test_empty_pool_signal(self):
         self.assertEqual(ap.pick([], "hero", [], k=3, seed=1), [])
 
+    def test_missing_glob_is_an_error(self):
+        with self.assertRaises(FileNotFoundError):
+            ap.load_items([str(ROOT / "data" / "items" / "definitely-not-there-*.jsonl")])
+
     def test_uncurated_items_need_text_match(self):
         pool = POOL + [it("@f/mystery", [], [], "@f"), it("@g/animated-hero-widget", [], ["animated"], "@g")]
         got = {p["id"] for p in ap.pick(pool, "hero", ["animated"], k=99, seed=2)}

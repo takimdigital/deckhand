@@ -1,7 +1,7 @@
 ---
 name: buildout
 description: "Build/ship SaaS and online businesses with expert refs."
-version: 0.4.4
+version: 0.4.5
 author: Takim, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]

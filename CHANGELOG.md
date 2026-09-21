@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-09-21 — audit claims verified against the code; zip parity is now byte-level (buildout v0.4.5 / pack v0.14.5)
+
+A line-by-line audit of the design gate's claims against its implementation found gaps between what
+the kit said and what the gate actually ran. All are closed at the code level:
+
+- **axe's `target-size` never ran** — the WCAG 2.5.8 rule ships disabled in axe-core, so the existing
+  tag list surfaced nothing about touch targets; it is now enabled explicitly (`wcag22a` tag added
+  too — a no-op today, future-proof). Touch targets below 24×24 CSS px now FAIL the run instead of
+  being merely recorded, with inline text links exempted per the standard's own exception.
+- **"Exactly one `<main>`" was documented, not checked** — now a per-route assertion in the gate.
+- **forced-colors / reduced-motion support was claimed without an implementation** — now real:
+  per-route media emulation (restored before the baseline screenshot), with forced-colors overflow
+  asserted and the running-animation count recorded.
+- **Two silent-input traps closed:** `registry_sync.py list|onboard` now print
+  `no snapshot - run: py scripts/registry_sync.py sync` instead of tracebacking, and
+  `assemble_pick.py` fails loudly on an `--items` glob that matches nothing (was a silent empty pool).
+- **The zip-vs-repo invariant is now BYTE-level.** Entry-count parity had passed a distributable
+  whose nine files sat two versions old — the new `scripts/zip_parity.py <zip>` compares every
+  entry's bytes (and flags missing/extra files), and the release checklist runs it before anything
+  ships.
+
 ## 2026-09-21 — one origin, one truth (buildout v0.4.4 / pack v0.14.4)
 
 The design gate's app address now resolves in exactly ONE place — the Playwright config — everywhere
