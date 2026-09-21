@@ -34,7 +34,7 @@ those plugins together in a single page load per route.
    - `design-audit/routes.example.json` → `<repo>/design-audit/routes.json` (rename)
    - `stylelintrc.template.json` → `<repo>/.stylelintrc.json` (enables `design:css`)
    - `htmlvalidate.template.json` → `<repo>/.htmlvalidate.json` (tunes `design:html`)
-   - `eslint.template.mjs` → `<repo>/eslint.config.mjs` — **only if** the repo has no eslint flat config; if it has one, add the `jsx-a11y` block to that config instead.
+   - `eslint.template.mjs` → `<repo>/eslint.config.mjs` — **only if** the repo has no eslint flat config; if it has one, add the `jsx-a11y` block to that config instead. (The template also wires the TypeScript parser and ignores build dirs — without those, the lint report fills with build noise.)
 2. Merge `package.snippet.json` into the repo's `package.json` (devDependencies + scripts; keep the exact pins; **add** new keys, never overwrite the repo's own).
 3. `pnpm install` — in an agent shell (no TTY) this can abort with `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`; rerun as `CI=true pnpm install --no-frozen-lockfile` (the flag matters when the lockfile just changed).
 4. Install browsers: `pnpm exec playwright install chromium webkit firefox`

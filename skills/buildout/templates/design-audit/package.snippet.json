@@ -1,8 +1,9 @@
 {
-  "$comment": "design-audit — merge this block into the app's package.json (exact pins: snapshot + report formats are version-locked). THREE things to check per app: (1) the design:links port (default :3000); (2) the design:css glob — {app,src,styles} covers the common layouts, add yours if different; (3) design:lint needs an eslint flat config — copy eslint.template.mjs if the repo has none (eslint 9.x pin: the jsx-a11y plugin's peer range excludes 10). Exit codes are the gate: html-validate/stylelint/eslint exit non-zero on findings.",
+  "$comment": "design-audit — merge this block into the app's package.json (exact pins: snapshot + report formats are version-locked). THREE things to check per app: (1) the design:links port (default :3000); (2) the design:css glob — {app,src,styles} covers the common layouts, add yours if different; (3) design:lint needs an eslint flat config — copy eslint.template.mjs if the repo has none (eslint 9.x + typescript-eslint parser pins: the jsx-a11y plugin's peer range excludes eslint 10). Exit codes are the gate: html-validate/stylelint/eslint exit non-zero on findings.",
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.63.0",
+    "@typescript-eslint/parser": "8.70.0",
     "cross-env": "10.1.0",
     "eslint": "9.39.5",
     "eslint-plugin-jsx-a11y": "6.10.2",
@@ -20,7 +21,7 @@
     "design:fails": "node -e \"const r=require('./design-audit/ctrf/ctrf-report.json');const t=r.results.tests.filter(x=>x.status!=='passed');console.log(JSON.stringify({summary:r.results.summary,tests:t},null,1))\"",
     "design:links": "linkinator http://127.0.0.1:3000 --recurse --format json > design-audit/reports/links.json",
     "design:html": "html-validate \"design-audit/artifacts/html/**/*.html\" -f json=design-audit/reports/html-validate.json",
-    "design:css": "stylelint \"{app,src,styles}/**/*.css\" -f json -o design-audit/reports/stylelint.json",
+    "design:css": "stylelint \"{app,src,styles}/**/*.css\" -f json > design-audit/reports/stylelint.json 2>&1",
     "design:lint": "eslint . -f json -o design-audit/reports/eslint.json"
   }
 }
