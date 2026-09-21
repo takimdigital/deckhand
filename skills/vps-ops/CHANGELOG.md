@@ -1,5 +1,9 @@
 # Changelog — vps-ops
 
+## 0.9.5 — 2026-09-21
+
+- **Pre-push lockfile pre-flight (ref 40 §3):** when `package.json`/`pnpm-lock.yaml` changed, run `CI=true pnpm install --frozen-lockfile` (exit 0 required) BEFORE the push; deploys install frozen and die on drift (`ERR_PNPM_OUTDATED_LOCKFILE` — a real deploy was lost to this exact class). The repair line — `CI=true pnpm install --no-frozen-lockfile` + commit the lockfile in the same push — is inline with the check.
+
 ## 0.9.4 — 2026-09-21
 
 - **`coolify_api.py dlogs <APP_UUID>`** — the newest deployment's build log, JSON-decoded, tailed (`--tail N`) and greppable (`--grep ERR_PNPM`, `--deployment <id>` to pin). Build failures are now read from one command — before, the raw listing's `logs` field was the only path and needed a custom script.

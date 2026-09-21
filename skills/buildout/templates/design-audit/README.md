@@ -9,7 +9,7 @@ those plugins together in a single page load per route.
 
 | # | Check | Tool |
 |---|---|---|
-| 1 | Visual regression (pixel baselines per project) | Playwright `toHaveScreenshot` |
+| 1 | Visual regression (pixel baselines per project) + stylesheet sanity (an empty-CSS build fails loudly, not as a wall of diffs) | Playwright `toHaveScreenshot` + layout assertion |
 | 2 | Device matrix: desktop 1440 · mobile 393 (Pixel 5) · iPhone 14 (WebKit) | Playwright projects |
 | 3 | Dark scheme + forced-colors/reduced-motion ready | Playwright `colorScheme` |
 | 4 | Firefox smoke (tagged `@smoke` routes) | Playwright projects |

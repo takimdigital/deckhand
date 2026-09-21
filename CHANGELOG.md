@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-21 — sharper checks, quieter failures (buildout v0.4.2 / vps-ops v0.9.5 / pack v0.14.2)
+
+Follow-up hardening from the same live validation run — three more wrong paths made unenterable:
+
+- **Committed-CSS presence is its own check now:** any route that loads with zero reachable stylesheet rules fails loudly (`no committed CSS reached <route>`) — with the sheets/rules counts recorded in the audit attachment — instead of surfacing as a wall of giant screenshot diffs that reads like a rendering mystery. Born from an auto-fix that let a build "succeed" while shipping an empty stylesheet.
+- **Pre-push lockfile pre-flight** (vps-ops ref 40 §3): when `package.json` or the lockfile changed, `CI=true pnpm install --frozen-lockfile` must exit 0 BEFORE the push — deploys install frozen and `ERR_PNPM_OUTDATED_LOCKFILE` kills them there, never locally. The repair command (and why the flag is required) ships inline.
+- **Publisher fix:** the release-asset verification step now pins `gh release download -R <owner>/<repo>` — unpinned from a non-repo directory it silently downloads nothing and the follow-up read fails.
+
 ## 2026-09-21 — every trap becomes a fix (buildout v0.4.1 / vps-ops v0.9.4 / pack v0.14.1)
 
 The design-audit kit's first full contact with a production app turned each surprise into a

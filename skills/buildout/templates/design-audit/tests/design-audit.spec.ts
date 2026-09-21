@@ -47,6 +47,19 @@ async function layout(page: Page) {
       overflowX: de.scrollWidth > de.clientWidth + 1,
       dir: de.getAttribute('dir') ?? document.body?.getAttribute('dir') ?? 'ltr',
       smallTargets,
+      css: (() => {
+        let sheets = 0;
+        let rules = 0;
+        for (const s of Array.from(document.styleSheets)) {
+          sheets += 1;
+          try {
+            rules += s.cssRules.length;
+          } catch {
+            /* cross-origin sheet — count the sheet, its rules are unreachable */
+          }
+        }
+        return { sheets, rules };
+      })(),
     };
   });
 }
@@ -143,6 +156,10 @@ for (const route of cfg.routes) {
     expect.soft(failedReqs, `failed requests on ${route.path}`).toEqual([]);
     expect.soft(badResps, `4xx/5xx responses on ${route.path}`).toEqual([]);
     expect.soft(layoutReport.overflowX, `horizontal overflow at ${layoutReport.viewport.w}px`).toBe(false);
+    expect.soft(
+      layoutReport.css.sheets > 0 && layoutReport.css.rules > 0,
+      `no committed CSS reached ${route.path} — the build likely shipped an empty stylesheet (check the Tailwind/@import form and the build config before trusting visual diffs)`,
+    ).toBe(true);
     if (narrow320) expect.soft(narrow320.overflowX, 'horizontal overflow at 320px').toBe(false);
     if (route.key) {
       expect.soft(seoReport.title, 'missing <title>').toBeTruthy();

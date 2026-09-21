@@ -1,5 +1,9 @@
 # Changelog - Buildout
 
+## 0.4.2 — 2026-09-21
+
+- **New check inside the audit spec — committed-CSS presence:** every route now also asserts that at least one stylesheet with real rules reached the page (`layout.css: {sheets, rules}` lands in the audit attachment). The class that motivated it: a build that "succeeds" while shipping an EMPTY stylesheet (e.g. an auto-fix mangling the Tailwind `@import` form) used to surface as a wall of giant screenshot diffs — now it fails loudly as `no committed CSS reached <route>` before the visual noise gets diagnosed. Coverage row + ref text updated; relax the assertion only for apps whose CSS is entirely cross-origin.
+
 ## 0.4.1 — 2026-09-21
 
 - **design-audit hardened by contact with a real app** — every trap below was hit, fixed, and re-verified green before this entry: html-validate `elements` overrides are banned (they REPLACE the built-in element metadata and explode the audit with 1,700+ bogus `element-name`/`no-self-closing` findings — turn the one rule off instead); stylelint's `import-notation` is pinned to `"string"` (auto-fix rewrites `@import "tailwindcss"` → `url()`, which Tailwind v4 does not resolve — build stays green, the app ships with an EMPTY stylesheet, every visual baseline fails with a giant diff); a gate that is red with an EMPTY report is documented as a config error (stylelint rule-option rejection exits 2 with zero warnings — check `errored`/`invalidOptionWarnings` first).

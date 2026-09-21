@@ -40,6 +40,13 @@ shippable work; uncommitted work is work lost**. Never go more than one mileston
 
 **3 — Commit + push.**
 
+**Pre-flight when `package.json` or the lockfile changed:** deploys install with `--frozen-lockfile` and die on any drift (`ERR_PNPM_OUTDATED_LOCKFILE`) — check BEFORE the push, repair in the same push:
+
+```bash
+CI=true pnpm install --frozen-lockfile      # exit 0 = lockfile matches package.json; exit 1 + ERR_PNPM_OUTDATED_LOCKFILE = repair first
+CI=true pnpm install --no-frozen-lockfile && git add pnpm-lock.yaml   # the repair (CI=true alone stays frozen — the flag is required)
+```
+
 ```bash
 git add -A && git commit -m "<message>" && git push origin main
 git rev-parse --short HEAD        # record the short sha for the report
