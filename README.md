@@ -112,6 +112,7 @@ Deployed and validated end to end against a real Coolify instance:
 - [x] **Backups** — schedule → dump → **restore drill** (`pg_restore` into a scratch database, verified)
 - [x] **Build packs** — Nixpacks and Dockerfile · **ops** — logs, deployments, env vars, docker cleanup
 - [x] **51 unit tests** green (standard library only)
+- [x] **Design audit gate** — validated end-to-end on a production app by a zero-context agent: 28-test matrix, deterministic baselines, and real findings surfaced on its first run
 - [x] **Paid track validated live** — a real Next.js + Postgres SaaS deployed end-to-end on a rented VPS: Coolify → Cloudflare DNS-only → Let's Encrypt, with migrations, seed data and a production-owner flow — every error it surfaced is now folded back into the runbooks.
 
 ## ⚡ The skills

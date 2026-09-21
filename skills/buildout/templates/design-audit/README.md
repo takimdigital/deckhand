@@ -29,37 +29,36 @@ those plugins together in a single page load per route.
 ## Install (one time)
 
 1. Copy into the app repo:
-   - this folder → `<repo>/design-audit/`
+   - this folder → `<repo>/design-audit/` — keep `routes.example.json` and the `*.template.*` files; they are the kit's masters, the installed copies are the renamed files below.
    - `playwright.config.template.ts` → `<repo>/playwright.config.ts` (rename; **merge** if the repo already has one)
    - `design-audit/routes.example.json` → `<repo>/design-audit/routes.json` (rename)
-   - `stylelintrc.template.json` → `<repo>/.stylelintrc.json` (optional, enables `design:css`)
-   - `htmlvalidate.template.json` → `<repo>/.htmlvalidate.json` (optional, tunes `design:html`)
-2. Merge `package.snippet.json` into the repo's `package.json` (devDependencies + scripts; keep the exact pins).
-3. `pnpm install`
+   - `stylelintrc.template.json` → `<repo>/.stylelintrc.json` (enables `design:css`)
+   - `htmlvalidate.template.json` → `<repo>/.htmlvalidate.json` (tunes `design:html`)
+   - `eslint.template.mjs` → `<repo>/eslint.config.mjs` — **only if** the repo has no eslint flat config; if it has one, add the `jsx-a11y` block to that config instead.
+2. Merge `package.snippet.json` into the repo's `package.json` (devDependencies + scripts; keep the exact pins; **add** new keys, never overwrite the repo's own).
+3. `pnpm install` — in an agent shell (no TTY) this can abort with `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`; rerun as `CI=true pnpm install --no-frozen-lockfile` (the flag matters when the lockfile just changed).
 4. Install browsers: `pnpm exec playwright install chromium webkit firefox`
 5. Fill the two values:
-   - `playwright.config.ts` — you can leave the defaults if `pnpm build && pnpm start` serves on :3000;
-     otherwise set `AUDIT_PORT` / `AUDIT_START_CMD` (env) or edit the two lines directly.
-   - `design-audit/routes.json` — your real routes. `"key": true` on up to ~5 important pages (they get
-     Lighthouse + OG asserts); `"smoke": true` on ONE page (the Firefox smoke visit).
-     Noise allow-lists: `allow.console` / `allow.network` take substrings — add third-party noise here,
-     never a real failure.
+   - `playwright.config.ts` — leave the defaults if `pnpm build && pnpm start` serves on :3000; otherwise pin per invocation: `AUDIT_PORT=3000 AUDIT_START_CMD='pnpm build && pnpm start' pnpm design:audit:fast`. A stale ambient `AUDIT_*` value silently retargets the whole gate — when an override is active the config prints the resolved values.
+   - `design-audit/routes.json` — your real routes. `"key": true` on up to ~5 important pages (Lighthouse + OG asserts); `"smoke": true` on ONE page (the Firefox smoke visit). `allow.console` / `allow.network` take substrings for third-party noise — never a real failure.
 
 ## Run
 
 ```bash
-pnpm design:audit          # everything: 6 projects + Lighthouse
-pnpm design:audit:fast     # the 4 visual projects only (day-to-day loop)
-pnpm design:fails          # failures + summary ONLY — the file the AI reads
-pnpm design:links          # link crawl (the app must already be running)
-pnpm design:html           # HTML validity over the saved dumps
-pnpm design:css            # stylelint JSON
-pnpm design:lint           # eslint JSON
+pnpm design:audit            # everything: 6 projects + Lighthouse
+pnpm design:audit:fast       # the 4 visual projects only (day-to-day loop)
+pnpm --silent design:fails   # failures + summary ONLY — the file the AI reads (--silent keeps pnpm's banner out of the JSON)
+pnpm design:links            # link crawl (the app must already be running)
+pnpm design:html             # HTML validity over the saved dumps
+pnpm design:css              # stylelint JSON
+pnpm design:lint             # eslint JSON
 ```
 
 - **First run ever:** `pnpm design:audit:update` once, then **commit** `design-audit/tests/__screenshots__/`.
 - After an intentional design change: `pnpm design:audit:update` → commit the diff. That commit *is* the review.
 - A missing baseline **fails** on CI by design — baselines are never created silently.
+- **Exit codes are the gate:** `design:html`, `design:css`, `design:lint` exit non-zero when they find something (a red gate, not a crash). A `design:links` report with `"links": []` means the crawl saw nothing — sanity-check before trusting `"passed": true`.
+- **First run on an existing codebase:** expect lint noise (stylelint-config-standard conventions, html-validate structure messages). Triage it — relax the rules you consciously accept (both templates ship the first batch of tune-downs) rather than ignoring files.
 
 ## Baselines & determinism (the one hard rule)
 
@@ -72,14 +71,16 @@ docker run --ipc=host -v "C:/path/to/repo:/work" -w /work mcr.microsoft.com/play
 ```
 
 No Docker on the machine? **Degraded mode**: run natively (`pnpm design:audit:update`) on this one
-machine only — and say so in your report. Never mix environments and never loosen
-`maxDiffPixelRatio`/`threshold` to mask an OS difference.
+machine only — never mix environments and never loosen `maxDiffPixelRatio`/`threshold` to mask an
+OS difference. **Record which mode produced them in the update commit message**
+(e.g. `design-audit: baselines (container)` / `(native, degraded)`) — that is how a reader of the
+committed set can tell.
 
 ## Reading failures (token discipline)
 
-Read `pnpm design:fails` — never raw logs, the HTML report, or screenshots. Each failed test in
-`design-audit/ctrf/ctrf-report.json` carries `filePath`, `message`, `trace`, and attachment paths
-(`audit-<route>.json`, screenshots, `*-diff.png`, `trace.zip`, `lighthouse-<route>.json`).
+Read `pnpm --silent design:fails` — never raw logs, the HTML report, or screenshots. Each failed
+test in `design-audit/ctrf/ctrf-report.json` carries `filePath`, `message`, `trace`, and attachment
+paths (`audit-<route>.json`, screenshots, `*-diff.png`, `trace.zip`, `lighthouse-<route>.json`).
 Open a `*-diff.png` **only** when the visual change is ambiguous. Fix with `AUTO-FIX-PROMPT.md`.
 
 ## Gitignore (append to the repo's .gitignore)
@@ -109,6 +110,10 @@ design-audit/
 ├── AUTO-FIX-PROMPT.md         # the agent fix-loop prompt
 ├── package.snippet.json       # devDeps + scripts to merge
 ├── routes.example.json        # copy → routes.json
+├── playwright.config.template.ts  # copy → <repo>/playwright.config.ts
+├── stylelintrc.template.json      # copy → <repo>/.stylelintrc.json (if none exists)
+├── htmlvalidate.template.json     # copy → <repo>/.htmlvalidate.json (if none exists)
+├── eslint.template.mjs            # copy → <repo>/eslint.config.mjs (only if no eslint flat config)
 ├── tests/
 │   ├── design-audit.spec.ts   # the 16-check unified spec (one load per route)
 │   ├── perf.spec.ts           # Lighthouse pass (runs only in the `lh` project)

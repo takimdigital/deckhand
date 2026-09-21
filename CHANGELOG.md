@@ -24,6 +24,12 @@ Design QA was the last eyeball pass left in the pipeline. It is now a one-comman
   release; the 5-line ship receipt gains one `Design:` line.
 - Verified before shipping: fixture run 6/6 green + a Lighthouse pass; every dependency pin
   registry-checked the same day.
+- **Fresh-eyes validated before release:** a zero-context agent followed the docs and installed the
+  kit into a production Next.js app — 28 tests ran, baselines proved deterministic across repeated
+  runs, and the run caught three kit blockers + four traps *before* tagging (a quiet link-check that
+  self-passed on zero links, an HTML-validator config/flag mismatch, the non-TTY install abort,
+  ambient-config inheritance) — all fixed and re-verified in this release. It also surfaced four
+  real issues in that app on its first run — the gate doing its job.
 
 ## 2026-09-21 — the build that was never running (buildout v0.3.3 / pack v0.13.3)
 

@@ -5,12 +5,18 @@
 //
 // Env knobs: AUDIT_PORT (default 3000) · AUDIT_START_CMD (default 'pnpm build && pnpm start')
 //            AUDIT_NO_SERVER=1 to use an already-running server and skip webServer.
+// Pin overrides per invocation — a STALE ambient AUDIT_* value silently retargets the whole gate
+// (live-hit); whenever an override is active this config prints the resolved values.
 
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = process.env.AUDIT_PORT ?? '3000';
 const START_CMD = process.env.AUDIT_START_CMD ?? 'pnpm build && pnpm start';
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+
+if (process.env.AUDIT_PORT || process.env.AUDIT_START_CMD) {
+  console.error(`[design-audit] env override active — baseURL=${BASE_URL} start="${START_CMD}"`);
+}
 
 export default defineConfig({
   testDir: './design-audit/tests',

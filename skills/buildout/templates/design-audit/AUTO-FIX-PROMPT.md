@@ -7,7 +7,7 @@ never raw logs or screenshots (unless a diff is ambiguous).
 
 ```
 You are fixing DESIGN AUDIT failures in <repo> (stack: <e.g. Next.js + Tailwind>).
-Input: run `pnpm design:fails` (reads design-audit/ctrf/ctrf-report.json). Work ONLY from the failures.
+Input: run `pnpm --silent design:fails` (reads design-audit/ctrf/ctrf-report.json). Work ONLY from the failures.
 
 For each failed test:
 1. Classify: visual | a11y (axe rule id) | layout/overflow | perf | link | html | console/page-error | network.

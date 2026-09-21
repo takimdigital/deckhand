@@ -12,20 +12,20 @@ Stack pins live in `templates/design-audit/package.snippet.json` — all permiss
 
 1. Install per `templates/design-audit/README.md` (copy-in, deps merge, browsers, fill `playwright.config.ts` + `routes.json`).
 2. First time only: `pnpm design:audit:update` → **commit** `design-audit/tests/__screenshots__/`.
-3. `pnpm design:audit:fast` → `pnpm design:fails`.
+3. `pnpm design:audit:fast` → `pnpm --silent design:fails`.
 4. Fix with `templates/design-audit/AUTO-FIX-PROMPT.md` (reads ONLY the filtered failures).
 5. Re-run scope: `pnpm exec playwright test --grep "<name>"` — max 3 iterations per failure.
 6. Green = zero axe A/AA · zero console/page errors · zero failed/4xx (minus allow-lists) · no overflow at 320 + project widths · perf ≥ budget · zero broken links · html/lint clean.
 
 ## Determinism rules (hard)
 
-- Baselines are generated ONLY in `mcr.microsoft.com/playwright:v1.63.0-noble` (Docker). No Docker = degraded same-machine mode — **say so in the report**; never mix environments; never loosen `maxDiffPixelRatio`/`threshold` to mask an OS render diff.
+- Baselines are generated ONLY in `mcr.microsoft.com/playwright:v1.63.0-noble` (Docker). No Docker = degraded same-machine mode — **say so in the report and in the baseline-update commit message**; never mix environments; never loosen `maxDiffPixelRatio`/`threshold` to mask an OS render diff. When you pin `AUDIT_PORT`/`AUDIT_START_CMD` overrides, pin them per invocation — a stale ambient value silently retargets the gate (the config prints the resolved values whenever an override is active).
 - Baselines change ONLY via explicit `update` commits — that commit is the review. Never edit snapshots, delete assertions, or skip to make a real failure pass.
 - On a deployed app (`OPS.md` present): run `design:audit:fast` (+ `design:links`) as an optional pre-release gate for user-facing changes, and add the design line to the ship receipt (`vps-ops` ref 40).
 
 ## Token discipline
 
-Read `pnpm design:fails` — never raw logs, the HTML report, or screenshot folders. Open a `*-diff.png` only when the visual delta is ambiguous. Evidence files on disk: `design-audit/ctrf/ctrf-report.json` (spine; attachments carry paths), `design-audit/artifacts/` (screenshots/traces/audit JSONs), `design-audit/reports/*.json` (links/html/css/lint).
+Read `pnpm --silent design:fails` — never raw logs, the HTML report, or screenshot folders. (`--silent` keeps pnpm's banner out of the JSON.) Open a `*-diff.png` only when the visual delta is ambiguous. Evidence files on disk: `design-audit/ctrf/ctrf-report.json` (spine; attachments carry paths), `design-audit/artifacts/` (screenshots/traces/audit JSONs), `design-audit/reports/*.json` (links/html/css/lint).
 
 ## Gaps (deliberate — no maintained OSS package exists)
 
