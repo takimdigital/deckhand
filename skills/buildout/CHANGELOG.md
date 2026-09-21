@@ -1,5 +1,12 @@
 # Changelog - Buildout
 
+## 0.4.0 — 2026-09-21
+
+- **New: the design-audit gate** (ref `30-design-audit.md` + `templates/design-audit/`) — one command covers the whole front-end surface: visual baselines per project (desktop/mobile/dark/WebKit), Firefox smoke, WCAG 2.2 A/AA (axe), console + page errors, failed & 4xx/5xx requests, horizontal overflow incl. a 320px reflow probe, touch targets, title/description/OG, Lighthouse perf/SEO/best-practices, link crawl, HTML validity, CSS + jsx-a11y lint — and emits ONE machine-readable report (CTRF spine; the agent reads only a one-line failure filter). No custom test framework: two thin spec files wire maintained OSS (Playwright 1.63 · axe-core 4.13 · Lighthouse 13.5 · linkinator · html-validate · stylelint/jsx-a11y; every pin registry-verified 2026-09-21).
+- **Deterministic by construction:** baselines generate only in the pinned Playwright container (`mcr.microsoft.com/playwright:v1.63.0-noble`) and change only through explicit `design:audit:update` commits; a missing baseline fails instead of passing silently; degraded (no-Docker) mode documented — environments never mix.
+- **Fix loop as data:** `AUTO-FIX-PROMPT.md` bans the classic cheats (editing snapshots, loosening thresholds, skipping real failures) and scopes re-runs with `--grep`.
+- Verified end-to-end on a static fixture before shipping: 6/6 checks green + Lighthouse pass on the `lh` project; five real traps designed out (registry traps culled: abandoned/paid/cloud-only alternatives documented in the template README's stack notes).
+
 ## 0.3.3 - 2026-09-21
 
 - **Local-build freshness pre-flight.** Born from a real run: a rebuild under a still-running local server left the old manifest serving, so the page answered 200 while a client-rendered feature never appeared — no console error, no server error, and three diagnostic probes went hunting for a bug in new code that was not there (the real cause: a restart that failed with `EADDRINUSE: address already in use`). Hard Rules now say: prove the server is serving the build you just made (kill by PID → 0 listeners → restart → freshness check); `verify-ladder.md` gains a **Freshness** section with the both-states command output, plus the Windows/MSYS `taskkill /F /PID` single-slash note.

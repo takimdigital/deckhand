@@ -12,7 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Tests: 51 passing" src="https://img.shields.io/badge/tests-51%20passing-brightgreen.svg">
-  <img alt="Version: 0.13.3" src="https://img.shields.io/badge/version-0.13.3-blueviolet.svg">
+  <img alt="Version: 0.14.0" src="https://img.shields.io/badge/version-0.14.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
@@ -118,7 +118,7 @@ Deployed and validated end to end against a real Coolify instance:
 
 | Skill | What it does |
 | --- | --- |
-| [`buildout`](skills/buildout) | **Idea → codebase.** Expert references, execution-first build loops, verified MIT boilerplates, coherent-random design assembly from the live shadcn registry pool (MIT-only), design tokens locked once and applied everywhere. |
+| [`buildout`](skills/buildout) | **Idea → codebase.** Expert references, execution-first build loops, verified MIT boilerplates, coherent-random design assembly from the live shadcn registry pool (MIT-only), design tokens locked once and applied everywhere. Ships the **design-audit gate**: one command runs 16 front-end checks (visual baselines per device, WCAG 2.2, console/network, overflow, Lighthouse, links, HTML/lint) and emits one machine-readable report for an AI fix loop. |
 | [`component-library`](skills/component-library) | **Build → reuse.** Save any component you build; the next project starts from what you already made. |
 | [`vps-ops`](skills/vps-ops) | **Codebase → live business.** Two tracks: **paid** (your VPS + domain) or **free preview** ($0 on Oracle Cloud Always Free + a free `.pp.ua` domain). Bootstraps Coolify, wires domain/SSL, deploys with Nixpacks or Dockerfile, then runs the everyday pipeline: deploy, monitor, env changes, database + backups, rollback — plus a migration runbook to move from the free preview to a paid host. And **login email that actually arrives**: a free multi-provider chain (Resend → Mailgun → Brevo) behind a drop-in failover router + deliverability DNS, with a modular MCP catalog for DNS/registrar/email. Backups are **offsite by default** — dual cloud targets (Backblaze B2 + Tigris, both **card-free**; R2 optional), 3-copy retention, verified restore drills (all live-proven), an optional home copy with a scheduled watchdog — and apps with uploads get RustFS S3 storage, backed up the same way. |
 | [`session-autopsy`](skills/session-autopsy) | **Failure → fix.** When a run goes red, it dissects the session, finds the instruction that allowed the wrong path, and rewrites it — on a strength ladder (eliminate → pre-flight → reorder → gate → pitfall). Pitfalls are counted as debt, not solutions. |
@@ -173,9 +173,10 @@ Then just start a conversation — the examples above work verbatim.
 ```text
 assets/                    # logo + social preview (render-social-preview.ps1)
 skills/
-├── buildout/              # idea → codebase (references, buildout engine, design assembly)
+├── buildout/              # idea → codebase (references, buildout engine, design assembly, design-audit gate)
 │   ├── references/        # expert playbooks, formats, lifecycle, eval, buildout
 │   ├── scripts/           # registry sync + deterministic design picker
+│   ├── templates/         # design-audit/ — the front-end gate kit (16 checks, one report)
 │   └── tests/             # stdlib unit tests
 ├── component-library/     # save / load reusable components
 ├── vps-ops/               # Coolify deploy & ops — paid VPS or free preview (Oracle + .pp.ua)

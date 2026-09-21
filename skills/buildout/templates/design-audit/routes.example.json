@@ -1,0 +1,9 @@
+{
+  "$comment": "design-audit route list — copy to routes.json and fill with YOUR routes. name = slug used in snapshots/attachments; path = URL path; key = also runs Lighthouse + title/description/OG asserts (keep to ~5); smoke = also runs the firefox smoke project (keep to 1); visual:false = skip the screenshot for this route. allow.console / allow.network = substrings to ignore (third-party noise only — never a real failure).",
+  "allow": { "console": [], "network": [] },
+  "routes": [
+    { "name": "home", "path": "/", "key": true, "smoke": true },
+    { "name": "pricing", "path": "/pricing", "key": true },
+    { "name": "login", "path": "/login" }
+  ]
+}

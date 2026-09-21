@@ -1,7 +1,7 @@
 ---
 name: buildout
 description: "Build/ship SaaS and online businesses with expert refs."
-version: 0.3.3
+version: 0.4.0
 author: Takim, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -44,8 +44,9 @@ For greenfield projects the pack runs a buildout flow:
 1. **Boilerplate-first** — match the idea against `data/boilerplates.json`, verify MIT (`gh api repos/<owner>/<repo> --jq .license.spdx_id`), clone, strip, rebrand. Details: `references/buildout/00-start-from-boilerplate.md`.
 2. **Lock, then assemble** — one batched design-brief round → `.design/design.lock.json` (colors / fonts / radius / motion / seed) → per section, a seeded coherent pick from the live pool → apply tokens → verify gates. Details: `references/buildout/10-design-assembly.md`.
 3. **Living pool** — `py scripts/registry_sync.py sync|check|list|onboard` keeps `data/registries.snapshot.json` (synced from the 372-registry shadcn directory) and `data/items/*.jsonl` catalogs fresh. Never read the raw directory JSON; query the compact snapshot (token discipline).
-4. **Store what you build** — the companion `component-library` skill saves/reuses components (`references/buildout/20-component-library.md`).
-5. **Deploy it** — the companion `vps-ops` skill has two tracks: **paid** (user's VPS + domain) → start at `vps-ops/references/10-bootstrap-vps.md`; **free preview** (no VPS/domain yet — Oracle Always Free + free domain, $0) → `vps-ops/references/11-oracle-free-tier.md`, then `60-migrate-to-paid.md` to move later. Then the change pipeline + ops.
+4. **Verify the design** — before deploy, run the design-audit gate: one command runs 16 checks (visual baselines per device, WCAG 2.2 A/AA, console/network, overflow incl. 320px, Lighthouse, links, HTML/lint) and emits ONE machine-readable report; fix via the packaged `AUTO-FIX-PROMPT.md`; baselines change only through explicit update commits (generated in the pinned Playwright container). Details + kit: `references/buildout/30-design-audit.md` + `templates/design-audit/`.
+5. **Store what you build** — the companion `component-library` skill saves/reuses components (`references/buildout/20-component-library.md`).
+6. **Deploy it** — the companion `vps-ops` skill has two tracks: **paid** (user's VPS + domain) → start at `vps-ops/references/10-bootstrap-vps.md`; **free preview** (no VPS/domain yet — Oracle Always Free + free domain, $0) → `vps-ops/references/11-oracle-free-tier.md`, then `60-migrate-to-paid.md` to move later. Then the change pipeline + ops.
 
 ## Quick Reference — phase → file
 
@@ -66,6 +67,7 @@ For greenfield projects the pack runs a buildout flow:
 | Start a project from a boilerplate | `references/buildout/00-start-from-boilerplate.md` |
 | Design a site coherently from the live registries | `references/buildout/10-design-assembly.md` |
 | Save/reuse components you built | `references/buildout/20-component-library.md` (+ `component-library` skill) |
+| Verify the design (visual/a11y/perf/layout/lint gates) | `references/buildout/30-design-audit.md` (+ `templates/design-audit/`) |
 | Deploy & operate on a VPS (Coolify) | companion skill `vps-ops` — paid: `vps-ops/references/10-bootstrap-vps.md` · free preview: `vps-ops/references/11-oracle-free-tier.md` |
 
 ## Hard Rules (budgets & gates)
@@ -102,4 +104,5 @@ Briefs carry minimum sufficient context: goal + exact identifiers/paths + pinned
 - Verify commands were actually run and results recorded (evidence, not claims).
 - If reality contradicted a ref entry, that is an update-loop input — file it before the session ends.
 - Buildout: `py scripts/registry_sync.py check` reports a fresh snapshot; picks are deterministic for a given seed; every section component consumes `var(--…)` tokens (hex-lint clean); build passes.
+- Design audit: `pnpm design:audit:fast` green — zero axe A/AA violations, zero console/page errors, no overflow at 320 + project widths, perf ≥ budget; baselines only from explicit `design:audit:update` commits.
 - For measured proof, use the eval harness: `references/eval/README.md`.

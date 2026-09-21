@@ -105,14 +105,16 @@ gh release create vX.Y.Z --latest --title "<Product> vX.Y.Z" --notes "<≤8 bull
 
 > **gh target trap:** with a second remote (a starter kept as `upstream`), `gh` resolves the repo by
 > itself and can aim at upstream (404 / wrong repo). Run `gh repo set-default <owner>/<repo>` once in
-> the repo, or pass `-R <owner>/<repo>` — the repo-presence kit prints the set-default step for you.
+> repo, or pass `-R <owner>/<repo>` — the repo-presence kit prints the set-default step for you.
+
+- **Design gate (optional — user-facing changes):** when the app ships the design-audit kit (buildout ref 30), run `pnpm design:audit:fast` + `pnpm design:fails` before this release step and carry one `Design:` line in the receipt (e.g. `Design: OK — 0 axe, 0 console, no overflow`). Baselines are never regenerated as part of a deploy; an intentional design change updates them in its own commit.
 
 - **SemVer judged by the user's world:** patch = fixes/copy/UX polish · minor = new features/flows · major = relaunch/breaking. First release in an app's life = **v1.0.0**.
 - **Notes:** ≤ 8 short bullets, user-facing only — features, fixes, prices, availability — plus one line for anything the user must still do. No internal narration, no file lists, no fluff.
 - Keep `package.json` `version` == newest tag; keep the README's status line current.
 - **The first release also runs the one-time repo-presence pass — via the kit, never hand-built:** copy `templates/repo-presence/repo.example.json`, fill the content (facts only, our style), then `py scripts/repo_presence.py init repo.json --dir <project> --gh` renders README/LICENSE/package.json metadata and sets the repo description + topics. Re-run whenever the repo's face drifts. A repo the user is proud to open is part of "shipped".
 
-**7 — Report — exactly these 5 lines:**
+**7 — Report — the 5-line receipt (plus the optional `Design:` line when the design gate ran):**
 
 ```
 Change:     <short-sha> <commit subject>
@@ -136,6 +138,7 @@ asked; it is also the answer to "did it deploy?" (a receipt, not reassurance).
 7. **Checkpoint rule (§2b):** commit at every coherent milestone; never end a turn with more than one milestone of uncommitted edits; wide requests ship in passes. An interrupted run must leave shippable work.
 8. **Release rule (§6b):** a runtime change isn't done until it's tagged + released once smoke is green; docs-only changes deploy nothing and release nothing.
 9. **Masked secrets in reads:** tool output masks credential-looking strings (`Bearer …`, API keys → `***`). Never retype such a line from a read into an edit — match the surrounding text instead; after editing a credential-bearing file run `grep -n '\*\*\*' <file>` + the build. A pasted mask passes review and fails at runtime (live-seen on an email-sender auth line, caught only by `tsc`).
+10. **Design gate (buildout ref 30):** on a user-facing change to an app that ships the design-audit kit, run the fast gate before the release step; a red gate blocks the release like a red build.
 
 ## Failure classification
 

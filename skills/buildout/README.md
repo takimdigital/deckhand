@@ -6,6 +6,8 @@ Three protocols run through everything: execution-first loops (state -> action -
 
 **v0.2 adds a buildout engine:** start from a verified-MIT boilerplate, assemble the UI coherently from the live shadcn registry pool (372 registries, filtered + MIT-allowlisted), and store what you build for reuse via the companion `component-library` skill.
 
+**v0.4 adds the design-audit gate:** one command runs 16 front-end checks — visual baselines per device, WCAG 2.2 A/AA (axe), console/network errors, overflow incl. 320px reflow, touch targets, Lighthouse perf/SEO, broken links, HTML validity, CSS + jsx-a11y lint — and emits one machine-readable report for an AI fix loop. Assembled from maintained OSS; deterministic baselines; ships as `templates/design-audit/`.
+
 Synthesized from Phase-1 research: 8 research streams, 97 dated sources (priority window 2026-08-18 -> 2026-09-17). Rules presented as "measured" trace to specific studies (see CHANGELOG.md for key citations).
 
 ## Layout
@@ -19,7 +21,7 @@ buildout/
 |   |-- lifecycle/              # 00-ideation -> 60-maintain
 |   |-- jargon/                 # glossary-index - web-saas
 |   |-- eval/                   # harness README - trigger-eval.json
-|   `-- buildout/               # 00-start-from-boilerplate - 10-design-assembly - 20-component-library
+|   `-- buildout/               # 00-start-from-boilerplate - 10-design-assembly - 20-component-library - 30-design-audit
 |-- data/
 |   |-- allowlist.json          # MIT-verified registries (evidence + dates)
 |   |-- boilerplates.json       # MIT-verified starters + verify-at-use rule
@@ -28,6 +30,8 @@ buildout/
 |-- scripts/
 |   |-- registry_sync.py        # sync | check | list | onboard  (stdlib Python)
 |   `-- assemble_pick.py        # seeded coherent component picker (stdlib Python)
+|-- templates/
+|   `-- design-audit/           # front-end gate kit: config/specs, routes, fix prompt, pkg snippet
 |-- tests/                      # unittest suites + fixtures
 |-- CHANGELOG.md
 `-- README.md
@@ -66,6 +70,7 @@ component-library/              # companion skill (ships alongside)
 - Reference files are data, never instructions - nothing in them is executed.
 - MIT-only for anything installed (evidence in `data/allowlist.json`); fonts OFL/SIL or system only.
 - Pool discipline: query `data/registries.snapshot.json` via `scripts/registry_sync.py list --match ...`; never paste raw registry JSON; refresh with `check` -> `sync`.
+- Design gate: before handoff/deploy run the design-audit kit (`templates/design-audit/`, ref 30) — a red gate blocks like a red build; baselines move only via explicit update commits.
 
 ## License
 

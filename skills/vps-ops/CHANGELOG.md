@@ -1,5 +1,9 @@
 # Changelog — vps-ops
 
+## 0.9.3 — 2026-09-21
+
+- **ref 40 — optional design gate for user-facing changes:** when an app ships the design-audit kit (buildout ref 30), run `pnpm design:audit:fast` + `pnpm design:fails` before the release step and carry one `Design:` line in the receipt; baselines are never regenerated during a deploy (they move only in their own explicit commit). New hard rule #10: a red gate blocks the release like a red build.
+
 ## 0.9.2 — 2026-09-21
 
 - **"A schedule is verified only by its own trigger" (new invariant + ref 55 §3).** The verification section now requires EVERY scheduled leg — systemd unit, Windows task, cronjob, Coolify schedule — to fire once through the mechanism that will run it and leave a fresh artifact from THAT run before "backups live" may be claimed. Manual script runs prove the script, never the schedule (live-hit twice: a Windows task that had never run, then a systemd unit that died on its first fire while every manual drill passed).

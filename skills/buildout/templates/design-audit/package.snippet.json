@@ -1,0 +1,25 @@
+{
+  "$comment": "design-audit — merge this block into the app's package.json (exact pins: snapshot + report formats are version-locked). Scripts assume the app serves on :3000 — edit the port in design:links if different.",
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
+    "cross-env": "10.1.0",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "html-validate": "11.16.0",
+    "lighthouse": "13.5.0",
+    "linkinator": "8.1.0",
+    "playwright-ctrf-json-reporter": "0.0.29",
+    "stylelint": "17.15.0",
+    "stylelint-config-standard": "40.0.0"
+  },
+  "scripts": {
+    "design:audit": "cross-env FORCE_COLOR=0 playwright test",
+    "design:audit:fast": "cross-env FORCE_COLOR=0 playwright test --project=desktop-chromium --project=desktop-dark --project=mobile-chromium --project=mobile-webkit",
+    "design:audit:update": "cross-env FORCE_COLOR=0 playwright test --update-snapshots",
+    "design:fails": "node -e \"const r=require('./design-audit/ctrf/ctrf-report.json');const t=r.results.tests.filter(x=>x.status!=='passed');console.log(JSON.stringify({summary:r.results.summary,tests:t},null,1))\"",
+    "design:links": "linkinator http://127.0.0.1:3000 --recurse --format json --verbosity error > design-audit/reports/links.json",
+    "design:html": "html-validate \"design-audit/artifacts/html/**/*.html\" -f json -o design-audit/reports/html-validate.json",
+    "design:css": "stylelint \"src/**/*.css\" -f json -o design-audit/reports/stylelint.json",
+    "design:lint": "eslint . -f json -o design-audit/reports/eslint.json"
+  }
+}

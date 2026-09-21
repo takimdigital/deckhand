@@ -1,0 +1,8 @@
+{
+  "$comment": "design-audit — copy to <repo>/.htmlvalidate.json. Relax style-ish rules that Next/Tailwind markup trips; keep the recommended preset for the real structure errors.",
+  "extends": ["html-validate:recommended"],
+  "rules": {
+    "no-inline-style": "off",
+    "long-title": "off"
+  }
+}

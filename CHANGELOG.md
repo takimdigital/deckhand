@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-09-21 — the front-end gate (buildout v0.4.0 / vps-ops v0.9.3 / pack v0.14.0)
+
+Design QA was the last eyeball pass left in the pipeline. It is now a one-command gate that turns
+"looks fine" into evidence the agent can act on:
+
+- **New design-audit kit** (`buildout/templates/design-audit/`): 16 checks in one run — visual
+  baselines per device (desktop / mobile / dark / WebKit + a Firefox smoke), WCAG 2.2 A/AA, console
+  and page errors, failed & 4xx/5xx requests, horizontal overflow including a 320px reflow probe,
+  touch targets, title/description/OG, Lighthouse perf/SEO/best-practices, broken links, HTML
+  validity, CSS + jsx-a11y lint — all emitting ONE machine-readable report the agent reads via a
+  one-line filter.
+- **Assembled, not re-invented:** everything is a maintained OSS package wired together by two thin
+  spec files; the research culled the traps (an abandoned Lighthouse plugin, a Lighthouse-12 pin, a
+  visual tool asking for a new maintainer, cloud-only baseline stores, a paid parallel path, an
+  unlicensed boilerplate) so the gate ships only what still works.
+- **Deterministic baselines:** generated only in the pinned Playwright container, changed only by
+  explicit update commits; a missing baseline fails instead of passing silently, and a no-Docker
+  degraded mode is documented instead of pretended away.
+- **The fix loop ships as data:** a packaged prompt that forbids the classic cheats (edit the
+  snapshot, loosen the threshold, skip the failing test) and re-runs only the failed scope.
+- **Change-pipeline hook:** user-facing changes on apps that ship the kit run the fast gate before
+  release; the 5-line ship receipt gains one `Design:` line.
+- Verified before shipping: fixture run 6/6 green + a Lighthouse pass; every dependency pin
+  registry-checked the same day.
+
 ## 2026-09-21 — the build that was never running (buildout v0.3.3 / pack v0.13.3)
 
 A local server kept answering **200** while the assets it pointed at no longer existed on disk. A

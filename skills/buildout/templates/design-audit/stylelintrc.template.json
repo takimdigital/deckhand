@@ -1,0 +1,15 @@
+{
+  "$comment": "design-audit — copy to <repo>/.stylelintrc.json. The at-rule whitelist is required for Tailwind v4 (@theme/@utility/@apply/@custom-variant...); add project-specific ignores rather than silencing rules.",
+  "extends": ["stylelint-config-standard"],
+  "rules": {
+    "at-rule-no-unknown": [
+      true,
+      {
+        "ignoreAtRules": [
+          "tailwind", "theme", "utility", "variant", "custom-variant",
+          "apply", "layer", "source", "reference", "plugin", "config"
+        ]
+      }
+    ]
+  }
+}
