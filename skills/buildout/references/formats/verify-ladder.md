@@ -15,6 +15,29 @@ The reliability of a check depends on how close it sits to real state. Verificat
 
 Rule: verify at the strongest level the task can afford, and read back *your own* effect (not just "no error"). "Do not treat done as proof: a button click is not proof a form was accepted."
 
+## Freshness — 200 is not proof the server is serving YOUR build
+
+Rebuilding while a local server runs replaces the chunk files under the old in-memory manifest. The
+trap is silent: the port still answers **200**, the route still renders its shell, the client-rendered
+part never appears and nothing is logged anywhere — so it reads as a defect in code that is fine. A
+failed restart does say so (`EADDRINUSE: address already in use`), but only in the process you are not
+reading. Before trusting any local measurement (verified in both states 2026-09-20):
+
+```bash
+# 1. free the port and CONFIRM it — a restart that failed leaves the old process serving happily
+netstat -ano | grep ':<port>' | grep -i listen | awk '{print $NF}' | sort -u   # empty = free
+# 2. after starting, check the HTML being served against the files on disk
+stale=$(curl -s http://127.0.0.1:<port>/<route> | grep -o '/_next/static/[^"]*\.js' | sort -u \
+  | while read -r u; do curl -s -o /dev/null -w '%{http_code}\n' "http://127.0.0.1:<port>$u"; done | grep -vc '^200$')
+[ "$stale" -gt 0 ] && echo "STALE: $stale chunk(s) in the served HTML are not on disk" || echo "OK"
+# 3. then assert one marker only the NEW build renders (client-rendered content, not HTTP 200)
+```
+
+Observed in a real run: rebuild-under-running-server → `STALE: 1 chunk(s) in the served HTML are not
+on disk`; after kill + restart → every referenced chunk 200. A route can also answer **500** for the
+missing chunk instead of 404 — count any non-200 as stale. Windows/MSYS: `taskkill /F /PID <pid>`
+takes SINGLE slashes — `//F` is passed through literally and rejected (`Invalid argument/option - '//F'`).
+
 ## Verdicts (three-state, no silent defaults)
 
 - `CONFIRMED` — the check ran and passed (record the exact command + result).

@@ -1,5 +1,9 @@
 # Changelog - Buildout
 
+## 0.3.3 - 2026-09-21
+
+- **Local-build freshness pre-flight.** Born from a real run: a rebuild under a still-running local server left the old manifest serving, so the page answered 200 while a client-rendered feature never appeared — no console error, no server error, and three diagnostic probes went hunting for a bug in new code that was not there (the real cause: a restart that failed with `EADDRINUSE: address already in use`). Hard Rules now say: prove the server is serving the build you just made (kill by PID → 0 listeners → restart → freshness check); `verify-ladder.md` gains a **Freshness** section with the both-states command output, plus the Windows/MSYS `taskkill /F /PID` single-slash note.
+
 ## 0.3.2 - 2026-09-20
 
 - Fresh-eyes audit fixes: script commands now state the working directory + `python3` on macOS/Linux (the companion `component-library` script lives in ITS dir — the old `py scripts/library.py` reads were a stall trap); "buildout engine (v0.2)" version labels dropped; store rename documented (`~/deckhand-library` / `DECKHAND_LIBRARY`, legacy env honored); trigger-eval phrase updated (`expert pack` → `buildout pack`); `OPS.md` marked as created by `vps-ops` ref 30.

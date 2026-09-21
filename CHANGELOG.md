@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-09-21 — the build that was never running (buildout v0.3.3 / pack v0.13.3)
+
+A local server kept answering **200** while the assets it pointed at no longer existed on disk. A
+rebuild under a still-running process rewrites the chunk files, but the old in-memory manifest keeps
+being served: the route renders its shell, the client-rendered part silently never appears, and nothing
+is logged — so it reads as a defect in code that is fine. The restart that should have prevented it had
+failed with `EADDRINUSE: address already in use`, in output nobody was reading.
+
+- **New pre-flight rule** (buildout Hard Rules): before measuring anything on a local server, prove it
+  is serving the build on disk — kill by PID → confirm 0 listeners → restart → freshness check.
+  **200 is not evidence.**
+- **`verify-ladder.md` gains a Freshness section**: the both-states observation (stale → 1 of 19 assets
+  missing; after restart → all 200), the exact command block, and the note that a missing asset can
+  surface as **500** as well as 404 — count any non-200 as stale.
+- **Windows/MSYS note**: `taskkill /F /PID <pid>` takes single slashes; `//F` is passed through
+  literally and rejected (`Invalid argument/option - '//F'`).
+
 ## 2026-09-21 — verified means the schedule ran (vps-ops v0.9.2 / pack v0.13.2)
 
 The first *scheduled* nightly failed while every manual drill passed. The deeper lesson is now a
