@@ -1,7 +1,9 @@
 {
-  "$comment": "design-audit — copy to <repo>/.stylelintrc.json. The at-rule whitelist is required for Tailwind v4 (@theme/@utility/@apply/@custom-variant...); add project-specific ignores rather than silencing rules.",
+  "$comment": "design-audit — copy to <repo>/.stylelintrc.json. The at-rule whitelist is required for Tailwind v4 (@theme/@utility/@apply/@custom-variant...); add project-specific ignores rather than silencing rules. at-rule-prelude-no-invalid is off because it misreads Tailwind @apply preludes (e.g. `@apply border-border outline-ring/50`). import-notation is pinned to \"string\": Tailwind v4 only resolves @import \"tailwindcss\" — auto-fixing it to url() silently emits an unstyled build.",
   "extends": ["stylelint-config-standard"],
   "rules": {
+    "at-rule-prelude-no-invalid": null,
+    "import-notation": "string",
     "at-rule-no-unknown": [
       true,
       {

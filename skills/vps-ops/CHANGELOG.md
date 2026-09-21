@@ -1,5 +1,11 @@
 # Changelog — vps-ops
 
+## 0.9.4 — 2026-09-21
+
+- **`coolify_api.py dlogs <APP_UUID>`** — the newest deployment's build log, JSON-decoded, tailed (`--tail N`) and greppable (`--grep ERR_PNPM`, `--deployment <id>` to pin). Build failures are now read from one command — before, the raw listing's `logs` field was the only path and needed a custom script.
+- **Release versioning checkpoint (ref 40 §6b + hard rule 11):** the tags are the source of truth — read `gh release list` before choosing the next version; a wrong tag/release is deletable and re-cuttable (`gh release delete` + `git tag -d` + push the ref deletion). Born from a live drift: releases at v1.2.0 while package.json/README still said 1.0.0, which briefly cut a numerically-older "latest" release.
+- **Failure-table row + repair:** `ERR_PNPM_OUTDATED_LOCKFILE` kills the DEPLOY at install (never the local build) — `CI=true` installs are frozen by default; repair with `CI=true pnpm install --no-frozen-lockfile`, commit `pnpm-lock.yaml`, redeploy. (Also: never `| tail` an install whose exit code matters — the pipeline reports tail's exit.)
+
 ## 0.9.3 — 2026-09-21
 
 - **ref 40 — optional design gate for user-facing changes:** when an app ships the design-audit kit (buildout ref 30), run `pnpm design:audit:fast` + `pnpm design:fails` before the release step and carry one `Design:` line in the receipt; baselines are never regenerated during a deploy (they move only in their own explicit commit). New hard rule #10: a red gate blocks the release like a red build.

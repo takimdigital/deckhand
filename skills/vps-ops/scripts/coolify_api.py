@@ -326,6 +326,44 @@ def cmd_logs(a, url, token):
     return 0
 
 
+def cmd_dlogs(a, url, token):
+    st, body = api(url, token, "GET", f"/deployments/applications/{a.uuid}")
+    if st != 200:
+        print(f"error {st}: {str(body)[:300]}")
+        return 4
+    rows = _deployment_rows(body)
+    if not rows:
+        print("(no deployments yet)")
+        return 4
+    dep = rows[0]
+    if a.deployment:
+        dep = next((d for d in rows
+                    if a.deployment in (str(d.get("deployment_uuid") or ""), str(d.get("uuid") or ""))), None)
+        if dep is None:
+            print(f"deployment not found: {a.deployment}")
+            return 4
+    logs = dep.get("logs") or ""
+    text = str(logs)
+    try:
+        entries = json.loads(logs) if isinstance(logs, str) else logs
+        if isinstance(entries, list):
+            text = "\n".join(str(e.get("output")) for e in entries
+                             if isinstance(e, dict) and e.get("output"))
+    except (ValueError, TypeError):
+        pass
+    lines = text.splitlines()
+    if a.grep:
+        lines = [ln for ln in lines if a.grep in ln]
+    print(f"deployment {dep.get('deployment_uuid') or dep.get('uuid')} | {dep.get('status')} | "
+          f"{str(dep.get('created_at'))[:19]} | commit {str(dep.get('commit'))[:12]}")
+    if not lines:
+        print("(no matching log lines)")
+        return 0
+    for ln in (lines[-a.tail:] if a.tail > 0 else lines):
+        print(ln)
+    return 0
+
+
 def cmd_envs(a, url, token):
     st, body = api(url, token, "GET", f"/applications/{a.uuid}/envs")
     if st != 200:
@@ -395,6 +433,8 @@ def main(argv=None):
     sp.add_argument("--timeout", type=int, default=900); sp.add_argument("--interval", type=int, default=10); sp.add_argument("--expect-commit", default=None)
     sp = add("logs", cmd_logs); sp.add_argument("uuid")
     sp.add_argument("--lines", type=int, default=200); sp.add_argument("--timestamps", action="store_true")
+    sp = add("dlogs", cmd_dlogs); sp.add_argument("uuid"); sp.add_argument("--deployment", default=None)
+    sp.add_argument("--grep", default=None); sp.add_argument("--tail", type=int, default=120)
     sp = add("envs", cmd_envs); sp.add_argument("uuid")
     sp = add("envset", cmd_envset); sp.add_argument("uuid"); sp.add_argument("pairs", nargs="+")
     add("status", cmd_status)

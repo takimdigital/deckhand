@@ -4,6 +4,13 @@
     "no-inline-style": "off",
     "long-title": "off",
     "attribute-boolean-style": "off",
-    "attribute-empty-style": "off"
+    "attribute-empty-style": "off",
+    "void-style": "off",
+    "attr-case": "off",
+    "valid-id": ["error", { "relaxed": true }],
+    "element-permitted-content": "off",
+    "element-required-content": "off",
+    "element-permitted-parent": "off",
+    "attribute-allowed-values": "off"
   }
 }

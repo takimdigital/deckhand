@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.9.3
+version: 0.9.4
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -93,7 +93,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 
 Universal path (works in ANY harness, stdlib only):
 
-- `scripts/coolify_api.py` — `health | apps | app <uuid> | deploy <uuid> [--force] | deployments <uuid> | wait <uuid> [--timeout 900] | logs <uuid> [--lines 200] [--timestamps] | envs <uuid> | envset <uuid> KEY=VAL... | status | smoke <url> [--expect 200] [--contains TEXT]`
+- `scripts/coolify_api.py` — `health | apps | app <uuid> | deploy <uuid> [--force] | deployments <uuid> | dlogs <uuid> [--grep TEXT] [--deployment ID] [--tail N] | wait <uuid> [--timeout 900] | logs <uuid> [--lines 200] [--timestamps] | envs <uuid> | envset <uuid> KEY=VAL... | status | smoke <url> [--expect 200] [--contains TEXT]`
 - `scripts/repo_presence.py` — the repo's public face from ONE filled JSON (README/LICENSE/package.json + gh description/topics) — ref 40 §6b, kit in `templates/repo-presence/`
 - `scripts/hostinger_api.py` — `vm list|get|metrics|restart` · `snapshot create|list` · `sshkey ensure --vm <id>` · `dns get|set-a` · `firewall ensure --vm <id>` · `actions <vm> [action_id]`
 

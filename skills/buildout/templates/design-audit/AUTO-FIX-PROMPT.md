@@ -17,6 +17,10 @@ For each failed test:
    - layout: viewport width + the overflow flag from the same file;
    - perf: open the attached lighthouse-<route>.json ONLY if the category score is the blocker;
    - visual: open the referenced *-diff.png ONLY if the change is genuinely ambiguous.
+   Known finding classes (first suspects, all validated): dark-mode contrast where a FILL token
+   (e.g. --primary) is used as TEXT on dark — use the theme's *-strong text token; duplicate or
+   nested <main> landmarks; 320px header rows (logo + badge + controls) overflowing; upstream
+   noise (e.g. Next.js `as='stylesheet'` preload) → allowlist entry with a reason, not a fix.
 3. Fix the SOURCE with a minimal patch (component / CSS / markup).
    NEVER: edit snapshots to pass, loosen maxDiffPixelRatio/threshold, delete or skip an assertion,
    or add noise to allow.console/allow.network to silence a real finding.
@@ -26,7 +30,7 @@ For each failed test:
    (max 3 iterations per failure).
 5. Budgets: Lighthouse perf >= 0.9 · zero WCAG A/AA violations · zero console/page errors ·
    zero failed/4xx requests (minus allow-lists) · no horizontal overflow at 320 / project widths ·
-   zero broken links · html/lint clean.
+   zero broken links · html/lint clean · exactly one <main> landmark per page.
 
 Output per failure: {check, root cause (file:line), patch summary, re-run result}.
 End with a pass/fail table + a suggested commit message.

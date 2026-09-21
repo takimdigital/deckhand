@@ -58,7 +58,7 @@ npm run build                                                     # must pass
 rg -n --pcre2 '#[0-9a-fA-F]{3,8}\b' src --glob '!*.css' --glob '!*.svg'   # expect: nothing in section components
 rg -n "var\(--" src/components/<section>*                          # expect: tokens in use
 ```
-Plus manual: keyboard pass on interactive elements; contrast ≥4.5:1 for text; ≤`maxAnimatedPerPage` animated components; `prefers-reduced-motion` respected.
+Plus manual: keyboard pass on interactive elements; contrast ≥4.5:1 for **every text/background pair in BOTH schemes** — light AND dark, and check *fills*, not just text on page background (a bright accent used as a button fill with white text is the classic dark-mode AA miss); ≤`maxAnimatedPerPage` animated components; `prefers-reduced-motion` respected.
 
 ## Anti-slop banlist (defaults; overridable in the brief)
 

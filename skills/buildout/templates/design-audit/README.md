@@ -34,13 +34,13 @@ those plugins together in a single page load per route.
    - `design-audit/routes.example.json` → `<repo>/design-audit/routes.json` (rename)
    - `stylelintrc.template.json` → `<repo>/.stylelintrc.json` (enables `design:css`)
    - `htmlvalidate.template.json` → `<repo>/.htmlvalidate.json` (tunes `design:html`)
-   - `eslint.template.mjs` → `<repo>/eslint.config.mjs` — **only if** the repo has no eslint flat config; if it has one, add the `jsx-a11y` block to that config instead. (The template also wires the TypeScript parser and ignores build dirs — without those, the lint report fills with build noise.)
+   - `eslint.template.mjs` → `<repo>/eslint.config.mjs` — **only if** the repo has no eslint flat config; if it has one, add the `jsx-a11y` block to that config instead. (The template also wires the TypeScript parser, ignores build dirs, and registers `react-hooks` — without that last one, a repo's existing `eslint-disable` comments for `exhaustive-deps` surface as "rule not found" ERRORs.)
 2. Merge `package.snippet.json` into the repo's `package.json` (devDependencies + scripts; keep the exact pins; **add** new keys, never overwrite the repo's own).
 3. `pnpm install` — in an agent shell (no TTY) this can abort with `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`; rerun as `CI=true pnpm install --no-frozen-lockfile` (the flag matters when the lockfile just changed).
 4. Install browsers: `pnpm exec playwright install chromium webkit firefox`
 5. Fill the two values:
    - `playwright.config.ts` — leave the defaults if `pnpm build && pnpm start` serves on :3000; otherwise pin per invocation: `AUDIT_PORT=3000 AUDIT_START_CMD='pnpm build && pnpm start' pnpm design:audit:fast`. A stale ambient `AUDIT_*` value silently retargets the whole gate — when an override is active the config prints the resolved values.
-   - `design-audit/routes.json` — your real routes. `"key": true` on up to ~5 important pages (Lighthouse + OG asserts); `"smoke": true` on ONE page (the Firefox smoke visit). `allow.console` / `allow.network` take substrings for third-party noise — never a real failure.
+   - `design-audit/routes.json` — your real routes. `"key": true` on up to ~5 important pages (Lighthouse + OG asserts); `"smoke": true` on ONE page (the Firefox smoke visit). `allow.console` / `allow.network` take substrings for third-party noise — never a real failure. An entry needs the exact substring + its source + a review trigger; worked example: Next.js 15 emits `<link rel=preload as='stylesheet'>` (invalid `as`) → WebKit logs `<link rel=preload> must have a valid \`as\` value`, ignores the preload, CSS still loads — allowlist it and note "re-review when Next is upgraded". An allowlist without a reason is how a real bug hides.
 
 ## Run
 
@@ -58,7 +58,16 @@ pnpm design:lint             # eslint JSON
 - After an intentional design change: `pnpm design:audit:update` → commit the diff. That commit *is* the review.
 - A missing baseline **fails** on CI by design — baselines are never created silently.
 - **Exit codes are the gate:** `design:html`, `design:css`, `design:lint` exit non-zero when they find something (a red gate, not a crash). A `design:links` report with `"links": []` means the crawl saw nothing — sanity-check before trusting `"passed": true`.
-- **First run on an existing codebase:** expect lint noise (stylelint-config-standard conventions, html-validate structure messages). Triage it — relax the rules you consciously accept (both templates ship the first batch of tune-downs) rather than ignoring files.
+- **First run on an existing codebase:** expect lint noise (stylelint-config-standard conventions, html-validate structure messages). Triage it — relax the rules you consciously accept (both templates ship the tuned-down batch, validated against a React 19 / Next 15 / Tailwind v4 app) rather than ignoring files.
+
+## Pitfalls (validated against a React 19 / Next 15 / Tailwind v4 app)
+
+- **A red gate with an EMPTY report is a config error, not findings.** Example: `at-rule-prelude-no-invalid` rejects `"off"` as an option value (it wants `null`) — stylelint then exits 2 with **0 warnings** in the JSON. Before chasing code, check the report's `errored` / `invalidOptionWarnings` fields.
+- **Never add an `elements` override to html-validate** to tolerate a non-standard value (e.g. `<link as="stylesheet">`). It *replaces* the built-in element metadata and the whole audit explodes with bogus `element-name` / `no-self-closing` findings (1,700+ on one page). Turn the one rule off (`attribute-allowed-values`) and document the upstream cause instead.
+- **`design:html` audits the RAW server response, not the hydrated DOM.** The spec fetches each route with `page.request.get` — auditing React's post-hydration DOM reports artifacts (hoisted `<title>` in `<body>`, `_R_`/`:B:0` ids, camelCase attrs, self-closed voids). If you add your own dumps, do the same.
+- **Run order matters:** the audit's own run wipes `design-audit/artifacts/` at test start (Playwright `outputDir` semantics). Run `design:audit` first, then `design:html`, in the same session — a stale dump set validates nothing.
+- **stylelint `--fix` can silently kill Tailwind v4.** Auto-fix rewrites `@import "tailwindcss"` → `@import url("tailwindcss")`; Tailwind v4 only resolves the string form, the build stays green, and the app ships with NO CSS (every visual baseline fails with a giant diff). The template pins `import-notation: "string"` for this reason. If you ever see a wall of huge screenshot diffs, check the CSS chunk exists first: `curl -s <url> | grep -o '/_next/static/[a-z0-9/]*\.css'`.
+- **pnpm in agent shells / deploys:** `CI=true` implies `--frozen-lockfile`; after adding or re-pinning a dep, plain install refuses to repair the lockfile — run `CI=true pnpm install --no-frozen-lockfile` once and **commit `pnpm-lock.yaml`**. A drifted lockfile fails the DEPLOY (`ERR_PNPM_OUTDATED_LOCKFILE`), not the local build. And never pipe an install through `| tail` when its exit code matters — the pipeline reports tail's exit (0), not the install's.
 
 ## Baselines & determinism (the one hard rule)
 

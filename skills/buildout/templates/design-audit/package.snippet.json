@@ -7,6 +7,7 @@
     "cross-env": "10.1.0",
     "eslint": "9.39.5",
     "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react-hooks": "7.1.1",
     "html-validate": "11.16.0",
     "lighthouse": "13.5.0",
     "linkinator": "8.1.0",

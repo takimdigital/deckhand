@@ -125,12 +125,13 @@ for (const route of cfg.routes) {
       await expect(page).toHaveScreenshot(`${route.name}.png`, { fullPage: true });
     }
 
-    // 5) HTML dump for the html-validate CLI gate
+    // 5) HTML dump for the html-validate CLI gate — the RAW server response, not the hydrated
+    //    DOM. React/Next hoist metadata after hydration (title nodes appear mid-body, useId
+    //    emits ids like "_R_"), so a DOM snapshot reports false positives. Validate what the
+    //    server actually sends.
     fs.mkdirSync(HTML_DIR, { recursive: true });
-    fs.writeFileSync(
-      path.join(HTML_DIR, `${testInfo.project.name}-${route.name}.html`),
-      await page.content(),
-    );
+    const rawHtml = await (await page.request.get(route.path)).text();
+    fs.writeFileSync(path.join(HTML_DIR, `${testInfo.project.name}-${route.name}.html`), rawHtml);
 
     // soft asserts — the test fails if anything is wrong, but reports ALL findings
     const consoleNoise = events.console.filter((t) => !allowed(ALLOW_CONSOLE, t));

@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-09-21 — every trap becomes a fix (buildout v0.4.1 / vps-ops v0.9.4 / pack v0.14.1)
+
+The design-audit kit's first full contact with a production app turned each surprise into a
+designed-out trap — the configs, the prompts, and the runbook now carry the remedies:
+
+- **Configs ship validated:** html-validate `elements` overrides are documented as forbidden (they
+  replace the built-in element metadata and flood the report with thousands of bogus findings —
+  turn the single rule off instead); stylelint `import-notation` is pinned to `"string"` (auto-fix
+  otherwise rewrites Tailwind v4's imports into a form the build silently resolves to an EMPTY
+  stylesheet, failing every visual baseline with a giant diff); "red gate + empty report" is
+  called out as its own class — a rejected rule option exits 2 with zero warnings.
+- **New pitfalls section** (kit README + buildout ref 30): artifact run-order (the audit wipes its
+  dump dir per run — audit first, validate HTML second, same session), raw-server-response dumps
+  vs hydrated-DOM artifacts, lockfile discipline (`CI=true` installs are frozen; repair with
+  `--no-frozen-lockfile`; a drifted lockfile fails the DEPLOY, not the build), and the
+  pipe-masks-exit trap.
+- **AUTO-FIX-PROMPT** names the known finding classes up front — fill-token-as-text dark-mode
+  contrast, duplicate `<main>` landmarks, 320px header rows, and what deserves a reasoned
+  allowlist instead of a fix — plus a one-`<main>`-per-page budget.
+- **vps-ops `dlogs`:** one command prints the newest deployment's build log, tailed and greppable
+  (`--grep`/`--deployment`/`--tail`) — build failures no longer need a bespoke script.
+- **Release checkpoint (new hard rule 11):** the tags are the source of truth for the next
+  version — read `gh release list` first, fix package.json/README drift in the release commit, and
+  know the exact delete-and-re-cut path for a wrong tag.
+- **Failure table:** `ERR_PNPM_OUTDATED_LOCKFILE` gets its own row with the exact repair sequence.
+
 ## 2026-09-21 — the front-end gate (buildout v0.4.0 / vps-ops v0.9.3 / pack v0.14.0)
 
 Design QA was the last eyeball pass left in the pipeline. It is now a one-command gate that turns
