@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-09-21 — one origin, one truth (buildout v0.4.4 / pack v0.14.4)
+
+The design gate's app address now resolves in exactly ONE place — the Playwright config — everywhere
+it is used:
+
+- **The Lighthouse pass** derives its origin from the config instead of carrying its own copy of the
+  URL logic (the copy that once sent a containerized run at a dead localhost); a config missing
+  `use.baseURL` now fails with a named error instead of silently guessing.
+- **The link check** resolves the same chain (`AUDIT_BASE_URL` → `AUDIT_PORT` → :3000) inside node,
+  so retargeting the gate can no longer leave it silently pointed at the default port.
+- **The container round-trip copies the fresh baselines out BEFORE the determinism pass** — a
+  failing second pass keeps both the set and the failure instead of everything dying with the
+  container; the recipe also puts Docker's credential helper on PATH up front and documents the
+  `docker ps --format '{{…}}'` brace trap (`must specify at least one container source`).
+
 ## 2026-09-21 — the container baseline path, verified (buildout v0.4.3 / pack v0.14.3)
 
 The design-audit kit's one documented-only path — generating pixel baselines in the pinned

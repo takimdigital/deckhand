@@ -68,7 +68,7 @@ pnpm design:lint             # eslint JSON
 - **Run order matters:** the audit's own run wipes `design-audit/artifacts/` at test start (Playwright `outputDir` semantics). Run `design:audit` first, then `design:html`, in the same session — a stale dump set validates nothing.
 - **stylelint `--fix` can silently kill Tailwind v4.** Auto-fix rewrites `@import "tailwindcss"` → `@import url("tailwindcss")`; Tailwind v4 only resolves the string form, the build stays green, and the app ships with NO CSS (every visual baseline fails with a giant diff). The template pins `import-notation: "string"` for this reason. If you ever see a wall of huge screenshot diffs, check the CSS chunk exists first: `curl -s <url> | grep -o '/_next/static/[a-z0-9/]*\.css'`.
 - **pnpm in agent shells / deploys:** `CI=true` implies `--frozen-lockfile`; after adding or re-pinning a dep, plain install refuses to repair the lockfile — run `CI=true pnpm install --no-frozen-lockfile` once and **commit `pnpm-lock.yaml`**. A drifted lockfile fails the DEPLOY (`ERR_PNPM_OUTDATED_LOCKFILE`), not the local build. And never pipe an install through `| tail` when its exit code matters — the pipeline reports tail's exit (0), not the install's.
-- **Docker (container baselines):** start Docker Desktop by launching `Docker Desktop.exe` as a BACKGROUND process — the `cmd //c start …` invocation from a non-interactive shell quietly opens a stray interactive cmd instead and the engine never comes up (`docker info` fails with `failed to connect … dockerDesktopLinuxEngine`). In the shell that runs docker, put Docker's bin dir on PATH (`C:/Program Files/Docker/Docker/resources/bin`) — without it pulls die with `error getting credentials … docker-credential-desktop: executable file not found`. Poll readiness with `docker info --format '{{.ServerVersion}}'` (first start can take a couple of minutes).
+- **Docker (container baselines):** start Docker Desktop by launching `Docker Desktop.exe` as a BACKGROUND process — the `cmd //c start …` invocation from a non-interactive shell quietly opens a stray interactive cmd instead and the engine never comes up (`docker info` fails with `failed to connect … dockerDesktopLinuxEngine`). In the shell that runs docker, put Docker's bin dir on PATH (`C:/Program Files/Docker/Docker/resources/bin`) — without it pulls die with `error getting credentials … docker-credential-desktop: executable file not found`. Poll readiness with `docker info --format '{{.ServerVersion}}'` (first start can take a couple of minutes). When scripting `docker ps`/`docker cp`, prefer `-q` / plain filters — a nested `--format '{{…}}'` can lose a brace level through some harness shells and the failure reads `must specify at least one container source`.
 
 ## Baselines & determinism (the one hard rule)
 
@@ -78,31 +78,38 @@ or update EACH set in exactly ONE environment:
 
 **Container set (preferred — needs Docker Desktop running).** The container provides the browsers +
 fonts; your app can keep running on the host. This round-trip is validated end-to-end (the repo is
-copied INSIDE the container so the host's `node_modules` is never clobbered; the run ends with a
-second, comparing pass — that is the determinism proof):
+copied INSIDE the container so the host's `node_modules` is never clobbered; the baselines are
+copied out right after the writing pass, then a second comparing pass proves them deterministic):
 
 ```bash
+# In the shell that runs docker, put Docker's bin dir on PATH or pulls die with
+# `error getting credentials … docker-credential-desktop: executable file not found`:
+export PATH="/c/Program Files/Docker/Docker/resources/bin:$PATH"
+
 docker run --rm --ipc=host \
   -v "C:/path/to/repo:/src:ro" -v "C:/path/to/repo/../audit-cache-out:/out" \
   -e AUDIT_BASE_URL=http://host.docker.internal:3000 -e AUDIT_NO_SERVER=1 \
   mcr.microsoft.com/playwright:v1.63.0-noble bash -lc '
+    set -e
     mkdir -p /work && (cd /src && tar cf - --exclude=node_modules --exclude=.next --exclude=.git .) | (cd /work && tar xf -) &&
     cd /work && (corepack enable && corepack prepare pnpm@10 --activate || npm i -g pnpm@10) &&
     pnpm i --frozen-lockfile &&
     P="--project=desktop-chromium --project=desktop-dark --project=mobile-chromium --project=mobile-webkit --project=smoke-firefox" &&
     npx playwright test $P --update-snapshots &&
+    mkdir -p /out && rm -rf /out/linux && cp -r design-audit/tests/__screenshots__/linux /out/ &&
     npx playwright test $P &&
-    cp -r design-audit/tests/__screenshots__/linux /out/'
+    echo "determinism pass green — the linux set is already in /out"'
 ```
 
-Start the app on the host first (`pnpm start` on :3000). Then copy the produced
-`linux/` set from `/out` into `design-audit/tests/__screenshots__/` and commit. Notes: the
-`AUDIT_BASE_URL` + `AUDIT_NO_SERVER=1` pair is what lets a containerized gate test a host-run app
-(`host.docker.internal` reaches the host from inside the container); when running docker from
-git-bash, put Docker's bin dir on PATH first or pulls die with
-`error getting credentials … docker-credential-desktop`. Self-contained apps can alternatively
-build+start inside the container (drop the two `-e` vars) — the host-app mode above is the one
-validated end-to-end.
+Start the app on the host first (`pnpm start` on :3000). The copy to `/out` happens immediately
+after the writing pass: if the determinism pass ever fails, the set is already out of the container
+(`--rm` discards only the sandbox) — you keep both the set and the failure, and a retry is a re-run,
+never a re-do. Copy the produced `linux/` set from `/out` into `design-audit/tests/__screenshots__/`
+and commit ONLY when the determinism pass was green. Notes: the `AUDIT_BASE_URL` +
+`AUDIT_NO_SERVER=1` pair is what lets a containerized gate test a host-run app
+(`host.docker.internal` reaches the host from inside the container). Self-contained apps can
+alternatively build+start inside the container (drop the two `-e` vars) — the host-app mode above
+is the one validated end-to-end.
 
 **The round-trip runs the VISUAL projects only — adjust the `--project` list to yours.** Lighthouse
 budgets belong to the environment that defines them: a container reaching the app at

@@ -1,5 +1,10 @@
 # Changelog - Buildout
 
+## 0.4.4 — 2026-09-21
+
+- **One source of truth for the gate's origin, everywhere it appears.** The Lighthouse spec derives its origin from `testInfo.project.use.baseURL` (the config — which itself resolves `AUDIT_BASE_URL` / `AUDIT_PORT`) instead of re-reading the env vars, and `design:links` resolves the same chain inside node — the last two copies (spec + link-check script) of a hardcoded `127.0.0.1:3000` are gone. The spec throws a named error if a config ever lacks `use.baseURL` (loud, never a silently dead localhost).
+- **The container round-trip copies the baselines OUT right after the writing pass** — before the determinism pass — so a failing second pass can no longer discard the fresh set with the container (`--rm` discards only the sandbox; you keep both the set and the failure). The recipe also exports Docker's bin dir onto PATH up front (the `docker-credential-desktop` pull death) and the pitfalls gained the `docker ps --format '{{…}}'` brace trap (`must specify at least one container source`).
+
 ## 0.4.3 — 2026-09-21
 
 - **The container baseline path is verified end-to-end** (previously only documented): the pinned image `mcr.microsoft.com/playwright:v1.63.0-noble` pulls from the registry, the container's own browsers render the real app (host-run, via `AUDIT_BASE_URL=http://host.docker.internal:3000` + `AUDIT_NO_SERVER=1`), snapshots are written under `__screenshots__/linux/…`, and a second comparing pass proves determinism inside the container. The kit README carries the exact validated round-trip — repo copied INSIDE the container so the host's `node_modules` is never clobbered — plus the copy-back step.
