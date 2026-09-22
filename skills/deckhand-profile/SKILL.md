@@ -1,7 +1,7 @@
 ---
 name: deckhand-profile
 description: "Use when reading or writing the portable user files. Covers profile.md + pending.md (the human-task ledger)."
-version: 0.3.2
+version: 0.3.3
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -12,7 +12,7 @@ metadata:
 
 # deckhand-profile — the user's portable files: profile + pending
 
-Two small files, both harness-independent, user-owned, human-editable — copy them to any machine or agent:
+Two small files — plus `~/.deckhand/private-terms.txt` (the pack tooling's leak-sweep term list; same no-secrets rule) — both harness-independent, user-owned, human-editable; copy them to any machine or agent:
 - `~/.deckhand/profile.md` — what the pipeline needs to know about the USER (accounts, providers, defaults).
 - `~/.deckhand/pending.md` — the ledger of things ONLY the human can do, with states and dates; agents nag until closed.
 
@@ -20,7 +20,7 @@ Two small files, both harness-independent, user-owned, human-editable — copy t
 
 Before starting any work in a session — and before asking the user anything about accounts, providers, domains, defaults or preferences — read `~/.deckhand/profile.md`. Fields present there are DONE — never re-ask them.
 Also read `~/.deckhand/pending.md`: while open items exist, every report back to the user ends with the
-open list (short, with ages). If a file does not exist: continue normally and offer to create it once (never mid-task).
+open list (short, with ages). If a file does not exist: continue normally and offer to create it once — at the next natural pause in the session, never mid-task, and never a second offer in the same session (`~` = the user's home: `C:\Users\<you>` on Windows; neither file existing yet is the normal first-run state — that offer is how they come into being). The one-time offer covers whichever file is missing (`pending.md` is often born with its first item — copy `templates/pending.md`).
 
 ## Access before asks — do it yourself (every skill, every session)
 
@@ -45,9 +45,9 @@ When to write: the moment a human action appears — a key to paste, a click/con
 a password to escrow or rotate, an account only they can create. Record it in the same message where
 you ask; NEVER keep human tasks only in chat history.
 
-Format (strict — agents parse it):
+Format (write strictly — agents parse it; on READ, tolerate an item missing `WHY:`/`HOW:` — never drop or mis-file it for that):
 `- [ ] P-0NN · <what> · WHY: <consequence if skipped> · HOW: <the action, one line> · WHERE: <exact place — file path / URL / menu chain> · asked YYYY-MM-DD · status: open|waiting-confirm · nag: yes|no`
-(`asked` is required on every OPEN item — conditional ones included; optional `· project: <name>`, `· when: <trigger>` for conditional items)
+(`asked`, `status`, `nag` are required on every OPEN item — conditional ones included; a missing `nag:` reads as `yes` (the watchdog nags anything not marked `no`); optional `· project: <name>`, `· when: <trigger>` for conditional items)
 **IDs:** `P-001` — zero-padded to three digits; next = highest existing + 1; never reuse (closed IDs stay spent).
 
 Rules:
@@ -56,21 +56,21 @@ Rules:
   that is the entire point of the field.
 - `status: open` = user hasn't done it; `waiting-confirm` = likely done but not confirmed; both nag — unless `nag: no` or a `when:` trigger hasn't fired yet.
 - `when:` items never nag before their trigger — no noise.
-- Ages in reports are days open, whole days, from `asked` — `open 6d` (never make the reader subtract dates).
-- Close = `- [x] … · done YYYY-MM-DD`, moved to `## Done` (keep only the last few; the ledger stays short).
+- Ages in reports are days open, whole days, from `asked` to today's local date — `open 6d` (never make the reader subtract dates).
+- Close = `- [x] … · done YYYY-MM-DD`, moved to `## Done` (keep only the last few — always keep the NEWEST line: it carries the highest ID). **The checkbox, not the heading, is the state of record** — a `[x]` under `## Open` is closed: move misfiled lines when you touch the file.
 - Dropped = `- [x] … · dropped YYYY-MM-DD · reason` — never silently delete.
 - Nagging: surface open items in every deploy/ops report (short) and in scheduled runs; when the user
   says "done", verify when verifiable (re-check the env var, the object, the key) — otherwise confirm on their word.
 - **Never drop an item because the conversation moved on.** That is the one failure this file exists to prevent.
-- **Project scoped? → the project's own ledger.** Human tasks discovered by work inside ONE project (its accounts, keys, client-supplied data, policy decisions) go in a `PENDING.md` at that project's root — created at kickoff by the buildout flow, same strict format as this file. This portable ledger keeps cross-project items and the user's own infrastructure/accounts; when an item is genuinely both (a personal account powering one project), keep it here with `· project: <name>`.
+- **Project scoped? → the project's own ledger.** Human tasks discovered by work inside ONE project (its accounts, keys, client-supplied data, policy decisions) go in a `PENDING.md` at that project's root — seeded by the buildout flow the moment the project directory exists (greenfield: right after the scaffold; a pre-scaffold "kickoff" has no directory to hold it yet), same strict format as this file (field table: ref `10-format.md`). This portable ledger keeps cross-project items and the user's own infrastructure/accounts; when an item is genuinely both (a personal account powering one project), keep it here with `· project: <name>`. Items predating a project's own ledger stay here the same way; IDs are per-file (`P-0NN` continues within the file it lives in — never renumber across files).
 - **Every ask is labeled** so the user never has to decode it: `DECISION NEEDED — <question> (options)` ·
   `ACTION NEEDED — P-0NN: <one line, exact steps>` · `FYI — no action`. A question is never a ledger item —
-  the ledger holds only tasks the HUMAN performs; anything needing no human action belongs in neither.
+  the ledger holds tasks the HUMAN performs — and a decision the human must make IS one when it must survive sessions: record it (`decide: <question> (rec: <option>)`) and re-surface it labeled `DECISION NEEDED`; anything needing no human action belongs in neither.
 - **An unclear ask is a defect.** If the user has to reply "are you asking me a question?", "what do you
   need from me?", or "you are not clear on what should i do" — the ask was written wrong: re-issue it as
   one labeled line with steps and WHERE, and note the lesson in the next report.
 
-Template to copy: `templates/pending.md`.
+Template to copy: `templates/pending.md` — sections: `## Open` · `## Done` · `## Decided, not built` (decisions the user made that no one has built yet — one line each, with the standing offer).
 
 ## Create flow — user says "create my deckhand profile"
 
@@ -106,6 +106,6 @@ this file must not inherit another system's guesses. Unknown field → omit it, 
 
 - Harness profiles/memory (Hermes USER.md, editor settings) are local to one harness and are NEVER a source
   for this file; this file is portable and user-owned — the source of truth for pipeline facts.
-- `pending.md` is NOT an agent todo list — agent work stays in the session/kanban; only things the HUMAN must do belong here.
+- `pending.md` is NOT an agent todo list — agent work stays in the session/kanban; only things the HUMAN must do belong here. A future agent action that waits on an item rides THAT item as a `→ then: <agent action>` note — never a standalone item.
 - Keep it small: only fields that change behavior. Garbage in = tokens burned forever.
 - Field table + example: ref `10-format.md`. Template to copy: `templates/profile.md`.

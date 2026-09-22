@@ -11,3 +11,6 @@ Close an item by telling any agent "done with P-00N" — or edit this file yours
 
 ## Done
 - [x] P-000 · <what> · done YYYY-MM-DD
+
+## Decided, not built
+- <a decision you made that no one has built yet> · decided YYYY-MM-DD · say the word if you still want it

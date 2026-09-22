@@ -12,6 +12,7 @@ from pathlib import Path
 
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 HEX_RE = re.compile(r"#[0-9a-fA-F]{3,8}\b")
+FONT_RE = re.compile(r"""fontFamily\s*:\s*["'`](?!var\()""")
 IMPORT_RE = re.compile(r"""(?:from\s+['"]([^'"]+)['"]|require\(\s*['"]([^'"]+)['"]\s*\)|import\s+['"]([^'"]+)['"])""")
 SKIP_DEPS = {"react", "react-dom", "next"}
 
@@ -125,9 +126,12 @@ def cmd_add(args):
     # Validate EVERYTHING before touching the store: nothing is deleted or written until all inputs pass.
     # (Fixed 2026-09-21: --force used to rmtree the old item BEFORE the strict hex check — a rejected
     # re-add left index.jsonl/registry.json advertising files that no longer existed.)
-    deps, hexhits, loaded = set(), [], []
+    deps, hexhits, fonthits, loaded = set(), [], [], []
     for f in args.file:
         src = Path(f)
+        if src.exists() and src.is_dir():
+            print(f"not a file: {src} (pass component files, not directories)")
+            raise SystemExit(1)
         if not src.exists():
             print(f"file not found: {src}")
             raise SystemExit(1)
@@ -136,13 +140,21 @@ def cmd_add(args):
         hits = HEX_RE.findall(text)
         if hits:
             hexhits.append(f"{src.name}: {len(hits)} raw hex value(s)")
+        font_hits = FONT_RE.findall(text)
+        if font_hits:
+            fonthits.append(f"{src.name}: {len(font_hits)} hardcoded font family value(s)")
         loaded.append(src)
-    if hexhits:
-        msg = "; ".join(hexhits)
+    if hexhits or fonthits:
+        msg = "; ".join(hexhits + fonthits)
         if args.strict:
             print(f"strict: {msg} - not saved (drop --strict to allow)")
             raise SystemExit(1)
         print(f"warning: {msg}")
+    if not (args.source or "").strip():
+        if args.strict:
+            print("strict: no --source - not saved (every stored item names where it came from)")
+            raise SystemExit(1)
+        print("warning: no --source - the store is untraceable without provenance (set --source)")
     names = [s.name for s in loaded]
     dups = sorted({n for n in names if names.count(n) > 1})
     if dups:
@@ -164,7 +176,7 @@ def cmd_add(args):
         "deps": sorted(deps),
         "source": args.source or "",
         "createdAt": now(),
-        "install": f"py scripts/library.py copy {args.name} --to <dir>",
+        "install": f"py scripts/library.py copy {args.name} --to <dir>   # run from the component-library skill dir",
     }
     rows = [r for r in rows if r["name"] != args.name] + [row]
     rows.sort(key=lambda r: r["name"])
@@ -208,6 +220,18 @@ def cmd_copy(args):
     if not target.exists():
         target.mkdir(parents=True)
         print(f"created target dir: {target}")
+    missing = [rel for rel in row.get("files", []) if not (root / rel).exists()]
+    if missing:
+        print(f"store is inconsistent: missing {', '.join(missing)} - the item dir was altered; re-add or remove it")
+        raise SystemExit(1)
+    if target.exists() and not target.is_dir():
+        print(f"--to must be a directory: {target}")
+        raise SystemExit(1)
+    clobber = [rel for rel in row.get("files", []) if (target / Path(rel).name).exists()]
+    if clobber and not getattr(args, "force", False):
+        print(f"refusing to overwrite {len(clobber)} existing file(s) in {target}: "
+              f"{', '.join(sorted(Path(r).name for r in clobber))} - pass --force to replace")
+        raise SystemExit(1)
     for rel in row.get("files", []):
         src = root / rel
         shutil.copy2(src, target / Path(rel).name)
@@ -234,6 +258,31 @@ def cmd_remove(args):
     print(f"archived -> {archive}")
     return 0
 
+def cmd_verify(args):
+    root = store_root()
+    rows = read_index(root)
+    items = sorted(p.name for p in (root / "items").iterdir() if p.is_dir()) if (root / "items").is_dir() else []
+    problems = []
+    if len(rows) != len(items):
+        problems.append(f"index has {len(rows)} rows, items/ has {len(items)} dirs")
+    for r in rows:
+        if r["name"] not in items:
+            problems.append(f"row {r['name']} has no items/ dir")
+        for rel in r.get("files", []):
+            if not (root / rel).exists():
+                problems.append(f"{r['name']}: missing {rel}")
+    if problems:
+        print("VERIFY FAILED")
+        for p in problems:
+            print(" -", p)
+        return 1
+    print(f"VERIFY OK - {len(rows)} items; index, dirs and files agree")
+    return 0
+
+def cmd_where(args):
+    print(store_root())
+    return 0
+
 def parse_args(argv=None):
     ap = argparse.ArgumentParser(prog="library.py", description="personal component library")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -249,7 +298,9 @@ def parse_args(argv=None):
     f = sub.add_parser("find"); f.add_argument("query"); f.add_argument("--limit", type=int, default=5); f.set_defaults(fn=cmd_find)
     l = sub.add_parser("list"); l.add_argument("--limit", type=int, default=30); l.set_defaults(fn=cmd_list)
     s = sub.add_parser("show"); s.add_argument("name"); s.set_defaults(fn=cmd_show)
-    c = sub.add_parser("copy"); c.add_argument("name"); c.add_argument("--to", required=True); c.set_defaults(fn=cmd_copy)
+    c = sub.add_parser("copy"); c.add_argument("name"); c.add_argument("--to", required=True); c.add_argument("--force", action="store_true"); c.set_defaults(fn=cmd_copy)
+    v = sub.add_parser("verify"); v.set_defaults(fn=cmd_verify)
+    w = sub.add_parser("where"); w.set_defaults(fn=cmd_where)
     r = sub.add_parser("remove"); r.add_argument("name"); r.set_defaults(fn=cmd_remove)
     return ap.parse_args(argv)
 

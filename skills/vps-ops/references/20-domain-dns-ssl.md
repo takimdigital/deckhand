@@ -37,10 +37,10 @@ TTL: 14400 (Coolify's default) unless the registrar forces lower.
 ```bash
 curl -sS "https://developers.hostinger.com/api/dns/v1/zones/$DOMAIN" \
   -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
-  | tee ~/.vps-ops/dns-backup-$(date +%F).json
+  | tee ~/.vps-ops/dns-backup-$(date +%F-%H%M%S).json
 ```
 
-Script equivalent: `py scripts/hostinger_api.py dns get <domain> --save ~/.vps-ops/dns-backup-<date>.json`.
+Script equivalent: `py scripts/hostinger_api.py dns get <domain> --save ~/.vps-ops/dns-backup-<timestamp>.json` — a NEW name every read (never overwrite: a same-day re-read would save the already-changed zone over the pre-change rollback reference).
 Expected: the full current zone JSON — keep the copy; it is the rollback reference.
 
 ### 2. Write `proposed.json` — A records only
@@ -142,7 +142,7 @@ echo | openssl s_client -connect <domain>:443 -servername <domain> 2>/dev/null \
 # expect: issuer string contains "Let's Encrypt"; notBefore/notAfter bracket today
 # [verify at live drill] — this one-liner has not been executed end-to-end yet
 
-py scripts/coolify_api.py smoke https://<domain> --expect 200
+py scripts/coolify_api.py smoke https://<domain> --expect 200 --contains "<a string only your app returns>"   # a bare 200 can't tell your app from a default page
 # expect: OK 200 https://<domain>     (exit code 4 = check failed)
 ```
 

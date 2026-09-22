@@ -5,11 +5,13 @@ Load when: the user's VPS + access method (+ provider API token) are known — i
 
 > **Oracle Cloud (free-preview track):** do `11-oracle-free-tier.md` FIRST (root login + in-VM
 > firewall + cloud-init), then run Steps 0 → 2 → 4 → 5 → 6 here; **skip Step 3** (firewall = OCI
-> Security List + ref 11) and **Step 7** (Hostinger-only). **Never run UFW on Oracle images.**
+> Security List + ref 11 — that pair IS Track F's dashboard lock: never open 8000 there + the tunnel, ref 11 Steps 1/4) and **Step 7** (Hostinger-only). **Never run UFW on Oracle images.**
 Runs from the agent machine (git-bash on Windows; `py` = Python launcher). `scripts/hostinger_api.py`
 and `scripts/coolify_api.py` are stdlib-only — the contract; raw curl equivalents shown for every
 step. Secrets live only in `~/.vps-ops/secrets/env.sh` (chmod 600 — cosmetic on Windows git-bash;
 enforce for real with `icacls <file> /inheritance:r /grant:r "%USERNAME%:F"`).
+
+> **Optional — the Coolify CLI** (MIT, `coollabsio/coolify-cli`): some refs show `coolify …` commands for convenience; nothing requires it — every step also has a stdlib script/curl path. Install only if you want those commands: Linux/macOS `curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.sh | bash` · Windows PowerShell `irm https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.ps1 | iex` (user-local: prefix `$env:COOLIFY_USER_INSTALL=1; `) · or `go install github.com/coollabsio/coolify-cli/coolify@latest`.
 
 Hard rules: firewall BEFORE the Coolify install · hardening only AFTER key auth is proven (Step 2) ·
 never close port 22 (Coolify manages over SSH) · never touch Coolify's installer-created keys.
@@ -158,7 +160,7 @@ ssh -N -o ExitOnForwardFailure=yes -L 8000:127.0.0.1:8000 \
 `/home/<user>` — often absent/unwritable — so any ssh without a durable `known_hosts` dies
 with `Host key verification failed` (silently in background; live-hit again 2026-09-21 by an unattended scheduled check). Create the vault
 known_hosts once — `ssh-keyscan -t ed25519 $VPS_IP | tr -d '\r' > ~/.vps-ops/ssh/known_hosts`
-(verify the fingerprint before trusting!) — and carry `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes` on **every** ssh this skill runs from the agent machine: bootstrap gates, ops/deploy commands, backup/watchdog status pulls. Belt (when `/home` is writable): `mkdir -p /home/$USER && ln -s "$HOME/.ssh" /home/$USER/.ssh`. **Dead-tunnel
+(verify the fingerprint before trusting!) — and carry `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes` on **every** ssh this skill runs from the agent machine: bootstrap gates, ops/deploy commands, backup/watchdog status pulls. Belt (when `/home` is writable): `mkdir -p /home/$USER && ln -s "$HOME/.ssh" /home/$USER/.ssh`. If the DEFAULT `~/.ssh/known_hosts` is ever poisoned for a host (bad/duplicate row or a changed host key), repair it with the sanctioned path — `ssh-keygen -R <ip> -f "$HOME/.ssh/known_hosts"`, then re-add the current line from the vault copy (`ssh-keygen -F <ip> -f "$HOME/.vps-ops/ssh/known_hosts"`, append the match to the default file) — never a raw in-place text edit: the harness guard blocks edits on `~/.ssh/known_hosts` and the file stays broken (live: an attempted in-place fix was guard-blocked and the default file stayed stale until the next repair). **Dead-tunnel
 symptom:** every `coolify_api.py` call fails with `10061 / actively refused` — that is the tunnel,
 not Coolify; run `py scripts/coolify_api.py tunnel` (health-checks and auto-starts it; `deploy` preflights it too - set `VPS_SSH_HOST`/`VPS_SSH_KEY` once in the vault env), or restart it manually (background) and `curl -s http://127.0.0.1:8000/api/health` before deploying.
 
@@ -195,14 +197,14 @@ Expected: install finishes (several minutes); health → `200`; container list =
 Guide the user through `00-user-checklist.md` §4A (one browser session). Then — **append (`>>`), never clobber (Step 1a's provider token may already live in this file; Windows: use a `C:/…` path for `VPS_SSH_KEY`)**:
 
 ```bash
-printf "export COOLIFY_URL='%s'\nexport COOLIFY_TOKEN='%s'\n" "http://$VPS_IP:8000" "<token>" >> ~/.vps-ops/secrets/env.sh
+printf "export COOLIFY_URL='%s'\nexport COOLIFY_TOKEN='%s'\n" "http://127.0.0.1:8000" "<token>" >> ~/.vps-ops/secrets/env.sh
 printf "export VPS_SSH_HOST='root@%s'\nexport VPS_SSH_KEY='%s/.vps-ops/ssh/id_ed25519'\n" "$VPS_IP" "$HOME" >> ~/.vps-ops/secrets/env.sh
 chmod 600 ~/.vps-ops/secrets/env.sh
 . ~/.vps-ops/secrets/env.sh
 curl -sS -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_URL/api/v1/applications"
 ```
 
-Expected: `[]` (fresh install) or a JSON array. `401` → API access still disabled or token wrong (§4A).
+Expected: `[]` (fresh install) or a JSON array — via the tunnel: COOLIFY_URL is the tunnel's local end (`http://127.0.0.1:8000`); after Step 3b the public IP's :8000 is closed, so a public-IP URL here can never answer. `401` → API access still disabled or token wrong (§4A).
 Script check: `py scripts/coolify_api.py health` → `coolify health: 200`. Never echo the token into
 chat, logs, or a repo file. The token contains `|` (Sanctum format `1|…`): the env file must hold it
 **single-quoted** (`export COOLIFY_TOKEN='1|…'`) or the shell splits it and every call answers

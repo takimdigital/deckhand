@@ -13,7 +13,7 @@
 3. commit + push to main
 4. deploy: trigger it explicitly           (a loopback dashboard gets NOTHING from GitHub — §4)
 5. py scripts/coolify_api.py wait <APP_UUID> --timeout 900 --expect-commit $(git rev-parse --short HEAD)
-6. py scripts/coolify_api.py smoke https://<domain> --expect 200
+6. py scripts/coolify_api.py smoke https://<domain> --expect 200 --contains "<marker from this change>"
 6b. release: tag + GitHub Release          (runtime changes only — §6b)
 7. report — 5-line template below
    └─ failure at 5 or 6 → logs → classify → fix-forward (max 2) or rollback

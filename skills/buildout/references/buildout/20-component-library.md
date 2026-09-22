@@ -2,7 +2,7 @@
 
 Load when: a component was built/refined and is worth keeping, or the user asks to save/reuse/find components.
 
-The companion skill `component-library` owns the store and its script — it lives at `component-library/scripts/library.py`, so run the commands below **from that skill's directory**; this doc explains how buildout uses it.
+The companion skill `component-library` owns the store and its script — it lives at `component-library/scripts/library.py`, so run the commands below **from that skill's directory** (or from anywhere with the absolute path: `py <skills-dir>/component-library/scripts/library.py …`); this doc explains how buildout uses it.
 
 ## Save (end of a section or session)
 

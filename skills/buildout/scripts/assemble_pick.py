@@ -7,13 +7,20 @@ registry variety, sampled WITHOUT replacement via a seeded RNG
 (Efraimidis-Spirakis weighted keys). Same seed + same inputs => same output.
 
 Relevance model:
-- Curated items (have `section`): match on section (+ any).
+- Curated items (have `section`): match on section (+ `any` generalists, which must
+  clear the relevance floor: >=1 requested-tag hit or the section keyword in
+  name/title/description/tags).
 - Uncurated items (no `section`): pass only when the requested tags - or the
   section name itself when no tags are given - appear in name/title/description.
 
 Usage:
   py scripts/assemble_pick.py --section hero --tags animated,glow --k 3 --seed 4242
   py scripts/assemble_pick.py --section pricing --k 3 --seed 7 --lock <project>/design.lock.json --list
+  py scripts/assemble_pick.py --section hero --tags <tag> --k 3 --seed 7 --explain
+
+Honesty (stderr, never blocks): zero tag hits across the picks -> NO TAG MATCH
+warning; a section with no curated rows -> the documented keyword-fallback line.
+Picks are PROPOSALS - the lock and the client's bans decide.
 """
 import argparse, glob, json, random, sys
 from pathlib import Path
@@ -64,6 +71,13 @@ def passes(item, section, tags, lock, allow_unthemed):
     if secs:
         if section not in secs and "any" not in secs:
             return False
+        if section not in secs:
+            # relevance floor (field-test fix): an `any` generalist only counts when
+            # it reflects at least one requested tag — or the section keyword itself.
+            terms = [t.lower() for t in (tags or []) if t] or [section.lower()]
+            hay = _text(item) + " " + " ".join(str(x).lower() for x in (item.get("tags") or []))
+            if not any(term and term in hay for term in terms):
+                return False
     else:
         terms = [t.lower() for t in (tags or []) if t] or [section.lower()]
         text = _text(item)
@@ -113,6 +127,20 @@ def pick(items, section, tags, k, seed, lock=None, allow_unthemed=False):
                     "registry": it.get("registry"), "install": it.get("install"), "why": why})
     return out
 
+def warnings_for(picks, section, tags, items):
+    """Loud honesty lines for a pick result (the CLI prints them to stderr):
+    - zero tag hits across the picks: the tags did NOT drive this pick
+    - no curated rows for the section in the whole pool: keyword fallback applies
+    """
+    out = []
+    tags = [t for t in (tags or []) if t]
+    if tags and picks and not any(w.startswith("tag:") for p in picks for w in p.get("why", [])):
+        out.append("NO TAG MATCH - none of the picks matched tags " + ",".join(tags) +
+                   "; they are section/registry-variety candidates only. Re-pick with fitting tags, curate overrides, or treat the zero-hit as evidence for the banlist override.")
+    if not any(section in (it.get("section") or []) for it in items):
+        out.append(f"no curated items for section '{section}' in the pool - documented fallback: search by keyword/tags instead (e.g. --section {section} --tags <keyword> --list), then `verify --item` before installing. Fallback candidates must clear the relevance floor: >=1 keyword/tag hit; if nothing clears it, hand-build the section from lock tokens instead of shipping an irrelevant component.")
+    return out
+
 def main():
     ap_ = argparse.ArgumentParser(description="seeded coherent component picker")
     ap_.add_argument("--section", required=True)
@@ -123,6 +151,7 @@ def main():
     ap_.add_argument("--lock", default=None, help="path to design.lock.json")
     ap_.add_argument("--allow-unthemed", action="store_true")
     ap_.add_argument("--list", action="store_true", help="list filtered pool instead of sampling")
+    ap_.add_argument("--explain", action="store_true", help="print per-pick reasoning to stderr")
     args = ap_.parse_args()
     try:
         items = load_items(args.items or [DEFAULT_ITEMS])
@@ -136,8 +165,21 @@ def main():
         for it in sorted(pool, key=lambda i: i["id"])[:50]:
             print(it["id"])
         print(f"({len(pool)} candidates)")
+        if not any(args.section in (it.get("section") or []) for it in items):
+            print(f"warning: no curated items for section '{args.section}' in the pool - documented fallback: search by keyword/tags instead; candidates above are text/section-name matches only and must clear the relevance floor (>=1 keyword/tag hit), `verify --item` before installing", file=sys.stderr)
         return 0
     picks = pick(items, args.section, tags, args.k, args.seed, lock, args.allow_unthemed)
+    for w in warnings_for(picks, args.section, tags, items):
+        print("warning: " + w, file=sys.stderr)
+    if args.explain:
+        by_id = {it["id"]: it for it in items}
+        used = _used_registries(lock)
+        for p in picks:
+            it = by_id.get(p["id"], {})
+            hits = sorted(set(tags) & set(it.get("tags") or []))
+            sec = args.section in (it.get("section") or [])
+            fresh = bool(it.get("registry")) and it["registry"] not in used
+            print(f"explain {p['id']}: section-hit={sec} tag-hits={hits or '-'} fresh-registry={fresh} why={p['why']}", file=sys.stderr)
     print(json.dumps(picks, indent=1, ensure_ascii=False))
     return 0 if picks else 2
 

@@ -1,5 +1,11 @@
 # Changelog — deckhand-profile
 
+## 0.3.3 — 2026-09-22
+
+- First-run clarifications from a first-user field test: the read-first rule now says WHEN the create offer happens (next natural pause, never mid-task, never twice in one session — and neither file existing is the normal first-run state); a Windows `~` note (`C:\Users\<you>`) sits next to the paths; the project-ledger bullet now seeds **the moment the project directory exists** (a pre-scaffold "kickoff" has no directory yet) and links the field table (`10-format.md`).
+
+- Cold-read audit fixes (pre-release, same batch): on READ, an item missing `WHY:`/`HOW:` is tolerated (never dropped or mis-filed) while writes stay strict; `status` + `nag` declared required (a missing `nag:` reads as `yes`); **the checkbox, not the heading, is the state of record** (misfiled closed items get moved when touched; `## Done` pruning always keeps the newest line so IDs can't be reused); decision-items legalized (`decide: <question> (rec:)` + `DECISION NEEDED` re-surface); a future agent action rides its trigger item as a `→ then:` note — never a standalone item; `## Decided, not built` defined in SKILL.md and added to the template; IDs are per-file across ledgers; ages are whole days from `asked` to today's local date; a declined create-offer with no ledger yet is re-offered at most once per NEW session; `private-terms.txt` documented; ref 10's field table declared a STARTER set (never delete a field you don't recognize).
+
 ## 0.3.2 — 2026-09-22
 
 - Ledger IDs pinned: `P-001`, zero-padded, next = highest existing + 1, never reused.

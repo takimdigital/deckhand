@@ -1,6 +1,6 @@
 # Store Format — ~/deckhand-library
 
-(Legacy stores at `~/expert-build-library` / `EXPERT_BUILD_LIBRARY` are still read as-is — `library.py` `store_root` falls back to them so nothing is orphaned.)
+(Legacy stores at `~/expert-build-library` / `EXPERT_BUILD_LIBRARY` remain THE store when present — `store_root` falls back to them for reads AND writes, so nothing is orphaned.)
 
 Load when: inspecting or extending the store layout, or debugging `library.py` behavior.
 
@@ -16,10 +16,10 @@ deckhand-library/
 ## index.jsonl — one line per item
 
 ```json
-{"name":"pricing-card","tags":["pricing","cards"],"section":"pricing","files":["items/pricing-card/pricing-card.tsx"],"deps":["motion"],"source":"built 2026-09-17 @ saas-x","createdAt":"2026-09-17T15:00:00Z","install":"py scripts/library.py copy pricing-card --to <dir>"}
+{"name":"pricing-card","tags":["pricing","cards"],"section":"pricing","files":["items/pricing-card/pricing-card.tsx"],"deps":["motion"],"source":"built 2026-09-17 @ saas-x","createdAt":"2026-09-17T15:00:00Z","install":"py scripts/library.py copy pricing-card --to <dir>   # run from the component-library skill dir"}
 ```
 
-Rules: `name` is the identity (lowercase-hyphen, 2-63 chars). `files` are store-relative paths. `deps` are npm packages extracted from imports (aliases like `@/` and relative paths excluded; react/react-dom/next skipped; subpath imports collapse to the package root, e.g. `motion/react` → `motion`). `source` is provenance — required in spirit even if optional in CLI.
+Rules: `name` is the identity (lowercase-hyphen, 2-63 chars). `files` are store-relative paths. `deps` are npm packages extracted from imports (aliases like `@/` and relative paths excluded; react/react-dom/next skipped; subpath imports collapse to the package root, e.g. `motion/react` → `motion`). `source` is provenance — `add` warns without it, and `--strict` refuses; keep it in every stored item.
 
 ## registry.json (derived — do not hand-edit)
 

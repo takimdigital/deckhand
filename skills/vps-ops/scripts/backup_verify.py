@@ -94,11 +94,18 @@ def main():
         backups = call("GET", f"/api/v1/databases/{db}/backups")
         if not isinstance(backups, list):
             print("backups:", json.dumps(backups)[:250]); ok = False; break
+        if not backups:
+            print("FAIL: no backup schedule exists for this database — nothing is scheduled (create the schedules, ref 55 §1)")
+            ok = False
+            break
         done = True
         for b in backups:
             ex = call("GET", f"/api/v1/databases/{db}/backups/{b['uuid']}/executions")
             ex = ex if isinstance(ex, list) else []
             last = ex[0] if ex else None
+            if last is not None and last.get("status") in ("failed", "cancelled"):
+                print(f"FAIL: newest execution for backup {b['uuid'][:12]}… is `{last.get('status')}` — the schedule ran and broke")
+                ok = False
             if last is None or last.get("status") in ("running", "queued"):
                 done = False
             print(f"backup {b['uuid'][:12]}… freq={b.get('frequency')} "

@@ -1,7 +1,7 @@
 # 10 — Profile format (v1)
 
 Header line: `format: deckhand-profile v1` (future-proofing). Then plain `key: value` lines under
-plain headings — human-editable, grep-able, ≤ 60 lines. Omit any field that does not apply; never invent.
+plain headings — human-editable, grep-able, ≤ 60 lines. Omit any field that does not apply; never invent. The table below is the STARTER set — extra `key: value` lines that change agent behavior are welcome; never delete a field you don't recognize.
 
 ## Fields
 

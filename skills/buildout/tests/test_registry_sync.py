@@ -1,4 +1,4 @@
-import json, sys, unittest
+import json, sys, types, unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,12 +25,21 @@ class RegistrySyncTests(unittest.TestCase):
         kept = [c for c in (rs.compact_entry(e, min_score) for e in directory) if c]
         return rs.merge_allowlist(kept, ALLOW)
 
-    def test_filter_hidden_degraded_low(self):
-        names = {e["name"] for e in self._entries()}
-        self.assertIn("@good", names)
-        self.assertNotIn("@hidden", names)
-        self.assertNotIn("@degraded", names)
-        self.assertNotIn("@low", names)
+    def test_hidden_dropped_sick_kept_and_marked(self):
+        entries = {e["name"]: e for e in self._entries()}
+        self.assertIn("@good", entries)
+        self.assertNotIn("@hidden", entries)    # hidden=true still dropped
+        self.assertIn("@degraded", entries)     # unhealthy: KEPT + marked (was dropped)
+        self.assertEqual(entries["@degraded"]["healthStatus"], "degraded")
+        self.assertIn("@low", entries)          # low score: KEPT + visible
+        self.assertLess(entries["@low"]["score"], 85)
+
+    def test_default_view_filter(self):
+        entries = {e["name"]: e for e in self._entries()}
+        self.assertTrue(rs.in_default_view(entries["@good"], 85))
+        self.assertFalse(rs.in_default_view(entries["@degraded"], 85))  # unhealthy
+        self.assertFalse(rs.in_default_view(entries["@low"], 85))       # below score
+        self.assertTrue(rs.in_default_view(entries["@observing"], 85))  # allowlisted always shows
 
     def test_allowlist_overrides_filter_and_synthesizes(self):
         entries = {e["name"]: e for e in self._entries()}
@@ -67,14 +76,25 @@ class RegistrySyncTests(unittest.TestCase):
         self.assertEqual(rs.render_install(None, "button", rs.DEFAULT_STYLE),
                          "npx shadcn@latest add button")
 
-    def test_classify_samples(self):
-        self.assertEqual(rs.classify_samples([200, 401, 404]), "ok")      # any 200 wins (mixed free/pro)
+    def test_classify_samples_requires_all_free(self):
+        self.assertEqual(rs.classify_samples([200, 200]), "ok")
+        self.assertEqual(rs.classify_samples([200, 401]), "mixed")      # was "ok": one free item must not vouch for the rest
+        self.assertEqual(rs.classify_samples([401, 401, 200, 403, 401]), "mixed")  # live shape that used to pass
+        self.assertEqual(rs.classify_samples([200, 404]), "dead")       # a broken template wins over a free sample
         self.assertEqual(rs.classify_samples([404, 404]), "dead")
         self.assertEqual(rs.classify_samples([401, 403]), "gated")
         self.assertEqual(rs.classify_samples([429, 429]), "rate-limited")
+        self.assertEqual(rs.classify_samples([200, "ERR:URLError"]), "error")
         self.assertEqual(rs.classify_samples(["ERR:URLError"]), "error")
         self.assertEqual(rs.classify_samples([None, None]), "bare")
         self.assertEqual(rs.classify_samples([]), "unverified")
+
+    def test_mixed_fails_the_pool_gate(self):
+        self.assertIn("mixed", rs.VERIFY_FAIL)
+
+    def test_free_ratio(self):
+        self.assertEqual(rs.free_ratio([200, 401, 200]), (2, 3))
+        self.assertEqual(rs.free_ratio([None, 401]), (0, 1))
 
     def test_sample_indices_and_install_target(self):
         self.assertEqual(rs.sample_indices(5), [0, 1, 2, 3, 4])
@@ -89,6 +109,28 @@ class RegistrySyncTests(unittest.TestCase):
         self.assertEqual(rs.catalog_items(None), [])
         entries = {e["name"]: e for e in self._entries()}
         self.assertEqual(entries["@default"]["catalogUrl"], "https://default.example/r/index.json")
+
+    def test_cmd_sync_fixture_end_to_end(self):
+        """Regression: cmd_sync must write a snapshot carrying unhealthy entries -
+        it crashed with UnboundLocalError once because `healthy` was counted
+        after the snapshot write."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            old_snap, old_allow = rs.SNAPSHOT, rs.ALLOWLIST
+            rs.SNAPSHOT = Path(td) / "snap.json"
+            rs.ALLOWLIST = Path(td) / "allow.json"
+            rs.ALLOWLIST.write_text(json.dumps(ALLOW), encoding="utf-8")
+            try:
+                args = types.SimpleNamespace(force=True, fixture=str(FIXTURE), min_score=85, ttl_days=7)
+                self.assertEqual(rs.cmd_sync(args), 0)
+                snap = json.loads(rs.SNAPSHOT.read_text(encoding="utf-8"))
+                entries = {e["name"]: e for e in snap["registries"]}
+                self.assertIn("@degraded", entries)                   # carried + marked (was dropped)
+                self.assertEqual(entries["@degraded"]["healthStatus"], "degraded")
+                self.assertNotIn("@hidden", entries)                  # hidden=true still dropped
+                self.assertEqual(snap["counts"]["healthy"], 4)        # @good + 3 allowlisted-in-view
+            finally:
+                rs.SNAPSHOT, rs.ALLOWLIST = old_snap, old_allow
 
 if __name__ == "__main__":
     unittest.main()

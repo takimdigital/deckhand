@@ -53,5 +53,23 @@ class PickTests(unittest.TestCase):
         self.assertNotIn("@f/mystery", got)              # no section, no text match
         self.assertIn("@g/animated-hero-widget", got)    # no section but name matches
 
+    def test_zero_tag_hit_warning(self):
+        picks = ap.pick(POOL, "hero", ["professional", "law"], k=3, seed=4242)
+        warns = ap.warnings_for(picks, "hero", ["professional", "law"], POOL)
+        self.assertTrue(any("NO TAG MATCH" in w for w in warns))
+
+    def test_no_warning_when_tags_hit(self):
+        picks = ap.pick(POOL, "hero", ["animated"], k=2, seed=1)
+        warns = ap.warnings_for(picks, "hero", ["animated"], POOL)
+        self.assertFalse(any("NO TAG MATCH" in w for w in warns))
+
+    def test_missing_curated_section_warns_fallback(self):
+        warns = ap.warnings_for([], "footer", [], POOL)
+        self.assertTrue(any("no curated items" in w for w in warns))
+
+    def test_curated_section_no_fallback_warning(self):
+        warns = ap.warnings_for([], "pricing", [], POOL)
+        self.assertFalse(any("no curated items" in w for w in warns))
+
 if __name__ == "__main__":
     unittest.main()

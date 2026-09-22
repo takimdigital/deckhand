@@ -30,7 +30,7 @@ Read `pnpm --silent design:fails` — never raw logs, the HTML report, or screen
 
 ## Gaps (deliberate — no maintained OSS package exists)
 
-Keyboard-walkthrough UX and focus-order judgement (axe covers basics only) · logged-in flows (add `storageState` per project when the app has auth) · OG/meta beyond presence · RTL beyond `dir` capture. Those belong to the manual/`dogfood` lens, not this gate.
+Keyboard-walkthrough UX and focus-order judgement (axe covers basics only) · logged-in flows (add `storageState` per project when the app has auth) · OG/meta beyond presence · RTL beyond `dir` capture · reduced-motion (captured for the record, never judged). Those belong to the manual/`dogfood` lens, not this gate. The coherence checks (raw values + palette utilities + state-motion — 3 of 3, `10-design-assembly.md` Phase 3) and the product-acceptance pass (`40-verify-the-product.md`) are separate gates — run the three together in one pre-handoff sweep.
 
 ## Triage & traps (all validated in anger)
 

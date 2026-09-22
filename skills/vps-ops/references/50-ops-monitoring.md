@@ -74,7 +74,7 @@ REST fallbacks (live-verified 2026-09-17): `POST /databases/{uuid}/backups` with
 `GET /databases/{uuid}/backups` · `GET /databases/{uuid}/backups/{scheduled_backup_uuid}/executions`
 (execution shortly shows `status:"success"`; the dump lands in
 `/data/coolify/backups/databases/<team>/<db-name>-<uuid>/pg-dump-<db>-<epoch>.dmp`).
-Offsite is no longer "optional": **every project defaults to dual offsite targets (Backblaze B2 primary + Cloudflare R2) with 3-copy retention, schedules and verification — all in `55-offsite-backups.md`.** The local dump stays as a fast-restore cache; the offsite object is the source of truth.
+Offsite is no longer "optional": **every project defaults to dual offsite targets (Backblaze B2 primary + Tigris — both card-free; Cloudflare R2 optional, card-gated) with 3-copy retention, schedules and verification — all in `55-offsite-backups.md`.** The local dump stays as a fast-restore cache; the offsite object is the source of truth.
 VPS-level snapshot (monthly, before updates):
 
 ```bash
@@ -97,7 +97,7 @@ ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyCheck
 
 ## 6. Updates
 
-Coolify (the script backs up the DB first; log at `/data/coolify/source/upgrade-*.log`):
+Coolify (the script backs up the DB first; log at `/data/coolify/source/upgrade-*.log`). **After ANY Coolify upgrade, re-run Step 3b** — the upgrade re-downloads both compose files and the dashboard's loopback binds are LOST (ref 10):
 
 ```bash
 ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'curl -fsSL https://cdn.coollabs.io/coolify/upgrade.sh | bash'

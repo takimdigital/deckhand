@@ -174,7 +174,7 @@ Coolify issues the Let's Encrypt certificate on the next deploy (port 80 reachab
 ```bash
 coolify deploy uuid <APP_UUID>                                   # enqueue
 py scripts/coolify_api.py wait <APP_UUID> --timeout 900          # poll to terminal status
-py scripts/coolify_api.py smoke https://<domain> --expect 200
+py scripts/coolify_api.py smoke https://<domain> --expect 200 --contains "<a string only your app returns>"
 ```
 
 REST deploy trigger — **query params only, no body**:
@@ -186,7 +186,7 @@ curl -sS -X POST "$COOLIFY_URL/api/v1/deploy?uuid=<APP_UUID>&force=false" \
 
 Expected:
 - `wait` → `SUCCESS (1m32s, deployment <id>)`, exit **0**. Exit `3` = deployment failed → `40-change-pipeline.md` classification. Exit `5` = timeout → keep polling / read logs.
-- `smoke` → `OK 200 https://<domain>`, exit **0**; exit `4` = fail.
+- `smoke` → `OK 200 https://<domain>`, exit **0**; exit `4` = fail. A bare 200 proves *something* answered — not that it's YOUR app: the `--contains` run (title, hero line, any string only the app returns) is the proof.
 
 Statuses are tolerant: `{"success","finished"}` = OK · `{"failed","cancelled"}` = FAIL · **anything else = still running**. *Live-verified on Coolify 4.3.21: terminal OK = `finished`; the deployments endpoint returns `{"count":N,"deployments":[...]}` (newest first by `created_at`), which `scripts/coolify_api.py` already normalizes.*
 
@@ -249,5 +249,5 @@ Tell the user it exists — it is the cold-start door into everything else.
 | 1 | app uuid pinned + committed | `cat .vps-ops.json` |
 | 2 | env keys present | `py scripts/coolify_api.py envs <APP_UUID>` |
 | 3 | deployment terminal SUCCESS | `py scripts/coolify_api.py deployments <APP_UUID> --limit 3` |
-| 4 | HTTPS answers 200 | `py scripts/coolify_api.py smoke https://<domain> --expect 200` |
+| 4 | HTTPS answers 200 + app content | `py scripts/coolify_api.py smoke https://<domain> --expect 200 --contains "<app string>"` |
 | 5 | auto-deploy wired | push a trivial commit → expect a new deployment (`[verify at live drill]` on non-GitHub-App routes) |

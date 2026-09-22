@@ -1,0 +1,3 @@
+- homepage-services · Homepage + services list · source: brief
+- booking-form · Booking request form · source: brief
+- faq · FAQ section · source: research (competitors all have one)

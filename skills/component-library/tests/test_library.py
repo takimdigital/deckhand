@@ -75,5 +75,36 @@ class LibraryTests(unittest.TestCase):
         self.assertTrue((dest / "pricing-card.tsx").exists())
 
 
+    def test_copy_force_guard_and_verify(self):
+        self.lib.cmd_add(self.lib.parse_args(["add", "--name", "zz", "--file", str(self.src), "--source", "t"]))
+        dest = Path(self.tmp.name) / "proj"; dest.mkdir()
+        self.lib.cmd_copy(self.lib.parse_args(["copy", "zz", "--to", str(dest)]))
+        with self.assertRaises(SystemExit):
+            self.lib.cmd_copy(self.lib.parse_args(["copy", "zz", "--to", str(dest)]))
+        self.lib.cmd_copy(self.lib.parse_args(["copy", "zz", "--to", str(dest), "--force"]))
+        self.assertEqual(self.lib.cmd_verify(self.lib.parse_args(["verify"])), 0)
+        import shutil as _s
+        _s.rmtree(Path(self.tmp.name) / "items" / "zz")
+        self.assertEqual(self.lib.cmd_verify(self.lib.parse_args(["verify"])), 1)
+
+    def test_strict_requires_source_and_fonts(self):
+        no_src = Path(self.tmp.name) / "plain.tsx"
+        no_src.write_text("export const A = () => null;\n", encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            self.lib.cmd_add(self.lib.parse_args(["add", "--name", "aa", "--file", str(no_src), "--strict"]))
+        font = Path(self.tmp.name) / "fonted.tsx"
+        font.write_text('export const B = () => <div style={{fontFamily: "Inter"}}/>;\n', encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            self.lib.cmd_add(self.lib.parse_args(["add", "--name", "bb", "--file", str(font), "--source", "t", "--strict"]))
+
+    def test_add_rejects_directories_and_where_prints(self):
+        with self.assertRaises(SystemExit):
+            self.lib.cmd_add(self.lib.parse_args(["add", "--name", "cc", "--file", self.tmp.name, "--source", "t"]))
+        import contextlib, io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.lib.cmd_where(self.lib.parse_args(["where"]))
+        self.assertIn(self.tmp.name, buf.getvalue())
+
 if __name__ == "__main__":
     unittest.main()

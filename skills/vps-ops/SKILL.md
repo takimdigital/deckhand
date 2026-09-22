@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.9.8
+version: 0.9.9
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -59,7 +59,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
   smoke check (`coolify_api.py smoke`).
 - Never print token values; reference them as `$COOLIFY_TOKEN` / `$HOSTINGER_API_TOKEN`.
 - Every invariant above applies to BOTH tracks. The free preview is a DISPOSABLE host: never present it as production-grade durability — say "preview" in reports; ref `60` is the exit path.
-- Keep Coolify's dashboard OFF the public internet on EVERY track: loopback-bind its ports in Coolify's own compose (ref 10 Step 3b) + SSH tunnel — host firewall rules alone do NOT stop Docker-published ports (live-verified on Docker 29, 2026-09-19).
+- Keep Coolify's dashboard OFF the public internet on EVERY track: loopback-bind its ports in Coolify's own compose (ref 10 Step 3b; Track F equivalent — never open 8000 in the OCI Security List + the tunnel, ref 11 Steps 1/4) + SSH tunnel — host firewall rules alone do NOT stop Docker-published ports (live-verified on Docker 29, 2026-09-19).
 - A shipped runtime change ends **released**: pushed → deployed → smoke green → `git tag` + GitHub Release with ≤ 8 user-facing bullets (ref 40 §6b). Docs-only commits deploy nothing and release nothing. The user should never have to ask why their repo has no releases.
 - **Access before asks:** probe existing credentials at phase start (cheap read endpoints); a capability wall gets ONE batched ask — exact scope + exact click path — and anything a future phase will also need is provisioned in the same ask (e.g. the Cloudflare token carries DNS **and** Email Routing scopes from day one, ref 21). Asking for what an existing token/API can already do is a defect (live-seen: an Email Routing wall bounced back to the user because the token predated the need).
 - **A schedule is verified only by its own trigger:** every timer/Task/cronjob must fire once through the mechanism that will run it (`systemctl start`, `schtasks /Run`, the real fire) and leave a fresh artifact + `status ok` BEFORE "live" is claimed — manual runs prove the script, never the schedule (ref 55 §3; live-hit twice, 2026-09-20/21).
@@ -91,11 +91,12 @@ Universal path (works in ANY harness, stdlib only):
 - `scripts/coolify_api.py` — `health | apps | app <uuid> | deploy <uuid> [--force] | deployments <uuid> [--limit N] | dlogs <uuid> [--grep TEXT] [--deployment ID] [--tail N] | wait <uuid> [--timeout 900] [--expect-commit <sha>] | tunnel | logs <uuid> [--lines 200] [--timestamps] | envs <uuid> | envset <uuid> KEY=VAL... | status | smoke <url> [--expect 200] [--contains TEXT]`
 - `scripts/repo_presence.py` — the repo's public face from ONE filled JSON (README/LICENSE/package.json + gh description/topics) — ref 40 §6b, kit in `templates/repo-presence/`
 - `scripts/hostinger_api.py` — `vm list|get|metrics|restart` · `snapshot create|list` · `sshkey ensure --vm <id>` · `dns get|set-a` · `firewall ensure --vm <id>` · `actions <vm> [action_id]`
+- `scripts/backup_verify.py` — the honest proof (ref 55 §3): `py scripts/backup_verify.py <db_uuid> <tigris_bucket> [--wait 150]` — lists both buckets + newest executions; exit ≠ 0 unless EVERY leg produced evidence (empty schedule list or a failed newest run = FAIL). Setup companions: `b2_setup.py`, `tigris_bucket.py`, `coolify_backup_setup.py` (ref 55 §0–§1).
 
 Run with `py scripts/coolify_api.py --help` on Windows, `python3 ...` elsewhere.
 Exit codes: `0` ok · `3` deploy failed · `4` http/smoke error · `5` wait timeout · `6` unexpected.
 
-Optional extras (never required): Coolify CLI (MIT, `coolify ...`) and MCP wiring — see
+Optional extras (never required): the Coolify CLI (MIT, `coollabsio/coolify-cli` — install per `references/10-bootstrap-vps.md`; every step also has a stdlib script/curl path) and MCP wiring — see
 `references/10-bootstrap-vps.md`.
 
 Oracle free-track asset: `assets/oci-cloud-init.yaml` — hand its contents to the user to paste into
