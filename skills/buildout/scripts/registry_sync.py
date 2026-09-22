@@ -6,7 +6,11 @@ sync    fetch https://ui.shadcn.com/r/registries.json -> filter by health ->
 check   print snapshot age / staleness (no network)
 list    query the snapshot cheaply (--match substring, --limit)
 onboard fetch <registry>/r/registry.json (or --catalog-file <path>) ->
-        data/items/<ns>.jsonl candidates
+        data/items/<ns>.jsonl candidates ({style} URL templates use --style;
+        sampled install URLs are live-verified BEFORE writing - 404 aborts)
+verify  live-check every allowlisted registry's install path (index + sampled
+        items; --item @ns/<name> checks one item) - fails on 404 templates,
+        all-gated registries and unsynced allowlists
 
 Stdlib only, Python 3.10+. Never print the full directory JSON.
 """
@@ -23,6 +27,11 @@ SOURCE = "https://ui.shadcn.com/r/registries.json"
 UA = {"User-Agent": "deckhand-buildout/0.2 (+agentskills.io)"}
 BROWSER_UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
 KEEP_STATUSES = {"healthy"}
+DEFAULT_STYLE = "base-nova"  # value baked into {style} URL templates; reui reads <base>-<variant>
+                             # and serves only its listed pairs (default base-nova, verified 2026-09-21)
+SAMPLE_COUNT = 5             # spread sampled per registry by onboard/verify
+VERIFY_FAIL = {"dead", "gated", "error", "unverified"}
+BARE_OK_NS = "@shadcn"       # the CLI's own default registry - bare-name installs are correct only here
 
 def now_iso():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -38,6 +47,17 @@ def fetch_json(url):
             with urllib.request.urlopen(req2, timeout=30) as r:
                 return json.loads(r.read().decode("utf-8"))
         raise
+
+def fetch_status(url):
+    """HTTP status for one GET (browser UA); 'ERR:<kind>' on transport failure."""
+    req = urllib.request.Request(url, headers=BROWSER_UA)
+    try:
+        with urllib.request.urlopen(req, timeout=25) as r:
+            return r.status
+    except urllib.error.HTTPError as e:
+        return e.code
+    except Exception as e:
+        return "ERR:" + type(e).__name__
 
 def compact_entry(e, min_score):
     h = e.get("health") or {}
@@ -66,6 +86,15 @@ def merge_allowlist(entries, allow):
         if name in by_name:
             t = by_name[name]
             t["inAllowlist"] = True
+            if "url" in a:
+                # Curated fields win over the directory's; an explicit null url = bare-name installs.
+                t["url"] = a.get("url")
+            if a.get("homepage"):
+                t["homepage"] = a["homepage"]
+            if a.get("catalogUrl"):
+                t["catalogUrl"] = a["catalogUrl"]
+            if a.get("verifiedAt"):
+                t["verifiedAt"] = a["verifiedAt"]
             t["license"] = a.get("license")
             t["licenseEvidence"] = a.get("licenseEvidence")
             t["integration"] = a.get("integration", "shadcn")
@@ -79,8 +108,64 @@ def merge_allowlist(entries, allow):
                 "license": a.get("license"), "licenseEvidence": a.get("licenseEvidence"),
                 "integration": a.get("integration", "shadcn"),
                 "tags": sorted(set(a.get("tags", []))), "notes": a.get("notes", ""),
+                **({"catalogUrl": a["catalogUrl"]} if a.get("catalogUrl") else {}),
+                **({"verifiedAt": a["verifiedAt"]} if a.get("verifiedAt") else {}),
             })
     return entries
+
+def render_install(tmpl, name, style):
+    """Final `npx shadcn add` target for one catalog item (bare name when no template)."""
+    tmpl = tmpl or ""
+    if "{style}" in tmpl:
+        target = tmpl.replace("{style}", style).replace("{name}", name)
+    else:
+        target = tmpl.replace("{name}", name) if tmpl else name
+    return "npx shadcn@latest add " + target
+
+def install_target(install):
+    """The URL inside an install string; None for bare-name installs (CLI-resolved)."""
+    prefix = "npx shadcn@latest add "
+    t = install[len(prefix):] if (install or "").startswith(prefix) else (install or "")
+    return t if t.startswith("http") else None
+
+def catalog_items(cat):
+    """Items from a registry index: {'items': [...]} or a bare JSON list."""
+    if isinstance(cat, dict):
+        return cat.get("items", []) or []
+    return cat if isinstance(cat, list) else []
+
+def sample_indices(n, count=SAMPLE_COUNT):
+    """Evenly spread sample indices over n items (first ... last always included)."""
+    if n <= 0:
+        return []
+    if n <= count:
+        return list(range(n))
+    return sorted({round(i * (n - 1) / (count - 1)) for i in range(count)})
+
+def classify_samples(statuses):
+    """Verdict from sampled install statuses: int = HTTP, None = bare name, str = transport error."""
+    ints = [s for s in statuses if isinstance(s, int)]
+    if ints:
+        if any(s == 200 for s in ints):
+            return "ok"
+        if any(s == 404 for s in ints):
+            return "dead"
+        if all(s in (401, 402, 403) for s in ints):
+            return "gated"
+        if all(s == 429 for s in ints):
+            return "rate-limited"
+        return "error"
+    if statuses and all(s is None for s in statuses):
+        return "bare"
+    if any(isinstance(s, str) for s in statuses):
+        return "error"
+    return "unverified"
+
+def display_status(st):
+    return "bare" if st is None else str(st)
+
+def catalog_url_for(entry):
+    return entry.get("catalogUrl") or ((entry.get("homepage") or "").rstrip("/") + "/r/registry.json")
 
 def cmd_sync(args):
     allow = json.loads(ALLOWLIST.read_text(encoding="utf-8"))
@@ -143,6 +228,7 @@ def cmd_list(args):
     d = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
     pat = args.match.lower()
     rows = [e for e in d["registries"] if not pat or pat in json.dumps(e, ensure_ascii=False).lower()]
+    print("* = MIT-allowlisted (installable); unmarked rows are directory entries with unverified license - do not install or onboard from them")
     for e in rows[:args.limit]:
         mark = "*" if e.get("inAllowlist") else " "
         print(f"{mark}{e['name']:<22} score={str(e.get('score')):<6} {e.get('integration', 'shadcn'):<14} {e.get('homepage', '')}  {e.get('notes') or (e.get('description') or '')[:60]}")
@@ -158,8 +244,10 @@ def cmd_onboard(args):
     if entry is None:
         print(f"registry {args.namespace} not in snapshot - add to allowlist + sync first")
         return 1
-    base = (entry.get("homepage") or "").rstrip("/")
-    catalog_url = base + "/r/registry.json"
+    if not entry.get("inAllowlist"):
+        print(f"registry {args.namespace} is not MIT-allowlisted - add it to data/allowlist.json (license + endpoint evidence) + sync first")
+        return 1
+    catalog_url = catalog_url_for(entry)
     if args.catalog_file:
         try:
             cat = json.loads(Path(args.catalog_file).read_text(encoding="utf-8"))
@@ -174,29 +262,127 @@ def cmd_onboard(args):
             print(f"could not fetch catalog {catalog_url}: {err}")
             return 1
         source_note = catalog_url
-    items = cat.get("items", []) if isinstance(cat, dict) else []
-    tmpl = entry.get("url") or ""
+    rows = []
+    for it in catalog_items(cat):
+        if not isinstance(it, dict) or not it.get("name"):
+            continue
+        name = it["name"]
+        rows.append({
+            "id": f"{entry['name']}/{name}", "name": name, "registry": entry["name"],
+            "type": it.get("type"), "title": it.get("title"),
+            "description": (it.get("description") or "")[:160],
+            "deps": it.get("dependencies", []), "registryDeps": it.get("registryDependencies", []),
+            "install": render_install(entry.get("url"), name, args.style),
+            "catalog": catalog_url, "catalogSource": source_note, "addedAt": now_iso(),
+        })
+    if not args.no_verify and rows:
+        picks = [rows[i] for i in sample_indices(len(rows))]
+        print(f"verify: sampling {len(picks)}/{len(rows)} rendered install URLs (--no-verify to skip)")
+        statuses = []
+        for r in picks:
+            target = install_target(r["install"])
+            st = fetch_status(target) if target else None
+            statuses.append(st)
+            print(f"  {display_status(st):>12}  {r['id']}" + (f"  {target}" if target else ""))
+        verdict = classify_samples(statuses)
+        if verdict == "dead":
+            print("onboard ABORTED: sampled install URLs return 404 - the allowlist url template or --style is not served.")
+            print("Fix data/allowlist.json (url / --style) first; nothing was written.")
+            return 1
+        if verdict not in ("ok", "bare"):
+            print(f"onboard warning: sampled verdict '{verdict}' - confirm a keyless free set exists (see the allowlist note); verify fails all-gated registries.")
+        elif not entry.get("url") and entry["name"] != BARE_OK_NS:
+            print("onboard warning: url is null - bare-name installs are only correct for the CLI's own default registry; give this entry a url template in data/allowlist.json.")
+        else:
+            print(f"onboard verify: {verdict}")
     ns_file = entry["name"].lstrip("@").lower().replace("/", "-")
     ITEMS_DIR.mkdir(parents=True, exist_ok=True)
     out = ITEMS_DIR / f"{ns_file}.jsonl"
     with out.open("w", encoding="utf-8") as fh:
-        for it in items:
-            name = it.get("name")
-            if not name:
-                continue
-            if "{style}" in tmpl:
-                install = "npx shadcn@latest add " + tmpl.replace("{style}", args.style).replace("{name}", name)
-            else:
-                install = "npx shadcn@latest add " + (tmpl.replace("{name}", name) if tmpl else name)
-            fh.write(json.dumps({
-                "id": f"{entry['name']}/{name}", "name": name, "registry": entry["name"],
-                "type": it.get("type"), "title": it.get("title"),
-                "description": (it.get("description") or "")[:160],
-                "deps": it.get("dependencies", []), "registryDeps": it.get("registryDependencies", []),
-                "install": install, "catalog": catalog_url, "catalogSource": source_note, "addedAt": now_iso(),
-            }, ensure_ascii=False) + "\n")
-    print(f"onboarded {entry['name']}: {len(items)} items -> {out} (source: {source_note})")
+        for r in rows:
+            fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+    print(f"onboarded {entry['name']}: {len(rows)} items -> {out} (source: {source_note})")
     return 0
+
+def cmd_verify(args):
+    """Live-check the install path of every allowlisted registry (or the named ones)."""
+    if not SNAPSHOT.exists():
+        print("no snapshot - run: py scripts/registry_sync.py sync")
+        return 1
+    d = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+    allow_names = [a["name"] for a in json.loads(ALLOWLIST.read_text(encoding="utf-8")).get("registries", [])]
+    snap_names = {e["name"] for e in d["registries"]}
+    missing = [n for n in allow_names if n not in snap_names]
+    if missing:
+        print(f"verify: {', '.join(missing)} in the allowlist but not in the snapshot - run sync first (verify reads the snapshot)")
+        return 1
+    entries = [e for e in d["registries"] if e.get("inAllowlist")]
+    if args.namespaces:
+        entries = [e for e in entries if e["name"] in args.namespaces]
+    if args.item:
+        ns, _, name = args.item.partition("/")
+        entry = next((e for e in entries if e["name"] == ns), None)
+        if entry is None or not name:
+            print(f"verify: {args.item} is not an allowlisted item (use @ns/<name>)")
+            return 1
+        ns_file = ns.lstrip("@").lower().replace("/", "-")
+        cat_path = ITEMS_DIR / f"{ns_file}.jsonl"
+        install = None
+        if cat_path.exists():
+            for line in cat_path.read_text(encoding="utf-8").splitlines():
+                if line.strip():
+                    r = json.loads(line)
+                    if r.get("id") == args.item:
+                        install = r.get("install")
+                        break
+        if not install:
+            install = render_install(entry.get("url"), name, DEFAULT_STYLE)
+        target = install_target(install)
+        st = fetch_status(target) if target else None
+        verdict = classify_samples([st])
+        ok = verdict == "ok" or (verdict == "bare" and ns == BARE_OK_NS)
+        print(f"{args.item}: {display_status(st)} ({verdict})" + ("" if ok else " - gated or dead; do not install"))
+        return 0 if ok else 1
+    failing = 0
+    for entry in entries:
+        ns = entry["name"]
+        if entry.get("integration", "shadcn") != "shadcn":
+            print(f" {ns:<21} skip          (integration={entry.get('integration')} - not a shadcn registry)")
+            continue
+        ns_file = ns.lstrip("@").lower().replace("/", "-")
+        cat_path = ITEMS_DIR / f"{ns_file}.jsonl"
+        if cat_path.exists():
+            rows = [json.loads(l) for l in cat_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+            source = f"catalog {ns_file}.jsonl"
+        else:
+            catalog_url = catalog_url_for(entry)
+            try:
+                cat = fetch_json(catalog_url)
+            except Exception as err:
+                print(f"!{ns:<21} index-error   {catalog_url}: {err}")
+                failing += 1
+                continue
+            rows = [{"id": f"{ns}/{it['name']}", "install": render_install(entry.get("url"), it["name"], DEFAULT_STYLE)}
+                    for it in catalog_items(cat) if isinstance(it, dict) and it.get("name")]
+            source = catalog_url
+        if not rows:
+            print(f"!{ns:<21} no-items      (empty catalog/index)")
+            failing += 1
+            continue
+        picks = [rows[i] for i in sample_indices(len(rows), args.count)]
+        statuses, detail = [], []
+        for r in picks:
+            target = install_target(r.get("install") or "")
+            st = fetch_status(target) if target else None
+            statuses.append(st)
+            detail.append(f"{r.get('id')}->{display_status(st)}")
+        verdict = classify_samples(statuses)
+        bad = verdict in VERIFY_FAIL or (verdict == "bare" and ns != BARE_OK_NS)
+        if bad:
+            failing += 1
+        print(f"{'!' if bad else ' '}{ns:<21} {verdict:<13} [{source}] " + " | ".join(detail))
+    print(f"verify: {len(entries)} checked, {failing} failing" + ("" if failing == 0 else " - fix the url/note or drop the entry (data/allowlist.json)"))
+    return 1 if failing else 0
 
 def main():
     ap = argparse.ArgumentParser(description="shadcn registry pool sync")
@@ -204,7 +390,8 @@ def main():
     s = sub.add_parser("sync"); s.add_argument("--force", action="store_true"); s.add_argument("--min-score", type=float, default=85); s.add_argument("--ttl-days", type=float, default=7); s.add_argument("--fixture"); s.set_defaults(fn=cmd_sync)
     c = sub.add_parser("check"); c.add_argument("--ttl-days", type=float, default=7); c.set_defaults(fn=cmd_check)
     l = sub.add_parser("list"); l.add_argument("--match", default=""); l.add_argument("--limit", type=int, default=25); l.set_defaults(fn=cmd_list)
-    o = sub.add_parser("onboard"); o.add_argument("namespace"); o.add_argument("--style", default="radix"); o.add_argument("--catalog-file", default=None); o.set_defaults(fn=cmd_onboard)
+    o = sub.add_parser("onboard"); o.add_argument("namespace"); o.add_argument("--style", default=DEFAULT_STYLE, help="style baked into {style} URL templates (reui: <base>-<variant>, e.g. base-nova, radix-lyra)"); o.add_argument("--catalog-file", default=None); o.add_argument("--no-verify", action="store_true", help="skip the live sample check of rendered install URLs"); o.set_defaults(fn=cmd_onboard)
+    v = sub.add_parser("verify"); v.add_argument("namespaces", nargs="*"); v.add_argument("--count", type=int, default=SAMPLE_COUNT); v.add_argument("--item", default=None, help="check one item, e.g. --item @reui/c-alert-1"); v.set_defaults(fn=cmd_verify)
     args = ap.parse_args()
     return args.fn(args)
 

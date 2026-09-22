@@ -1,5 +1,25 @@
 # Changelog - Buildout
 
+## 0.4.6 — 2026-09-21
+
+Pool expansion — the registry allowlist grows past its original five, with a refreshed snapshot, every install URL live-tested, and stale notes made true again.
+
+### Added
+- **The pool pipeline now proves install paths live** — `onboard` samples the rendered install URLs before writing a catalog and aborts (nothing written) when the template 404s; new `registry_sync.py verify` re-checks every allowlisted registry (index + sampled items) and fails on 404 templates and all-gated registries. Allowlist rules now demand dated endpoint evidence in notes, and `@shadcn` gained the `catalogUrl` index override. Kills the failure mode where an allowlisted URL shape (a stale `{style}` value, a moved item path) shipped dead.
+- **Gate hardening from a zero-context review** — `onboard` refuses non-allowlisted namespaces (the MIT gate is enforced by the tool, not just the docs: a directory entry like `@ilinxa` could previously be onboarded despite no license verification), `list` prints its `*` installable-marker legend, `verify` refuses an unsynced allowlist (`sync` first — previously a false green on a freshly edited entry), new `verify --item @ns/<name>` checks a single item before install (401/403 = gated), bare-name installs now fail `verify` for anything but the CLI's own default registry, `verifiedAt` now reaches the snapshot, and `allowlist.json` gained a `fields` rule spelling out required/optional entry fields plus the sync → onboard → verify order.
+- **Seven MIT-verified registries** in `data/allowlist.json`, each with GitHub-verified license evidence + date and a live-tested item endpoint (2026-09-21): `@kibo-ui` (calendar / kanban / gantt / table), `@diceui` (drag & drop · kanban · sortable), `@intentui` (React Aria — forms, date pickers, tables, charts), `@data-table-filters` (server-side-filtered data-table + row sheet), `@niko-table` (data-grid family incl. row/column DnD), `@dashboardcn` (KPI cards + trend charts), `@bklit` (composable chart parts). Snapshot refreshed against the live directory: **382 listed → 300 kept** (2026-09-21).
+
+### Fixed
+- **`onboard` produced dead install URLs for `{style}` registries** — the `--style` default was `radix`, but ReUI's style segment is `<base>-<variant>` and a value outside its lists is not served (`/r/radix/<name>.json` 404s; upstream default `base-nova`). The default is now `base-nova`, baked into the URL at onboard time.
+- **The curated allowlist URL now wins over the directory's template** in `sync` — including an explicit `null` for bare-name registries. `@diceui` onboards as `/r/{name}.json` (the directory advertises a `{style}` template the site does not serve) and `@shadcn` onboards as bare names (`button`; `/r/{name}.json` 404s and the CLI resolves core items itself).
+- **`@diceui` host corrected** — the entry now pins the apex host + a `catalogUrl` override: `www.diceui.com` serves HTTP 526 (dead TLS) on root and all paths while `diceui.com` serves everything; caught by the new `verify`. The merge now also lets the curated `homepage` win for matched entries.
+- **`data/items/reui.jsonl` regenerated** — all 1,773 install strings now use the served `base-nova` shape (previously every one pointed at the dead `/r/radix/` shape; item ids unchanged).
+- **`@tailark` dropped after live testing** — its marketing blocks and illustrations are plan-gated (HTTP 401 without a sign-in plan) and the keyless-free remainder (core-* libs, base UI primitives, 7 motion-primitives) duplicates shadcn core; dropped so every allowlisted registry stays installable keyless for the items it was added for.
+- **Stale `@reui` note** — "1773 free items; premium blocks excluded" no longer held: 543 blocks now require a license key (HTTP 401 without), including most dashboard/booking/kanban blocks; the free set is primitives + `c-*` examples. The note now also records the current style-segment shape (`<base>-<variant>`, default `base-nova`; `/r/radix/<name>.json` 404s).
+- **`@velora` left the live shadcn directory** (verified 2026-09-21) — the entry is kept as an allowlist-synthesized one so the existing catalog stays valid, with a re-check note.
+- **Docs:** the `@reui` examples + `{style}` pitfall in `10-design-assembly.md` now use `base-nova` and explain that the CLI substitutes `components.json`'s style into `{style}` — never a valid ReUI value, so bake it.
+- **Hardcoded directory counts dropped** from SKILL.md and README (`372-registry` claims) — the live count belongs to the snapshot, not the docs.
+
 ## 0.4.5 — 2026-09-21
 
 Verification hardening — every audit claim now matches what the gate actually runs.

@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-09-21 — the component pool proves its install paths live (buildout v0.4.6 / pack v0.14.6)
+
+The buildout engine's registry pool now verifies itself against the live web, and seven new
+MIT-verified registries join it:
+
+- **`onboard` samples real install URLs before writing a catalog.** A five-point spread check runs
+  across the rendered catalog first; if the registry's URL shape no longer resolves, the run
+  aborts with the exact failing URLs and writes nothing — a dead template can no longer reach a
+  catalog silently. Only MIT-allowlisted registries can be onboarded at all.
+- **New `registry_sync.py verify`** re-checks every allowlisted registry's install path (index +
+  spread-sampled items) and fails on 404 templates and plan-gated registries — pool upkeep is a
+  checked step now. A single item can be checked before install (`verify --item @ns/<name>`), and
+  `verify` refuses an unsynced allowlist (sync first).
+- **Seven new MIT-verified registries** — calendar, kanban, gantt, data-grid, drag-and-drop and
+  chart families — each with verified license evidence and a live-tested item endpoint; snapshot
+  refreshed against the live directory (382 listed → 300 kept).
+- **Fixed — install targets that had died upstream:** the `{style}` default is now each registry's
+  served default (`base-nova`) instead of a value no longer served; the curated URL, homepage and
+  catalog URL now override the public directory's template (one directory entry advertised a shape
+  its own site 404s — a dead style segment plus a moved item path; one homepage host served a dead
+  TLS certificate, pinned to the working host); the pool's largest catalog (1,773 items) was
+  regenerated end-to-end on the served shape.
+- **One newly-added registry was dropped after live testing** — its headline blocks are
+  plan-gated; every allowlisted registry installs keyless today.
+- **Rules + tests:** the allowlist now requires dated, live-checked endpoint evidence per entry;
+  the suite covers sampling, classification, URL-override semantics and bare-name installs (pack
+  total: 58 tests across all suites, all green).
+
 ## 2026-09-21 — audit claims verified against the code; zip parity is now byte-level (buildout v0.4.5 / pack v0.14.5)
 
 A line-by-line audit of the design gate's claims against its implementation found gaps between what

@@ -1,7 +1,7 @@
 ---
 name: buildout
 description: "Build/ship SaaS and online businesses with expert refs."
-version: 0.4.5
+version: 0.4.6
 author: Takim, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -43,7 +43,7 @@ For greenfield projects the pack runs a buildout flow:
 
 1. **Boilerplate-first** — match the idea against `data/boilerplates.json`, verify MIT (`gh api repos/<owner>/<repo> --jq .license.spdx_id`), clone, strip, rebrand. Details: `references/buildout/00-start-from-boilerplate.md`.
 2. **Lock, then assemble** — one batched design-brief round → `.design/design.lock.json` (colors / fonts / radius / motion / seed) → per section, a seeded coherent pick from the live pool → apply tokens → verify gates. Details: `references/buildout/10-design-assembly.md`.
-3. **Living pool** — `py scripts/registry_sync.py sync|check|list|onboard` keeps `data/registries.snapshot.json` (synced from the 372-registry shadcn directory) and `data/items/*.jsonl` catalogs fresh. Never read the raw directory JSON; query the compact snapshot (token discipline).
+3. **Living pool** — `py scripts/registry_sync.py sync|check|list|onboard|verify` keeps `data/registries.snapshot.json` (synced from the live shadcn registry directory) and `data/items/*.jsonl` catalogs fresh. `onboard` refuses non-allowlisted namespaces and live-samples rendered install URLs before writing (404 → abort, nothing written; all-gated → warning — `verify` is the gate that fails it). After any allowlist change run `sync`, then `verify` (it reads the snapshot); `list` marks installable rows with `*`. Never read the raw directory JSON; query the compact snapshot (token discipline).
 4. **Verify the design** — before deploy, run the design-audit gate: one command runs 16 checks (visual baselines per device, WCAG 2.2 A/AA, console/network, overflow incl. 320px, Lighthouse, links, HTML/lint) and emits ONE machine-readable report; fix via the packaged `AUTO-FIX-PROMPT.md`; baselines change only through explicit update commits (generated in the pinned Playwright container). Details + kit: `references/buildout/30-design-audit.md` + `templates/design-audit/`.
 5. **Store what you build** — the companion `component-library` skill saves/reuses components (`references/buildout/20-component-library.md`).
 6. **Deploy it** — the companion `vps-ops` skill has two tracks: **paid** (user's VPS + domain) → start at `vps-ops/references/10-bootstrap-vps.md`; **free preview** (no VPS/domain yet — Oracle Always Free + free domain, $0) → `vps-ops/references/11-oracle-free-tier.md`, then `60-migrate-to-paid.md` to move later. Then the change pipeline + ops.

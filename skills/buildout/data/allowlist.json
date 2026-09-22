@@ -1,34 +1,80 @@
 {
-  "updatedAt": "2026-09-17",
+  "updatedAt": "2026-09-21",
   "rules": {
     "codeLicense": "MIT only (SPDX: MIT) for components and boilerplates. Registries that mix 'free + pro' are allowed ONLY for their free/MIT items; verify per item.",
     "fonts": "OFL/SIL or system stacks only for webfonts (Google Fonts OK). Record license per font.",
-    "evidence": "Every entry: repo + how MIT was verified (GitHub API spdx_id or LICENSE) + date."
+    "evidence": "Every entry: repo + how MIT was verified (GitHub API spdx_id or LICENSE) + date.",
+    "endpoints": "Every entry must have a served, keyless install path. Order: edit entry -> `sync` -> `onboard <@ns>` -> `verify` (verify reads the snapshot - sync first or it silently checks the old set). After ANY url / allowlist change: `sync`, then `verify`. After a `--style` change: re-run `onboard <@ns>` (the style is baked into the catalog at onboard time), then verify. Check one item before install: `verify --item @ns/<name>` (401/403 = gated). Notes are written from live statuses (index + sampled item, dated), never from directory metadata; record the working URL shape and any gated subset.",
+    "fields": "Required: name, homepage, license, licenseEvidence, verifiedAt, tags, notes, url (null ONLY for the CLI's own default registry - bare-name installs are correct there and nowhere else). Optional: catalogUrl (index override when homepage + /r/registry.json is wrong or throttled), integration (non-shadcn integrations are skipped by verify). Only MIT-allowlisted namespaces can be onboarded or verified."
   },
   "registries": [
     {
-      "name": "@shadcn", "homepage": "https://ui.shadcn.com", "url": "https://ui.shadcn.com/r/{name}.json",
+      "name": "@shadcn", "homepage": "https://ui.shadcn.com", "url": null,
+      "catalogUrl": "https://ui.shadcn.com/r/index.json",
       "license": "MIT", "licenseEvidence": "github.com/shadcn-ui/ui — LICENSE (MIT)", "verifiedAt": "2026-09-17",
       "integration": "shadcn", "tags": ["core", "primitives"],
-      "notes": "Core registry. Add by bare name (button, card, …) or block names."
+      "notes": "Core registry. url is null on purpose → onboard renders bare-name installs (button, card, …). /r/{name}.json 404s; item index is /r/index.json, item files live at /r/styles/<style>/<name>.json (verified 2026-09-21)."
     },
     {
       "name": "@reui", "homepage": "https://reui.io", "url": "https://reui.io/r/{style}/{name}.json",
       "license": "MIT", "licenseEvidence": "api.github.com/repos/keenthemes/reui → spdx_id=MIT (2026-09-17)", "verifiedAt": "2026-09-17",
       "integration": "shadcn", "tags": ["patterns", "dashboard", "large"],
-      "notes": "1773 free items; premium blocks excluded — verify item is free before use. URL needs {style} (radix|base) — set the style segment in the project namespace config."
+      "notes": "1773 catalog items, but 543 blocks are Pro (license key required; HTTP 401 without) — free set = primitives + c-* examples; kanban-board-*, dashboard-*, event-calendar-3/4, solution-bookings-* are all Pro, so verify an item is free before use. Style segment is <base>-<variant> and not free-form (base|radix × vega|nova|…); default 'base-nova' — onboard bakes it in unless --style is passed; the old /r/radix/<name>.json shape now 404s. Re-verified 2026-09-21."
     },
     {
       "name": "@velora", "homepage": "https://velora.colorlib.com", "url": "https://velora.colorlib.com/r/{name}.json",
       "license": "MIT", "licenseEvidence": "api.github.com/repos/ColorlibHQ/velora-ui → spdx_id=MIT (2026-09-17)", "verifiedAt": "2026-09-17",
       "integration": "shadcn", "tags": ["animated", "landing", "tokenized"],
-      "notes": "64 items, token-aware (items carry cssVars). llms.txt lists sizes/deps."
+      "notes": "64 items, token-aware (items carry cssVars). Left the live ui.shadcn directory (382 entries listed) as of 2026-09-21 — kept here as an allowlist-synthesized entry so the existing catalog stays valid; re-check availability before new installs."
     },
     {
       "name": "@cult-ui", "homepage": "https://cult-ui.com", "url": "https://cult-ui.com/r/{name}.json",
       "license": "MIT", "licenseEvidence": "api.github.com/repos/nolly-studio/cult-ui → spdx_id=MIT + README (2026-09-17)", "verifiedAt": "2026-09-17",
       "integration": "shadcn", "tags": ["design-engineer", "motion"],
-      "notes": "157 items. Directory health status 'observing' — re-check at use. If cult-ui.com rate-limits (429/Vercel checkpoint), onboard from the repo mirror: apps/www/public/r/registry.json (raw.githubusercontent.com/nolly-studio/cult-ui/main/apps/www/public/r/registry.json) saved to a file + --catalog-file."
+      "notes": "157 items. Directory health status 'observing' — re-check at use. If cult-ui.com rate-limits (429/Vercel checkpoint), onboard from the repo mirror: apps/www/public/r/registry.json (raw.githubusercontent.com/nolly-studio/cult-ui/main/apps/www/public/r/registry.json) saved to a file + --catalog-file. Mirror verified live 2026-09-21."
+    },
+    {
+      "name": "@kibo-ui", "homepage": "https://www.kibo-ui.com", "url": "https://www.kibo-ui.com/r/{name}.json",
+      "license": "MIT", "licenseEvidence": "api.github.com/repos/shadcnblocks/kibo → spdx_id=MIT (2026-09-21)", "verifiedAt": "2026-09-21",
+      "integration": "shadcn", "tags": ["calendar", "kanban", "gantt", "table"],
+      "notes": "41 items (calendar, kanban, gantt, table, combobox, dropzone, status, ticker, tree, …). Verify per-item licensing at use; no pro tier found on the site (unverified)."
+    },
+    {
+      "name": "@diceui", "homepage": "https://diceui.com", "url": "https://diceui.com/r/{name}.json",
+      "catalogUrl": "https://diceui.com/r/registry.json",
+      "license": "MIT", "licenseEvidence": "api.github.com/repos/sadmann7/diceui → spdx_id=MIT (2026-09-21)", "verifiedAt": "2026-09-21",
+      "integration": "shadcn", "tags": ["dnd", "kanban", "sortable"],
+      "notes": "204 items; drag primitives: kanban, sortable, editable (dnd-kit + base-ui). Use the apex host — www.diceui.com serves HTTP 526 (dead TLS) on root and all paths; the /r/{name}.json shape works, /r/default/<name>.json 404s (verified 2026-09-21); the directory's {style} template is not served."
+    },
+    {
+      "name": "@intentui", "homepage": "https://intentui.com", "url": "https://intentui.com/r/{name}.json",
+      "license": "MIT", "licenseEvidence": "api.github.com/repos/irsyadadl/intentui → spdx_id=MIT (2026-09-21)", "verifiedAt": "2026-09-21",
+      "integration": "shadcn", "tags": ["forms", "date-picker", "tables", "charts"],
+      "notes": "592 items on React Aria Components (calendar, date-picker, date-range-picker, table, sheet, drawer, select, charts). /r/<name> and /r/<name>.json both resolve (verified 2026-09-21)."
+    },
+    {
+      "name": "@data-table-filters", "homepage": "https://data-table.openstatus.dev", "url": "https://data-table.openstatus.dev/r/{name}.json",
+      "license": "MIT", "licenseEvidence": "api.github.com/repos/openstatusHQ/data-table-filters → spdx_id=MIT (2026-09-21)", "verifiedAt": "2026-09-21",
+      "integration": "shadcn", "tags": ["data-table", "filters", "admin"],
+      "notes": "15 blocks; server-side-filtering data-table (TanStack Table + Query + Virtual) + row-detail sheet — admin list base."
+    },
+    {
+      "name": "@niko-table", "homepage": "https://niko-table.com", "url": "https://niko-table.com/r/{name}.json",
+      "license": "MIT", "licenseEvidence": "github.com/Semkoo/niko-table-registry — LICENSE (MIT text; API detector NOASSERTION) (2026-09-21)", "verifiedAt": "2026-09-21",
+      "integration": "shadcn", "tags": ["data-grid", "dnd", "admin"],
+      "notes": "34 table-shaped items: editable grid, row/column DnD, faceted filters, server-side pagination, export. Re-verify per-item license at use (API shows NOASSERTION)."
+    },
+    {
+      "name": "@dashboardcn", "homepage": "https://dashboardcn.com", "url": "https://dashboardcn.com/r/{name}.json",
+      "license": "MIT", "licenseEvidence": "github.com/NoahGdev/dashboardcn — LICENSE (MIT text; API NOASSERTION) (2026-09-21)", "verifiedAt": "2026-09-21",
+      "integration": "shadcn", "tags": ["dashboard", "kpi", "charts"],
+      "notes": "54 items (kpi-card, sparkline, period-tabs, trend/bar/donut charts, revenue composites). Tiny repo — thin maintenance risk."
+    },
+    {
+      "name": "@bklit", "homepage": "https://ui.bklit.com", "url": "https://ui.bklit.com/r/{name}.json",
+      "license": "MIT", "licenseEvidence": "api.github.com/repos/bklit/bklit-ui → spdx_id=MIT (2026-09-21)", "verifiedAt": "2026-09-21",
+      "integration": "shadcn", "tags": ["charts", "analytics"],
+      "notes": "56 items: composable chart parts (axes, legend, tooltip, reference-area) + area/bar/line/pie/radar/ring/gauge/heatmap/funnel/sankey/sunburst. Repo also ships LICENSE-STUDIO.md — keep studio items out."
     },
     {
       "name": "@daisyui", "homepage": "https://daisyui.com", "url": null,

@@ -43,11 +43,12 @@ Blueprint (marketing): nav · hero · logos/social proof · features · product 
 
 For EACH section:
 
-1. **Freshness:** `py scripts/registry_sync.py check` → if stale, `sync`. Ensure `data/items/*.jsonl` catalogs exist (`onboard <@ns>` if missing).
+1. **Freshness:** `py scripts/registry_sync.py check` → if stale, `sync`. Ensure `data/items/*.jsonl` catalogs exist — they are generated per registry, on demand: `onboard <@ns>` (only MIT-allowlisted namespaces onboard; add `--catalog-file` if the index is throttled, see the allowlist note).
 2. **Candidates:** `py scripts/assemble_pick.py --section <s> --tags <brief tags> --k 3 --seed <lock.seed + section index>`
    - Weighted: section match, tag match, registry variety, smaller size preferred. Deterministic per seed.
    - Present the 3; user picks, or "pick for me" → candidate #1. (Safe dial = always #1.)
-3. **Install:** `npx shadcn@latest add <target>` (target comes in the pick; or add the registry namespace to `components.json` first: `"registries": { "@reui": "https://reui.io/r/radix/{name}.json" }` → then `add @reui/<item>`; or ask the harness's shadcn MCP server to "add X from @ns").
+   - No curated section matches? Search items by keyword instead: `py scripts/assemble_pick.py --section <keyword> --list`. Before installing from a mixed free/pro registry, check the item first: `py scripts/registry_sync.py verify --item <@ns>/<name>` (401/403 = gated — don't install).
+3. **Install:** `npx shadcn@latest add <target>` (target comes in the pick; or add the registry namespace to `components.json` first: `"registries": { "@reui": "https://reui.io/r/base-nova/{name}.json" }` → then `add @reui/<item>`; or ask the harness's shadcn MCP server to "add X from @ns").
 4. **Apply the lock:** ensure the component consumes the token variables; if the item ships its own `cssVars`, remap them to the lock's variables; if it hardcodes colors → small retokenize edit, or reject the candidate.
 5. **Verify gates** (below), then record in `lock.sections[<s>] = { id, registry, url, pickedAt }` and continue.
 
@@ -76,5 +77,5 @@ Applying a component's tokens + integration is a clean subagent unit: fresh wind
 
 - Skipping the lock → every section drifts; the "random" becomes incoherent.
 - Curating nothing: `data/items/*.jsonl` generated catalogs have no tags; section quality comes from `overrides.jsonl` curation (add your own `{"id": ..., "section": [...], "tags": [...]}` lines).
-- `{style}` placeholders (reui): bake a concrete style into the namespace (`.../r/radix/{name}.json`); verify at first use.
+- `{style}` placeholders (reui): bake a concrete style into the namespace (`.../r/base-nova/{name}.json`) — the CLI substitutes your `components.json` style into `{style}`, which is not a ReUI `<base>-<variant>` and is not served; `onboard` defaults to `base-nova`. Verify at first use.
 - Treating picks as final — the picker proposes; the lock + gates are what make it right.
