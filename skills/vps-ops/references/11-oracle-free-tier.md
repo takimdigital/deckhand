@@ -50,16 +50,16 @@ durability. Status: researched + primary-source-verified 2026-09-18; first live 
      (then **443**). Leave 22 as-is.
    - **Layer 2 — in-VM iptables**: Oracle Ubuntu images REJECT everything but SSH. The cloud-init
      asset above already inserted the ACCEPTs at the TOP (`-I INPUT 1/2`) — always before the
-     REJECT regardless of image version. Verify: `ssh root@$IP 'iptables -S INPUT | head'`.
+     REJECT regardless of image version. Verify: `ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$IP 'iptables -S INPUT | head'`.
      Manual fallback:
      ```bash
-     ssh root@$IP 'iptables -I INPUT 1 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+     ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$IP 'iptables -I INPUT 1 -m state --state NEW -p tcp --dport 80 -j ACCEPT
        iptables -I INPUT 2 -m state --state NEW -p tcp --dport 443 -j ACCEPT
        netfilter-persistent save || (apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent && netfilter-persistent save)'
      ```
      **Never use UFW on Oracle images** (documented risk of an unbootable instance); Docker bypasses
      UFW anyway.
-2. **Verify access** (gate): `ssh -o BatchMode=yes -i ~/.vps-ops/ssh/id_ed25519 root@$IP 'uname -m; id -u'`
+2. **Verify access** (gate): `ssh -o BatchMode=yes -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$IP 'uname -m; id -u'`
    → `aarch64` + `0`. If root is refused (cloud-init skipped): login as `ubuntu`, `sudo su -`,
    write `/etc/ssh/sshd_config.d/99-vps-ops.conf` with `PermitRootLogin prohibit-password` (a drop-in —
    the main sshd_config is OVERRIDDEN by sshd_config.d on cloud images), copy the pubkey to
@@ -69,9 +69,11 @@ durability. Status: researched + primary-source-verified 2026-09-18; first live 
    tunnel → hardening).
 4. **Dashboard WITHOUT opening 8000** — SSH tunnel from the agent machine (keep it running):
    ```bash
-   ssh -N -o ExitOnForwardFailure=yes -L 8000:127.0.0.1:8000 -L 6001:127.0.0.1:6001 \
-     -L 6002:127.0.0.1:6002 -i ~/.vps-ops/ssh/id_ed25519 root@$IP
+   ssh -N -o ExitOnForwardFailure=yes -L 8000:127.0.0.1:8000 \
+     -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes \
+     -i ~/.vps-ops/ssh/id_ed25519 root@$IP
    ```
+   (Forward 8000 only — Windows kills 6001/6002 binds, `bind: Permission denied`, and `ExitOnForwardFailure` then drops the whole tunnel; ref 10's Windows note.)
    User opens http://localhost:8000 → `00-user-checklist.md` §4A (admin account + API token);
    `$COOLIFY_URL=http://localhost:8000` while the tunnel is up. Optional later: instance domain
    (`https://coolify.<domain>`) per ref 10 Step 8 → then the tunnel is only for emergencies.

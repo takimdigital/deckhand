@@ -108,7 +108,7 @@ Script equivalent (idempotent: find-or-create → ensure rules → activate → 
 ### Generic (ufw — non-Hostinger providers only)
 
 ```bash
-ssh -o BatchMode=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP \
+ssh -o BatchMode=yes -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP \
   'ufw allow OpenSSH && ufw allow 80,443,8000,6001,6002/tcp && ufw --force enable && ufw status'
 ```
 
@@ -131,7 +131,7 @@ them at the network layer; providers without one (Contabo, most bare VPS) are fu
 The reliable lock = bind them to loopback inside Coolify's own compose:
 
 ```bash
-ssh root@$VPS_IP '
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP '
   cd /data/coolify/source
   cp -n docker-compose.prod.yml docker-compose.prod.yml.bak-vpsops
   sed -i "s|\"${APP_PORT:-8000}:8080\"|\"127.0.0.1:${APP_PORT:-8000}:8080\"|; \
@@ -171,10 +171,11 @@ Step 3b after every Coolify update.
 ## Step 4 — install Coolify + verify
 
 ```bash
-ssh -o BatchMode=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP \
+ssh -o BatchMode=yes -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes \
+  -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP \
   'curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash'
 curl -s -o /dev/null -w '%{http_code}\n' http://$VPS_IP:8000/api/health
-ssh -o BatchMode=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'docker ps --format "{{.Names}}"'
+ssh -o BatchMode=yes -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'docker ps --format "{{.Names}}"'
 ```
 
 Expected: install finishes (several minutes); health → `200`; container list = `coolify`, `coolify-db`,
@@ -208,10 +209,10 @@ chat, logs, or a repo file. The token contains `|` (Sanctum format `1|…`): the
 ## Step 6 — harden (only after Step 2 proved key auth)
 
 ```bash
-ssh -o BatchMode=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP '
+ssh -o BatchMode=yes -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP '
   printf "%s\n" "PermitRootLogin prohibit-password" "PasswordAuthentication no" \
     > /etc/ssh/sshd_config.d/99-vps-ops.conf && sshd -t && systemctl restart ssh && echo HARDENED'
-ssh -o BatchMode=yes -o PreferredAuthentications=password -o PubkeyAuthentication=no root@$VPS_IP
+ssh -o BatchMode=yes -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -o PreferredAuthentications=password -o PubkeyAuthentication=no root@$VPS_IP
 ```
 
 Expected: first command prints `HARDENED`; re-running Step 2 still succeeds; the password attempt fails

@@ -88,11 +88,11 @@ Restore drill (live-verified 2026-09-17 — run ~yearly, or after any schema sca
 ```bash
 C=<db-uuid>          # container name = the plain uuid
 DUMP=$(ls /data/coolify/backups/databases/<team>/*/pg-dump-<db>-*.dmp | head -1)
-ssh ... "docker cp $DUMP $C:/tmp/restore-test.dmp"
-ssh ... "docker exec $C psql -U <dbuser> -d postgres -c 'CREATE DATABASE restore_test;'"
-ssh ... "docker exec $C pg_restore -U <dbuser> -d restore_test /tmp/restore-test.dmp"   # rc=0
-ssh ... "docker exec $C psql -U <dbuser> -d restore_test -c 'SELECT 1;'"                 # must answer
-ssh ... "docker exec $C rm -f /tmp/restore-test.dmp"   # then DROP DATABASE restore_test;
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP "docker cp $DUMP $C:/tmp/restore-test.dmp"
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP "docker exec $C psql -U <dbuser> -d postgres -c 'CREATE DATABASE restore_test;'"
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP "docker exec $C pg_restore -U <dbuser> -d restore_test /tmp/restore-test.dmp"   # rc=0
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP "docker exec $C psql -U <dbuser> -d restore_test -c 'SELECT 1;'"                 # must answer
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP "docker exec $C rm -f /tmp/restore-test.dmp"   # then DROP DATABASE restore_test;
 ```
 
 ## 6. Updates
@@ -100,7 +100,7 @@ ssh ... "docker exec $C rm -f /tmp/restore-test.dmp"   # then DROP DATABASE rest
 Coolify (the script backs up the DB first; log at `/data/coolify/source/upgrade-*.log`):
 
 ```bash
-ssh -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'curl -fsSL https://cdn.coollabs.io/coolify/upgrade.sh | bash'
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'curl -fsSL https://cdn.coollabs.io/coolify/upgrade.sh | bash'
 py scripts/coolify_api.py health       # expect 200 once containers are back
 coolify context version                # confirm the new version after the upgrade
 ```
@@ -108,7 +108,7 @@ coolify context version                # confirm the new version after the upgra
 OS packages:
 
 ```bash
-ssh -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'apt-get update && apt-get -y upgrade'
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'apt-get update && apt-get -y upgrade'
 # reboot only if the kernel changed, never mid-deploy — then wait ~60s and re-check python health
 ```
 
@@ -122,7 +122,7 @@ Cadence: monthly, agent-driven, **after** a fresh snapshot (§5). Never update w
 | Server unreachable (SSH and `:8000` both fail) | `py scripts/hostinger_api.py vm get <vmId>` | `py scripts/hostinger_api.py vm restart <vmId>`; still dead → snapshot restore |
 | Certificate expired / TLS error | `curl -sI https://<domain>` + ref 20 checks | redeploy the app (Let's Encrypt renews on deploy); confirm port 80 open |
 | Disk full (deploys start failing, metrics `disk_space`) | §3 metrics | §4 docker-cleanup; remove stale resources; resize if structural |
-| Coolify dashboard/API down | `py scripts/coolify_api.py health` | re-run the §6 upgrade script; last resort `ssh ... 'cd /data/coolify/source && docker compose up -d'` |
+| Coolify dashboard/API down | `py scripts/coolify_api.py health` | re-run the §6 upgrade script; last resort `ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'cd /data/coolify/source && docker compose up -d'` |
 | DNS wrong / not resolving | `nslookup <domain> 1.1.1.1` vs VPS IP | `py scripts/hostinger_api.py dns set-a <domain> --ip <IP> --names @,www` (ref 20) |
 | Deploy queue stuck after a restart | `py scripts/coolify_api.py deployments <APP_UUID> --limit 3` | re-trigger `coolify deploy uuid <APP_UUID>` once; if it repeats, update Coolify (§6) |
 

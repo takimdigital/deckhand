@@ -1,5 +1,9 @@
 # Changelog — vps-ops
 
+## 0.9.7 — 2026-09-21
+
+- **The "every agent-side ssh carries the vault flag" rule is now exhaustive — references AND templates.** The 0.9.6 fix covered the gate, the tunnel, and ref 55's rule; a two-pass sweep then closed every remaining EXAMPLE a copy-paste agent could follow: ref 10 (ufw firewall, loopback-bind compose edit, Coolify install + container check, hardening + password test), ref 11 (Oracle iptables verify/fallback, access gate, tunnel), ref 30 (first-run data steps: container find, migrate, seed, owner delete/create), ref 50 (restore drill, incident table, Coolify/OS upgrades), ref 55 §7 choice ③, ref 60 (migration dump/scp/restore), and the OPS-handoff template (ssh info, tunnel, everyday commands). 40 ssh lines now carry `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes`; the closing check is an exhaustive grep classifier (prose and anti-examples excluded) — zero bare runnable forms remain.
+
 ## 0.9.6 — 2026-09-21
 
 - **Unattended checks survive Windows SSH quirks (live-hit):** a scheduled harness check died with `Host key verification failed` — its ssh was bare, and MSYS ssh resolves `~` to `/home/<user>`, so the vault known_hosts was never read. Every agent-side ssh recipe now carries `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes` from first contact (the Step-2 gate stores the host key in the vault); the ref 10 trap is scoped to ALL ssh (not just tunnels) and its failure-table remedy for `Host key verification failed` is corrected (the old `ssh-keygen -R` advice ignored the home-resolution cause).

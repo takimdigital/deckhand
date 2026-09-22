@@ -10,8 +10,8 @@ pointed to from here. Machine-readable twin: `.vps-ops.json` (repo root). Skill:
 1. App repo: `<repo URL>` (<visibility>) · local `<path>` · branch `<branch>`.
 2. Live: **https://<domain>** — <one line: what this app is>.
 3. Server: <provider + IP> — everything runs in **Coolify** (app `<APP_UUID>`).
-4. SSH: `ssh -i ~/.vps-ops/ssh/id_ed25519 root@<IP>` (key-only).
-5. Coolify dashboard is **loopback-only** → tunnel: `ssh -N -L 8000:127.0.0.1:8000 -i ~/.vps-ops/ssh/id_ed25519 root@<IP>` → http://127.0.0.1:8000
+4. SSH: `ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@<IP>` (key-only).
+5. Coolify dashboard is **loopback-only** → tunnel: `ssh -N -L 8000:127.0.0.1:8000 -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@<IP>` → http://127.0.0.1:8000
 6. Secrets: all in `~/.vps-ops/secrets/` (see inventory below). **Never commit secrets.**
 7. Deploy a change: commit + push `<branch>` → redeploy via Coolify (command below) → smoke test.
 8. Load skill `vps-ops` before ops work; ref 40 = change pipeline, ref 50 = logs/backups.
@@ -76,7 +76,7 @@ pointed to from here. Machine-readable twin: `.vps-ops.json` (repo root). Skill:
 . ~/.vps-ops/secrets/env.sh
 
 # find the current app container (suffix changes per deploy)
-ssh -i ~/.vps-ops/ssh/id_ed25519 root@<IP> \
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@<IP> \
   "docker ps --format '{{.Names}}' | grep <APP_UUID>"
 
 # DEPLOY a change: push <branch>, then trigger the pipeline
@@ -87,19 +87,19 @@ py scripts/coolify_api.py wait <APP_UUID> --timeout 900
 py scripts/coolify_api.py smoke https://<domain>
 
 # MIGRATIONS (only when new migrations exist)
-ssh -i ~/.vps-ops/ssh/id_ed25519 root@<IP> \
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@<IP> \
   "docker exec <app> sh -lc 'cd /app && npx drizzle-kit migrate'"
 
 # DB shell
-ssh -i ~/.vps-ops/ssh/id_ed25519 root@<IP> \
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@<IP> \
   "docker exec -it <DB_UUID> psql -U <user> -d <db>"
 
 # RE-KEY the owner (prints the new password exactly once — save it)
-ssh -i ~/.vps-ops/ssh/id_ed25519 root@<IP> \
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@<IP> \
   "docker exec <app> sh -lc 'cd /app && npx -y tsx scripts/create-owner.ts <email> --reset'"
 
 # logs
-ssh -i ~/.vps-ops/ssh/id_ed25519 root@<IP> "docker logs --tail 100 <app>"
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@<IP> "docker logs --tail 100 <app>"
 ```
 
 ## ⚠️ Do not do these

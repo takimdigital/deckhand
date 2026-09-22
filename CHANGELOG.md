@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-21 — no bare-ssh example left anywhere (vps-ops v0.9.7 / pack v0.14.9)
+
+The unattended-ssh fix's rule — every ssh from the agent machine carries the durable known-hosts
+location — is now exhaustive in the EXAMPLES, references and templates alike: firewall setup, the
+dashboard loopback lock, Coolify install, hardening, Oracle (iptables verify + fallback, access
+gate, tunnel), first-run data steps (migrate, seed, owner create/delete), restore drills, the
+migration dump/scp/restore, Coolify/OS upgrades, and the OPS-handoff template all show the full
+canonical form. 40 ssh lines carry the flags, and an exhaustive grep classifier (prose and
+anti-examples excluded) confirms zero bare runnable forms remain — no copy-paste path back to the
+failure.
+
 ## 2026-09-21 — unattended runs stop dying on Windows SSH quirks (vps-ops v0.9.6 / pack v0.14.8)
 
 Scheduled and background checks run with nobody at the keyboard — any step that stalls on an

@@ -196,17 +196,17 @@ App env vars are already inside the container (Coolify injects them), so migrati
 straight through `docker exec` — no extra wiring:
 
 ```bash
-ssh root@$VPS_IP "docker ps --format '{{.Names}}' | grep <APP_UUID> | head -1"   # find the container
-ssh root@$VPS_IP "docker exec <container> sh -lc 'cd /app && npx drizzle-kit migrate'"
-ssh root@$VPS_IP "docker exec <container> sh -lc 'cd /app && npx -y tsx lib/db/seed.ts'"
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP "docker ps --format '{{.Names}}' | grep <APP_UUID> | head -1"   # find the container
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP "docker exec <container> sh -lc 'cd /app && npx drizzle-kit migrate'"
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP "docker exec <container> sh -lc 'cd /app && npx -y tsx lib/db/seed.ts'"
 ```
 
 **If the app's seed ships a development owner** (a known password in the README), that is now a live
 admin: delete it and create the production owner in the same session —
 
 ```bash
-ssh root@$VPS_IP "docker exec <db-container> psql -U <dbuser> -d <db> -c \"DELETE FROM users WHERE email='test@test.com';\""
-ssh root@$VPS_IP "docker exec <container> sh -lc 'cd /app && npx -y tsx scripts/create-owner.ts <real-email>'"
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP "docker exec <db-container> psql -U <dbuser> -d <db> -c \"DELETE FROM users WHERE email='test@test.com';\""
+ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP "docker exec <container> sh -lc 'cd /app && npx -y tsx scripts/create-owner.ts <real-email>'"
 ```
 
 The owner script prints the generated password **exactly once** — store it under `~/.vps-ops/secrets/`
