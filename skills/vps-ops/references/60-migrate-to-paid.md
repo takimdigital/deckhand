@@ -35,9 +35,11 @@ missed writes.
    ```
 4. Postgres on the new box, pre-sync restore (old keeps serving):
    ```bash
-   ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$OLD_IP 'docker exec <old-db-container> pg_dump -U postgres --format=custom --no-acl --no-owner <db> > /tmp/pre.dump'
+   # Coolify DB users are per-container (ref 55 §5) — print the pair first, then use it:
+   ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$OLD_IP 'docker exec <old-db-container> printenv POSTGRES_USER POSTGRES_DB'
+   ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$OLD_IP 'docker exec <old-db-container> pg_dump -U <db-user> --format=custom --no-acl --no-owner <db> > /tmp/pre.dump'
    scp -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$OLD_IP:/tmp/pre.dump .    # then push to the new box and:
-   ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$NEW_IP 'docker exec -i <new-db-container> pg_restore -U postgres -d <db> --clean --if-exists --no-acl --no-owner < /tmp/pre.dump'
+   ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$NEW_IP 'docker exec -i <new-db-container> pg_restore -U <db-user> -d <db> --clean --if-exists --no-acl --no-owner < /tmp/pre.dump'
    ```
    Dashboard alternative: new DB → Configuration → **Import Backup** (file on the server; there is no
    restore API endpoint). Default DB image is now **PostgreSQL 18** [verify at live drill].
