@@ -15,6 +15,8 @@ Ask once, option-style, separate from the task. Questions:
 5. Density: compact / **comfortable** / airy
 6. Motion: none / subtle / **medium** (+ budget: ≤3 animated components per page)
 7. Randomness dial: safe / **coherent-random** / adventurous
+
+Skipped entirely → the bold defaults apply; left-blank answers stay blank (never invented for you).
 8. Bans: colors/motifs to avoid (optional)
 
 ## Phase 1 — Lock
@@ -35,7 +37,7 @@ Write `<project>/.design/design.lock.json`:
 }
 ```
 
-Then set the tokens in the project's single token file (CSS variables). **The lock is the coherence source: color, fonts, radius, motion, density are decided once and every later component inherits them.** Record the seed (same seed + same inputs = same picks, reproducible).
+Then set the tokens in the project's single token file (CSS variables). **The lock is the coherence source: color, fonts, radius, motion, density are decided once and every later component inherits them.** The seed is chosen once, here at lock time (any fixed integer — keep it stable); record it (same seed + same inputs = same picks, reproducible).
 
 ## Phase 2 — Assemble, section by section
 

@@ -110,6 +110,8 @@ later session; it re-enters the whole pipeline without context loss. Every deplo
 `<project>/OPS.md` (ref 30 §9) — the human-readable cold-start handoff (live URL, access, secret
 *locations*, the copy-paste everyday commands). Anchor = for the agent's tooling; `OPS.md` = for reading.
 
+Placeholders used across the refs: `$VPS_IP` = the server's IPv4; `$DOMAIN` = the domain being attached; `$CF_ZONE_ID` = the Cloudflare zone id (exported where first needed — ref 21). They are per-run shell values — nothing to configure; the durable record is `<project>/.vps-ops.json`.
+
 ## Quickstart
 
 0. Pick the track (ask once): VPS+domain already at hand → **P**; nothing yet / $0-first → **F**.
