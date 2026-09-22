@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-21 — release claims are machine-checked (pack v0.14.9)
+
+Version and test-count claims can no longer drift from the repo. A new consistency check
+(`scripts/version_check.py`) cross-checks the README version badge, the README tests badge against
+the actual skill suites, every skill's frontmatter against its own changelog, and — at ship time —
+the release tag itself; any mismatch exits non-zero. It runs as a hard stop in the release
+procedure before push and again after tagging, so a release can't ship while a claim disagrees with
+machine state. (It caught its first drift on arrival: the version badge was one release behind.)
+
 ## 2026-09-21 — no bare-ssh example left anywhere (vps-ops v0.9.7 / pack v0.14.9)
 
 The unattended-ssh fix's rule — every ssh from the agent machine carries the durable known-hosts

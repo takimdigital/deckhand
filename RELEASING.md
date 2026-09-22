@@ -11,8 +11,10 @@ names slip in.
 3. **Sync.** Working install (hermes) → repo `skills/` → `~/.claude`, `~/.agents`, `~/.codex`;
    diff each for parity; strip `__pycache__` / `.pytest_cache`; bump versions together
    (frontmatter, CHANGELOG top entry, README badge) — then PROVE it mechanically:
-   `py scripts/version_check.py` → must print `VERSIONS OK`. The README badge is the one version
-   location nothing else touches; it has silently lagged a release (live-hit 2026-09-21).
+   `py scripts/version_check.py` → must print `VERSIONS OK` (cross-checks the version badge, the
+   tests badge against the suites, and every skill frontmatter — hard stop, like the leak sweep.
+   The README badges are the locations nothing else touches; both have lagged silently, live-hit
+   2026-09-21).
 4. **Zip == repo — byte-level.** Rebuild the distributable zip from the repo root (publishing
    skill's builder) and verify EVERY entry is byte-identical, not just present:
    `py scripts/zip_parity.py "C:/Users/Takim/deckhand.zip"` → must print `PARITY OK`.
