@@ -1,5 +1,10 @@
 # Changelog — vps-ops
 
+## 0.9.6 — 2026-09-21
+
+- **Unattended checks survive Windows SSH quirks (live-hit):** a scheduled harness check died with `Host key verification failed` — its ssh was bare, and MSYS ssh resolves `~` to `/home/<user>`, so the vault known_hosts was never read. Every agent-side ssh recipe now carries `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes` from first contact (the Step-2 gate stores the host key in the vault); the ref 10 trap is scoped to ALL ssh (not just tunnels) and its failure-table remedy for `Host key verification failed` is corrected (the old `ssh-keygen -R` advice ignored the home-resolution cause).
+- **Agent-cron fires: shell `-c`/`-lc` wrappers are refused by the harness approval guard** (live-hit — the Task-Scheduler form `bash -lc "HOME=… bash …"` cannot run unattended). Ref 55 §7 now says: invoke scripts directly (`bash /path/script.sh`) in agent-cron recipes; keep the `-lc` wrapper only for Windows Task Scheduler.
+
 ## 0.9.5 — 2026-09-21
 
 - **Pre-push lockfile pre-flight (ref 40 §3):** when `package.json`/`pnpm-lock.yaml` changed, run `CI=true pnpm install --frozen-lockfile` (exit 0 required) BEFORE the push; deploys install frozen and die on drift (`ERR_PNPM_OUTDATED_LOCKFILE` — a real deploy was lost to this exact class). The repair line — `CI=true pnpm install --no-frozen-lockfile` + commit the lockfile in the same push — is inline with the check.

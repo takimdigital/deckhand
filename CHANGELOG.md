@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-21 — unattended runs stop dying on Windows SSH quirks (vps-ops v0.9.6 / pack v0.14.8)
+
+Scheduled and background checks run with nobody at the keyboard — any step that stalls on an
+unanswerable prompt is a silent, recurring failure. Two such traps are now closed:
+
+- **Host keys are found again:** MSYS ssh reads a different home directory than the shell does, so a
+  background ssh could die on `Host key verification failed` even with everything set up correctly.
+  Every ssh the pipeline runs now carries the durable known-hosts location explicitly, and the
+  bootstrap gate stores the server's key there from first contact; the failure-table entry for this
+  error now names both real causes with the exact fix for each.
+- **Agent-run schedules call scripts directly:** the Task-Scheduler wrapper form (`bash -lc "…"`)
+  is refused by the harness when no human can approve it — backup/watchdog recipes now invoke
+  scripts directly, keeping the wrapper only where it belongs (Windows Task Scheduler).
+
 ## 2026-09-21 — project pendings stay with the project (buildout v0.4.7 / deckhand-profile v0.3.1 / pack v0.14.7)
 
 - **A build's human tasks now live in the build.** Greenfield projects keep a `PENDING.md` in the

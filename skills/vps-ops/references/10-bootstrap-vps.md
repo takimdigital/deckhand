@@ -62,7 +62,7 @@ Hand the user the §3 one-liner from `00-user-checklist.md` with `<AGENT_PUBKEY>
 ## Step 2 — verify SSH (gate: do not continue until this passes)
 
 ```bash
-ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'uname -srm; id -u'
+ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'uname -srm; id -u'
 ```
 
 Expected:
@@ -70,7 +70,7 @@ Expected:
 Linux 6.8.0-xx-generic x86_64
 0
 ```
-`BatchMode=yes` makes a password prompt impossible — success proves key auth. `Linux …` + `0` = root.
+`BatchMode=yes` makes a password prompt impossible — success proves key auth. `Linux …` + `0` = root. **Every ssh from the agent machine carries `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts"`** (this gate stores the key there on first contact) — dropping it makes later calls fail with `Host key verification failed` (MSYS trap in Step 3b).
 
 ## Step 3 — firewall BEFORE install
 
@@ -152,11 +152,11 @@ ssh -N -o ExitOnForwardFailure=yes -L 8000:127.0.0.1:8000 \
   -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP
 ```
 
-**Tunnel-death trap (live-verified 2026-09-20).** On Windows/git-bash, MSYS ssh resolves `$HOME` to
-`/home/<user>` — often absent/unwritable — so a tunnel started without a durable `known_hosts` dies
-with `Host key verification failed` (silently, when started in background). Create the vault
-known_hosts once — `ssh-keyscan -t ed25519 $VPS_IP | tr -d '' > ~/.vps-ops/ssh/known_hosts`
-(verify the fingerprint before trusting!) — and always pass both options above. **Dead-tunnel
+**MSYS ssh trap — every agent-side ssh, not just tunnels (live-verified 2026-09-20/21).** On Windows/git-bash, MSYS ssh resolves `$HOME` to
+`/home/<user>` — often absent/unwritable — so any ssh without a durable `known_hosts` dies
+with `Host key verification failed` (silently in background; live-hit again 2026-09-21 by an unattended scheduled check). Create the vault
+known_hosts once — `ssh-keyscan -t ed25519 $VPS_IP | tr -d '\r' > ~/.vps-ops/ssh/known_hosts`
+(verify the fingerprint before trusting!) — and carry `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes` on **every** ssh this skill runs from the agent machine: bootstrap gates, ops/deploy commands, backup/watchdog status pulls. Belt (when `/home` is writable): `mkdir -p /home/$USER && ln -s "$HOME/.ssh" /home/$USER/.ssh`. **Dead-tunnel
 symptom:** every `coolify_api.py` call fails with `10061 / actively refused` — that is the tunnel,
 not Coolify; run `py scripts/coolify_api.py tunnel` (health-checks and auto-starts it; `deploy` preflights it too - set `VPS_SSH_HOST`/`VPS_SSH_KEY` once in the vault env), or restart it manually (background) and `curl -s http://127.0.0.1:8000/api/health` before deploying.
 
@@ -260,7 +260,8 @@ Hostinger's remote MCP (`https://mcp.hostinger.com`) is OAuth-based — fine in 
 | `Permission denied (publickey)` Step 2 (Hostinger) | key not attached / wrong id | re-run attach with the right `<keyId>`; re-check `GET …/{vmId}/public-keys` |
 | `Permission denied (publickey)` Step 2 (generic) | paste never landed | re-paste the §3 one-liner in the provider console; check file perms 600 |
 | `UNPROTECTED PRIVATE KEY` / bad permissions | Windows perms on the key file | `chmod 600`; use git-bash `/usr/bin/ssh`; add `-o IdentitiesOnly=yes` |
-| `Host key verification failed` | stale known_hosts (rebuilt VPS) | `ssh-keygen -R $VPS_IP`, retry Step 2 |
+| `Host key verification failed` (bare ssh from an MSYS harness) | ssh read `/home/<user>/.ssh/known_hosts` (absent) instead of `$HOME/…` | add `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes` (canonical form — trap in Step 3b) |
+| `Host key verification failed` after a VPS rebuild | stale entry for `$VPS_IP` in the vault known_hosts | `ssh-keygen -R $VPS_IP -f ~/.vps-ops/ssh/known_hosts`, retry Step 2 |
 | `:8000/api/health` not 200, or unreachable | install still running, port 8000 blocked, or rules not synced | wait 2–3 min; `docker ps`; add rule 8000, re-activate, `…/sync` |
 | Token curl → `401` | API access off / token scopes wrong | `00-user-checklist.md` §4A, recreate the token |
 | `config error: …` from a script | env not loaded | `. ~/.vps-ops/secrets/env.sh` |
