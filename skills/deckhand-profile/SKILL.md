@@ -1,7 +1,7 @@
 ---
 name: deckhand-profile
 description: "Use when reading or writing the portable user files. Covers profile.md + pending.md (the human-task ledger)."
-version: 0.3.0
+version: 0.3.1
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -60,6 +60,7 @@ Rules:
 - Nagging: surface open items in every deploy/ops report (short) and in scheduled runs; when the user
   says "done", verify when verifiable (re-check the env var, the object, the key) — otherwise confirm on their word.
 - **Never drop an item because the conversation moved on.** That is the one failure this file exists to prevent.
+- **Project scoped? → the project's own ledger.** Human tasks discovered by work inside ONE project (its accounts, keys, client-supplied data, policy decisions) go in a `PENDING.md` at that project's root — created at kickoff by the buildout flow, same strict format as this file. This portable ledger keeps cross-project items and the user's own infrastructure/accounts; when an item is genuinely both (a personal account powering one project), keep it here with `· project: <name>`.
 - **Every ask is labeled** so the user never has to decode it: `DECISION NEEDED — <question> (options)` ·
   `ACTION NEEDED — P-0NN: <one line, exact steps>` · `FYI — no action`. A question is never a ledger item —
   the ledger holds only tasks the HUMAN performs; anything needing no human action belongs in neither.

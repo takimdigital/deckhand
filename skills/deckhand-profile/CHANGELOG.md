@@ -1,5 +1,9 @@
 # Changelog — deckhand-profile
 
+## 0.3.1 — 2026-09-21
+
+- **Project-scoped tasks find their own home:** human tasks discovered by work inside ONE project (its accounts, keys, client-supplied data, policy decisions) now go in a `PENDING.md` at that project's root — created at kickoff by the buildout flow, same strict format as this ledger. This portable ledger keeps cross-project items and the user's own infrastructure/accounts; both-roles items keep `· project: <name>` here.
+
 ## 0.3.0 — 2026-09-20
 
 - **Access before asks (new section):** inventory profile §Access map + project `OPS.md` + vault + Coolify envs before asking anything; if existing access can do it — DO IT; missing access = ONE batched ask (exact scope + click path + where to save), ledgered in the same message; capability walls are proven with a probe, never assumed.

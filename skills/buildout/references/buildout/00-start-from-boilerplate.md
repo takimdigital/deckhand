@@ -28,9 +28,18 @@ Run immediately BEFORE cloning. If it does not print `MIT` → do not clone; pic
 5. Brand tokens: find the token/CSS-variable block (e.g. `src/app/globals.css`) — this is the hook for the design-assembly phase.
 6. Demo data/content: delete sample rows, placeholder pricing tables, demo testimonials. Replace with real copy or clearly marked TODO placeholders — never ship lorem ipsum.
 
+## Kickoff ledger — the project's `PENDING.md`
+
+Create `PENDING.md` in the project root at kickoff — the project-scoped twin of the portable ledger (skill `deckhand-profile`), same strict parseable format:
+
+`- [ ] P-0NN · <what> · WHY: <consequence if skipped> · HOW: <one-line action> · WHERE: <exact place / click path> · asked YYYY-MM-DD · status: open|waiting-confirm · nag: yes|no`
+
+Rules: seed it from the kickoff brief + discovery questions; record every human task the build uncovers (accounts, keys, client-supplied data, policy decisions) in the same message you ask for it; agent work NEVER goes here (that is the session todo list); close with `· done YYYY-MM-DD`; surface open items in every report. It lives in the repo — the project's humans see it without any agent.
+
 ## Verification
 
 - Fresh-clone run-through from the README works (target ≤10 min).
+- `PENDING.md` seeded in the project root; every discovered human-blocker is on it.
 - App boots; tests (if shipped) pass; database migrates.
 - `LICENSE` intact; strip checklist items each checked off.
 - Record: repo, commit SHA, license evidence, date — in the project's `AGENTS.md` or a `DECISIONS.md` line.

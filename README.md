@@ -12,7 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Tests: 58 passing" src="https://img.shields.io/badge/tests-58%20passing-brightgreen.svg">
-  <img alt="Version: 0.14.6" src="https://img.shields.io/badge/version-0.14.6-blueviolet.svg">
+  <img alt="Version: 0.14.7" src="https://img.shields.io/badge/version-0.14.7-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 

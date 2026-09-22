@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-21 — project pendings stay with the project (buildout v0.4.7 / deckhand-profile v0.3.1 / pack v0.14.7)
+
+- **A build's human tasks now live in the build.** Greenfield projects keep a `PENDING.md` in the
+  project folder — created at kickoff, same strict parseable format as the portable ledger — and
+  every human-blocker the work discovers (an account, a key, client-supplied data, a policy
+  decision) is recorded there as it appears and surfaced in reports. The portable
+  `~/.deckhand/pending.md` is now explicitly for cross-project / user-infrastructure items:
+  project sessions read it, but never write project chores into it.
+
 ## 2026-09-21 — the component pool proves its install paths live (buildout v0.4.6 / pack v0.14.6)
 
 The buildout engine's registry pool now verifies itself against the live web, and seven new

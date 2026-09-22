@@ -1,5 +1,12 @@
 # Changelog - Buildout
 
+## 0.4.7 — 2026-09-21
+
+Project pendings belong to the project.
+
+### Added
+- **Project-pending rule** — human tasks discovered by a project's own work (accounts, keys, client-supplied data, policy decisions) are recorded in a `PENDING.md` at the project root, in the same strict parseable format as the portable `~/.deckhand/pending.md` ledger; the portable ledger is reserved for cross-project / user-infrastructure items. Enforced in the router's loading discipline (checked the moment a project directory opens), seeded at kickoff (`00-start-from-boilerplate.md`), and asserted in the verification checklist. The `deckhand-profile` companion gains the matching scope rule (v0.3.1).
+
 ## 0.4.6 — 2026-09-21
 
 Pool expansion — the registry allowlist grows past its original five, with a refreshed snapshot, every install URL live-tested, and stale notes made true again.
