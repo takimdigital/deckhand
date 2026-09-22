@@ -110,8 +110,8 @@ IP. Continue with the propagation check below — identical from here on.
 ## Propagation check (do this BEFORE touching Coolify / SSL)
 
 ```bash
-dig +short app.<domain> @1.1.1.1        # expect: a single line — <IP>
-nslookup app.<domain> 1.1.1.1           # Windows — "Address:" line must be <IP>
+dig +short <domain> @1.1.1.1        # expect: a single line — <IP>
+nslookup <domain> 1.1.1.1           # Windows — "Address:" line must be <IP>
 ```
 
 Expected: the output equals the VPS IP exactly. Stale value or empty → wait out the TTL and re-check;
@@ -122,11 +122,11 @@ do not attach the domain in Coolify while DNS is wrong (the ACME challenge will 
 ```bash
 curl -sS -X PATCH "$COOLIFY_URL/api/v1/applications/<uuid>" \
   -H "Authorization: Bearer $COOLIFY_TOKEN" -H "Content-Type: application/json" \
-  -d '{"domains":"app.<domain>"}'
+  -d '{"domains":"<domain>,www.<domain>"}'
 ```
 
-`domains` is a **comma-separated string** — multiple hostnames in one value:
-`{"domains":"app.<domain>,www.app.<domain>"}`. UI equivalent: App → Configuration → Domains.
+`domains` is a **comma-separated string** — multiple hostnames in one value (attach BOTH the apex and `www` — the plan's two app records; certs are per hostname):
+`{"domains":"<domain>,www.<domain>"}`. UI equivalent: App → Configuration → Domains.
 Coolify issues the Let's Encrypt certificate automatically once DNS resolves to the VPS and port 80
 is reachable (ref 10 Step 3 put 80 in the firewall). Record the domain in `<project>/.vps-ops.json`
 (see `30-deploy-app.md`). If a scheme is shown in the UI value, mirror it. [verify at live drill]
@@ -134,16 +134,16 @@ is reachable (ref 10 Step 3 put 80 in the firewall). Record the domain in `<proj
 ## Let's Encrypt verification
 
 ```bash
-curl -sSI https://app.<domain> | head -1
+curl -sSI https://<domain> | head -1
 # expect: HTTP/2 200
 
-echo | openssl s_client -connect app.<domain>:443 -servername app.<domain> 2>/dev/null \
+echo | openssl s_client -connect <domain>:443 -servername <domain> 2>/dev/null \
   | openssl x509 -noout -issuer -dates
 # expect: issuer string contains "Let's Encrypt"; notBefore/notAfter bracket today
 # [verify at live drill] — this one-liner has not been executed end-to-end yet
 
-py scripts/coolify_api.py smoke https://app.<domain> --expect 200
-# expect: OK 200 https://app.<domain>     (exit code 4 = check failed)
+py scripts/coolify_api.py smoke https://<domain> --expect 200
+# expect: OK 200 https://<domain>     (exit code 4 = check failed)
 ```
 
 ## Troubleshooting

@@ -47,6 +47,33 @@ class LibraryTests(unittest.TestCase):
             lib = importlib.reload(importlib.import_module("library"))
             self.assertEqual(lib.store_root(), Path(self.tmp.name + "-legacy"))
 
+    def test_strict_reject_preserves_existing_item(self):
+        self.lib.cmd_add(self.lib.parse_args(["add", "--name", "zz", "--file", str(self.src)]))
+        hexfile = Path(self.tmp.name) / "bad.tsx"
+        hexfile.write_text("export const C = () => <div style={{color:'#ff0000'}}/>;\n", encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            self.lib.cmd_add(self.lib.parse_args(
+                ["add", "--name", "zz", "--file", str(hexfile), "--force", "--strict"]))
+        idx = [json.loads(l) for l in (Path(self.tmp.name) / "index.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+        row = next(r for r in idx if r["name"] == "zz")
+        for rel in row["files"]:
+            self.assertTrue((Path(self.tmp.name) / rel).exists(), f"stale index points at missing {rel}")
+
+    def test_duplicate_basenames_rejected(self):
+        d1 = Path(self.tmp.name) / "a"; d1.mkdir()
+        d2 = Path(self.tmp.name) / "b"; d2.mkdir()
+        f1 = d1 / "card.tsx"; f1.write_text("export const A = () => null;\n", encoding="utf-8")
+        f2 = d2 / "card.tsx"; f2.write_text("export const B = () => null;\n", encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            self.lib.cmd_add(self.lib.parse_args(["add", "--name", "dup", "--file", str(f1), "--file", str(f2)]))
+
+    def test_copy_creates_missing_target(self):
+        fixture = ROOT / "tests" / "fixtures" / "pricing-card.tsx"
+        self.lib.cmd_add(self.lib.parse_args(["add", "--name", "fx", "--file", str(fixture)]))
+        dest = Path(self.tmp.name) / "proj" / "ui"      # does not exist yet
+        self.lib.cmd_copy(self.lib.parse_args(["copy", "fx", "--to", str(dest)]))
+        self.assertTrue((dest / "pricing-card.tsx").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

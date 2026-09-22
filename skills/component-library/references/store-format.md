@@ -1,9 +1,11 @@
-# Store Format — ~/expert-build-library
+# Store Format — ~/deckhand-library
+
+(Legacy stores at `~/expert-build-library` / `EXPERT_BUILD_LIBRARY` are still read as-is — `library.py` `store_root` falls back to them so nothing is orphaned.)
 
 Load when: inspecting or extending the store layout, or debugging `library.py` behavior.
 
 ```
-expert-build-library/
+deckhand-library/
 ├─ index.jsonl     one line per component (the query surface; greppable, token-cheap)
 ├─ registry.json   shadcn registry (derived from index; enables GitHub-registry installs)
 ├─ r/<name>.json   registry-item JSON per component (derived)
@@ -17,18 +19,18 @@ expert-build-library/
 {"name":"pricing-card","tags":["pricing","cards"],"section":"pricing","files":["items/pricing-card/pricing-card.tsx"],"deps":["motion"],"source":"built 2026-09-17 @ saas-x","createdAt":"2026-09-17T15:00:00Z","install":"py scripts/library.py copy pricing-card --to <dir>"}
 ```
 
-Rules: `name` is the identity (lowercase-hyphen, 2-63 chars). `files` are store-relative paths. `deps` are npm packages extracted from imports (aliases like `@/` and relative paths excluded). `source` is provenance — required in spirit even if optional in CLI.
+Rules: `name` is the identity (lowercase-hyphen, 2-63 chars). `files` are store-relative paths. `deps` are npm packages extracted from imports (aliases like `@/` and relative paths excluded; react/react-dom/next skipped; subpath imports collapse to the package root, e.g. `motion/react` → `motion`). `source` is provenance — required in spirit even if optional in CLI.
 
 ## registry.json (derived — do not hand-edit)
 
-Standard shadcn registry: `$schema`, `name: expert-build-library`, `items[]` with `type: registry:component`, `files[]` (store-relative), `dependencies[]`, `categories[]` (from tags). 
+Standard shadcn registry: `$schema`, `name: deckhand-library`, `items[]` with `type: registry:component`, `files[]` (store-relative), `dependencies[]`, `categories[]` (from tags). 
 
 ## r/<name>.json (derived — do not hand-edit)
 
 One registry-item JSON per component. Two reuse paths:
 
 1. **Local copy** (no hosting): `library.py copy <name> --to <project-dir>`.
-2. **GitHub registry** (once pushed): `npx shadcn@latest add <owner>/expert-build-library/<name>` (pin with `#v1.0.0` or a commit SHA if you tag releases).
+2. **GitHub registry** (once pushed): `npx shadcn@latest add <owner>/deckhand-library/<name>` (pin with `#v1.0.0` or a commit SHA if you tag releases).
 
 ## Conventions
 

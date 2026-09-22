@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-22 — silent-failure classes closed; install docs verified (pack v0.14.10)
+
+Three classes of silent failure, gone. (1) **Backup naming trap:** the VPS backup script and the
+vault tools disagreed on env names (host scheme, `B2_APP_KEY_ID` vs short forms, `TIGRIS_*` vs
+`TG_*`) — the first real backup died on it; the shipped script now accepts either form and the
+template maps vault → server 1:1. (2) **Gates that could never go red:** two backup scripts always
+exited 0 — they now exit non-zero when a leg fails or a bucket listing is empty. (3) **Windows
+line endings:** checkouts could materialize `*.sh` as CRLF and break on the server — the repo now
+pins `*.sh` to LF. Plus: install-truth fixes on the landing page (harness paths incl. Cursor,
+`mkdir -p` before the copy example, zip instructions), `app.<domain>` removed from every runbook
+(the DNS plan defines @ / www / coolify only), and the release gate now checks the top changelog
+entry, the prose test-count line, and fails outright when pytest is missing.
+
 ## 2026-09-21 — release claims are machine-checked (pack v0.14.9)
 
 Version and test-count claims can no longer drift from the repo. A new consistency check

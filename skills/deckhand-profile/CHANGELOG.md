@@ -1,5 +1,11 @@
 # Changelog — deckhand-profile
 
+## 0.3.2 — 2026-09-22
+
+- Ledger IDs pinned: `P-001`, zero-padded, next = highest existing + 1, never reused.
+- Report ages defined: whole days open from `asked` (`open 6d`).
+- Onboarding's write-up steps became a checklist (they collided with the Branch B step numbering).
+
 ## 0.3.1 — 2026-09-21
 
 - **Project-scoped tasks find their own home:** human tasks discovered by work inside ONE project (its accounts, keys, client-supplied data, policy decisions) now go in a `PENDING.md` at that project's root — created at kickoff by the buildout flow, same strict format as this ledger. This portable ledger keeps cross-project items and the user's own infrastructure/accounts; both-roles items keep `· project: <name>` here.

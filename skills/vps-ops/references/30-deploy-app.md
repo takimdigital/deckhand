@@ -163,18 +163,18 @@ Prerequisite: `<domain>` resolves to the VPS IP (`20-domain-dns-ssl.md`; `py scr
 ```bash
 curl -sS -X PATCH "$COOLIFY_URL/api/v1/applications/<APP_UUID>" \
   -H "Authorization: Bearer $COOLIFY_TOKEN" -H "Content-Type: application/json" \
-  -d '{"domains":"https://app.<domain>"}'
+  -d '{"domains":"https://<domain>"}'
 ```
 
-`domains` is a **comma-separated string** — several names: `"https://app.<domain>,https://www.<domain>"`. The same PATCH also accepts `name`, `build_pack`, `ports_exposes`, `git_commit_sha`, `github_app_uuid`.
-Coolify issues the Let's Encrypt certificate on the next deploy (port 80 reachable first). Verify after §6: `curl -sSI https://app.<domain> | head -1` → `HTTP/2 200`.
+`domains` is a **comma-separated string** — several names: `"https://<domain>,https://www.<domain>"`. The same PATCH also accepts `name`, `build_pack`, `ports_exposes`, `git_commit_sha`, `github_app_uuid`.
+Coolify issues the Let's Encrypt certificate on the next deploy (port 80 reachable first). Verify after §6: `curl -sSI https://<domain> | head -1` → `HTTP/2 200`.
 
 ## 6. First deploy + verify
 
 ```bash
 coolify deploy uuid <APP_UUID>                                   # enqueue
 py scripts/coolify_api.py wait <APP_UUID> --timeout 900          # poll to terminal status
-py scripts/coolify_api.py smoke https://app.<domain> --expect 200
+py scripts/coolify_api.py smoke https://<domain> --expect 200
 ```
 
 REST deploy trigger — **query params only, no body**:
@@ -186,7 +186,7 @@ curl -sS -X POST "$COOLIFY_URL/api/v1/deploy?uuid=<APP_UUID>&force=false" \
 
 Expected:
 - `wait` → `SUCCESS (1m32s, deployment <id>)`, exit **0**. Exit `3` = deployment failed → `40-change-pipeline.md` classification. Exit `5` = timeout → keep polling / read logs.
-- `smoke` → `OK 200 https://app.<domain>`, exit **0**; exit `4` = fail.
+- `smoke` → `OK 200 https://<domain>`, exit **0**; exit `4` = fail.
 
 Statuses are tolerant: `{"success","finished"}` = OK · `{"failed","cancelled"}` = FAIL · **anything else = still running**. *Live-verified on Coolify 4.3.21: terminal OK = `finished`; the deployments endpoint returns `{"count":N,"deployments":[...]}` (newest first by `created_at`), which `scripts/coolify_api.py` already normalizes.*
 
@@ -220,10 +220,10 @@ and hand it to the user out-of-band. Re-run the smoke afterwards; the site is th
 ## 8. Session anchor — `<project>/.vps-ops.json`
 
 ```json
-{"server_uuid":"<S>","project_uuid":"<P>","app_uuid":"<APP_UUID>","db_uuid":"<DB_UUID>","domain":"app.example.com","coolify_url":"http://<ip>:8000"}
+{"server_uuid":"<S>","project_uuid":"<P>","app_uuid":"<APP_UUID>","db_uuid":"<DB_UUID>","domain":"<domain>","coolify_url":"http://127.0.0.1:8000","track":"paid"}
 ```
 
-No secrets — safe to commit. Commit it (`git add .vps-ops.json && git commit -m "chore: vps-ops anchor" && git push`): every later session, in any harness, re-enters the pipeline from this file alone.
+No secrets — safe to commit. Commit it (`git add .vps-ops.json && git commit -m "chore: vps-ops anchor" && git push`): every later session, in any harness, re-enters the pipeline from this file alone. Track F adds `"region":"<oci-region>"`; `coolify_url` is the local end of the SSH tunnel (the dashboard is loopback-only, ref 10 Step 3b).
 It is machine-minimal by design — for humans/agents with zero context, pair it with the `OPS.md`
 handoff (§9), which they can actually read and act on.
 
@@ -249,5 +249,5 @@ Tell the user it exists — it is the cold-start door into everything else.
 | 1 | app uuid pinned + committed | `cat .vps-ops.json` |
 | 2 | env keys present | `py scripts/coolify_api.py envs <APP_UUID>` |
 | 3 | deployment terminal SUCCESS | `py scripts/coolify_api.py deployments <APP_UUID> --limit 3` |
-| 4 | HTTPS answers 200 | `py scripts/coolify_api.py smoke https://app.<domain> --expect 200` |
+| 4 | HTTPS answers 200 | `py scripts/coolify_api.py smoke https://<domain> --expect 200` |
 | 5 | auto-deploy wired | push a trivial commit → expect a new deployment (`[verify at live drill]` on non-GitHub-App routes) |

@@ -1,7 +1,7 @@
 ---
 name: component-library
 description: "Save, find, and reuse UI components across projects."
-version: 0.1.1
+version: 0.1.2
 author: Takim, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -42,7 +42,7 @@ py scripts/library.py remove <name>
 ## Procedure
 
 1. **Save.** Run `add` with every file of the component; keep files token-based (no raw hex — `--strict` enforces it); always set `--source`. Tags vocabulary: section names (`hero`, `pricing`, `dashboard`, `forms`, …) + aesthetic (`animated`, `minimal`, `editorial`).
-2. **Reuse.** `find` → `show` → `copy <name> --to <project>/src/components/ui/`. If the store is pushed to a public GitHub repo: `npx shadcn@latest add <owner>/<repo>/<name>` (the store ships `registry.json`, so it is a valid GitHub registry).
+2. **Reuse.** `find` → `show` → `copy <name> --to <project>/src/components/ui/` (the target dir is created if missing). If the store is pushed to a public GitHub repo: `npx shadcn@latest add <owner>/<repo>/<name>` (the store ships `registry.json`, so it is a valid GitHub registry).
 3. **Maintain.** Re-adding a name needs `--force`; `remove` archives to `_archive/` (never deletes); `registry.json` + `r/<name>.json` are re-rendered automatically on add/remove.
 
 ## Pitfalls
@@ -54,4 +54,4 @@ py scripts/library.py remove <name>
 
 ## Verification
 
-- `find "<name>"` returns the item; `copy` places the files; `py -m json.tool registry.json` passes; index line count equals item count.
+- `find "<name>"` returns the item; `copy` places the files; `py -m json.tool registry.json` passes; index line count equals the number of item dirs under `items/` (a failed `--force --strict` re-add can no longer desync them — inputs are validated before anything is replaced).

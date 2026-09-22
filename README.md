@@ -11,8 +11,8 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Tests: 58 passing" src="https://img.shields.io/badge/tests-58%20passing-brightgreen.svg">
-  <img alt="Version: 0.14.9" src="https://img.shields.io/badge/version-0.14.9-blueviolet.svg">
+  <img alt="Tests: 61 passing" src="https://img.shields.io/badge/tests-61%20passing-brightgreen.svg">
+  <img alt="Version: 0.14.10" src="https://img.shields.io/badge/version-0.14.10-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
@@ -111,7 +111,7 @@ Deployed and validated end to end against a real Coolify instance:
 - [x] **Postgres** — provisioned via API → the app executes a real query over the internal network
 - [x] **Backups** — schedule → dump → **restore drill** (`pg_restore` into a scratch database, verified)
 - [x] **Build packs** — Nixpacks and Dockerfile · **ops** — logs, deployments, env vars, docker cleanup
-- [x] **51 unit tests** green (standard library only)
+- [x] **61 unit tests** green (standard library only)
 - [x] **Design audit gate** — validated end-to-end on a production app by a zero-context agent: 28-test matrix, deterministic baselines, and real findings surfaced on its first run
 - [x] **Paid track validated live** — a real Next.js + Postgres SaaS deployed end-to-end on a rented VPS: Coolify → Cloudflare DNS-only → Let's Encrypt, with migrations, seed data and a production-owner flow — every error it surfaced is now folded back into the runbooks.
 
@@ -130,21 +130,25 @@ Deployed and validated end to end against a real Coolify instance:
 No build step, no dependencies — plain `SKILL.md` folders plus stdlib Python:
 
 ```bash
-git clone https://github.com/takimdigital/deckhand.git
-cd deckhand
+git clone https://github.com/takimdigital/deckhand-skill.git
+cd deckhand-skill
 ```
 
 | Harness | Copy the skill folders into |
 | --- | --- |
 | Claude Code | `~/.claude/skills/` |
-| OpenAI Codex | `~/.codex/skills/` |
+| OpenAI Codex | `~/.agents/skills/` (legacy builds: `~/.codex/skills/`) |
+| Cursor | `~/.cursor/skills/` (project-level: `.cursor/skills/`) |
 | Generic agents (AGENTS.md) | `~/.agents/skills/` |
-| Hermes Agent | your Hermes profile `skills/` directory |
+| Hermes Agent | your Hermes skills dir — `%LOCALAPPDATA%\hermes\skills\` (Windows) or `~/.local/share/hermes/skills/` (Linux) |
 
 ```bash
 # example: Claude Code
+mkdir -p ~/.claude/skills
 cp -r skills/* ~/.claude/skills/
 ```
+
+Downloaded `deckhand.zip` instead? Unzip it anywhere, then copy the folders inside the archive's `skills/` into your harness directory (same folders the clone gives you). Don't unzip straight *into* a skills directory — you'd end up with `skills/skills/`.
 
 Then just start a conversation — the examples above work verbatim.
 

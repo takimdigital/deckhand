@@ -101,7 +101,9 @@ curl -sS -X POST "https://developers.hostinger.com/api/vps/v1/firewall/<fwId>/sy
 ```
 
 ⚠️ A Hostinger firewall **drops all incoming by default** — the accept rules for 22, 80, 443, 8000,
-6001, 6002 are mandatory, and every later rule change needs another `…/sync`.
+6001, 6002 are mandatory, and every later rule change needs another `…/sync`. 8000/6001/6002 are needed only
+DURING BOOTSTRAP (health checks before Step 3b locks the dashboard at the Docker level) — once the tunnel
+works you can delete those three from the firewall and `…/sync`; 22/80/443 stay.
 Protocol enum: `TCP|UDP|ICMP|GRE|any|ESP|AH|ICMPv6|SSH|HTTP|HTTPS|MySQL|PostgreSQL`; port range form `"1024:2048"`.
 Script equivalent (idempotent: find-or-create → ensure rules → activate → sync): `py scripts/hostinger_api.py firewall ensure --vm <vmId> --ports 22,80,443,8000,6001,6002 --name vps-ops`
 
@@ -123,7 +125,7 @@ Never remove the port-22 rule — Coolify manages the server over SSH.
 > every Coolify update).
 
 Do NOT rely on host firewalls for Coolify's own published ports.
-userland proxy, traffic to published ports (8000/6001/6002) bypasses host iptables entirely —
+**Reason: Docker's userland proxy** — traffic to published ports (8000/6001/6002) bypasses host iptables entirely —
 DOCKER-USER **and** INPUT DROP rules were live-tested and stayed at **0 packets** while the ports
 remained fully reachable from the internet. Providers WITH a cloud firewall (Oracle) still block
 them at the network layer; providers without one (Contabo, most bare VPS) are fully exposed.
@@ -263,7 +265,7 @@ Hostinger's remote MCP (`https://mcp.hostinger.com`) is OAuth-based — fine in 
 | `UNPROTECTED PRIVATE KEY` / bad permissions | Windows perms on the key file | `chmod 600`; use git-bash `/usr/bin/ssh`; add `-o IdentitiesOnly=yes` |
 | `Host key verification failed` (bare ssh from an MSYS harness) | ssh read `/home/<user>/.ssh/known_hosts` (absent) instead of `$HOME/…` | add `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes` (canonical form — trap in Step 3b) |
 | `Host key verification failed` after a VPS rebuild | stale entry for `$VPS_IP` in the vault known_hosts | `ssh-keygen -R $VPS_IP -f ~/.vps-ops/ssh/known_hosts`, retry Step 2 |
-| `:8000/api/health` not 200, or unreachable | install still running, port 8000 blocked, or rules not synced | wait 2–3 min; `docker ps`; add rule 8000, re-activate, `…/sync` |
+| `:8000/api/health` not 200, or unreachable | install still running; AFTER Step 3b the port is loopback-only BY DESIGN (a timeout from the internet is the lock working) | wait 2–3 min; `docker ps`; from the agent machine run the tunnel (`py scripts/coolify_api.py tunnel`) then `curl http://127.0.0.1:8000/api/health` — never re-open 8000 publicly |
 | Token curl → `401` | API access off / token scopes wrong | `00-user-checklist.md` §4A, recreate the token |
 | `config error: …` from a script | env not loaded | `. ~/.vps-ops/secrets/env.sh` |
 | SSH lost after firewall change | rule for 22 missing | add TCP/22 + `…/sync`; recover via provider console |

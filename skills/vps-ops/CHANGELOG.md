@@ -1,5 +1,11 @@
 # Changelog — vps-ops
 
+## 0.9.8 — 2026-09-22
+
+- **The backup chain can no longer silently mismatch (live-hit: the first live backup died on the raw naming mismatch).** `coolify-backup.sh` normalizes the env: `https://` prefixes on `B2_HOST`/`TG_HOST` stripped, and the vault's own names (`B2_APP_KEY_ID`/`B2_APP_KEY`, `TIGRIS_BUCKET`, `TIGRIS_ACCESS_KEY_ID`/`TIGRIS_SECRET_ACCESS_KEY`) accepted as aliases — either form works. `templates/vps-backup/README.md` step 3 maps vault → `/etc/backup/env` 1:1 and warns about CRLF (repo pins `*.sh` to LF).
+- **Gates that can go red:** `backup_verify.py` and `coolify_backup_setup.py` now exit non-zero when a leg fails or a bucket listing comes back empty — both used to always exit 0 (a gate that can never fail is not a gate).
+- Ref fixes from the cold-read audit: `app.<domain>` → `<domain>` / `www.<domain>` everywhere (the DNS plan owns @/www/coolify — nothing invented); ref 00 dashboard access = the agent's SSH tunnel (`http://localhost:8000`), never `http://<ip>:8000`; ref 10's firewall note scopes 8000/6001/6002 to bootstrap-only (removable after Step 3b) and the failure row no longer tells anyone to re-open 8000; ref 30's `.vps-ops.json` example gains `track` (+`region` on Track F) and the tunnel URL; the weekly harness check is now defined by pointer; SKILL.md one-time-moments wording covers Track F and the one public-key paste.
+
 ## 0.9.7 — 2026-09-21
 
 - **The "every agent-side ssh carries the vault flag" rule is now exhaustive — references AND templates.** The 0.9.6 fix covered the gate, the tunnel, and ref 55's rule; a two-pass sweep then closed every remaining EXAMPLE a copy-paste agent could follow: ref 10 (ufw firewall, loopback-bind compose edit, Coolify install + container check, hardening + password test), ref 11 (Oracle iptables verify/fallback, access gate, tunnel), ref 30 (first-run data steps: container find, migrate, seed, owner delete/create), ref 50 (restore drill, incident table, Coolify/OS upgrades), ref 55 §7 choice ③, ref 60 (migration dump/scp/restore), and the OPS-handoff template (ssh info, tunnel, everyday commands). 40 ssh lines now carry `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes`; the closing check is an exhaustive grep classifier (prose and anti-examples excluded) — zero bare runnable forms remain.

@@ -76,7 +76,7 @@ all server work and DNS record creation (or dictates exact clicks).
 
 **A. Coolify admin account + API access** — right after the agent installs Coolify (`10-bootstrap-vps.md` Step 5):
 
-1. Open `http://<ip>:8000` → registration page → create the first **admin account**.
+1. Open the dashboard **through the agent's SSH tunnel** — the agent starts `ssh -N -L 8000:127.0.0.1:8000 …` on your machine and you open `http://localhost:8000` (the dashboard is loopback-bound by the agent right after install, ref 10 Step 3b — it is NOT reachable at `http://<ip>:8000`). Then create the first **admin account** on the registration page.
 2. **Settings → Configuration → Advanced** → enable **API access** (and **MCP** if you want the
    optional MCP convenience layer).
 3. **Keys & Tokens → API Tokens** → create a token named `vps-ops` with scopes
@@ -130,7 +130,7 @@ Secrets go only into `~/.vps-ops/secrets/` and Coolify env vars, never into a re
 
 ## 6. What the user will NEVER have to do
 
-- Open an SSH session or run a single server command.
+- Open a local SSH session or run server commands — the one exception is the single public-key paste in §3 (browser console).
 - Operate the Coolify dashboard (beyond the two approvals above).
 - Deploy, redeploy, restart, or roll back by hand.
 - Edit DNS records by hand or manage TLS certificates.

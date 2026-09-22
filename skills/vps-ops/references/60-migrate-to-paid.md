@@ -60,9 +60,9 @@ Pre: lower the app A-record TTL (Cloudflare DNS-only: 60 s min; proxied records 
 4. DNS: same-domain → swap the A record to `$NEW_IP` (Cloudflare dashboard 2 clicks, or
    `PATCH https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records/$REC_ID`).
    New-domain scenario → nothing to swap here.
-5. Start NEW + `py scripts/coolify_api.py smoke https://app.<domain> --expect 200` + ONE real write
+5. Start NEW + `py scripts/coolify_api.py smoke https://<domain> --expect 200` + ONE real write
    through the UI (sign-up or a record save).
-6. TLS check: `curl -sSI https://app.<domain> | head -1` → `HTTP/2 200`.
+6. TLS check: `curl -sSI https://<domain> | head -1` → `HTTP/2 200`.
 7. Unfreeze/announce; watch logs + Stripe deliveries for 30–60 min.
 
 ## Rollback matrix

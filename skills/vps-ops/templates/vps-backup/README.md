@@ -5,8 +5,11 @@ One script, two offsite repos, weekly verified drill, plus a home-copy pull. Ful
 ## Install (agent, on the VPS)
 
 1. `apt-get install -y jq` · restic: **upstream static binary** (apt lags) — `curl -fsSL -o /tmp/r.bz2 https://github.com/restic/restic/releases/latest/download/restic_<ver>_linux_amd64.bz2` (get `<ver>` from the releases API) → `bunzip2` (needs `bzip2` pkg) → `/usr/local/bin/restic`. rclone 1.75+ likewise if used for home/koofr paths.
-2. Copy `coolify-backup.sh` → `/opt/backup/`, `chmod 700`. Create `/opt/backup/state`.
-3. Create `/etc/backup/env` (root, 600, **LF line endings** — CRLF makes restic hang on a mangled repo path) with: provider hosts/buckets/keys/region, `ALERT_URL`, `VOLUMES` allowlist, `DB_CONTAINERS` (names = the plain uuids), `SANITY_DB`/`SANITY_SQL`.
+2. Copy `coolify-backup.sh` → `/opt/backup/`, `chmod 700`. Keep it **LF** — Git on Windows can materialize CRLF and a CRLF script dies on the VPS (the repo pins `*.sh` to LF via `.gitattributes`); after any hand-copy, `bash -n /opt/backup/coolify-backup.sh` must pass. Create `/opt/backup/state`.
+3. Create `/etc/backup/env` (root, 600, **LF line endings** — CRLF makes restic hang on a mangled repo path). The values drop straight out of the vault — either naming works (the script normalizes; live-hit 2026-09-21: the first backup died on the raw mismatch before this):
+   - `B2_HOST` / `B2_BUCKET` / `B2_KEY_ID` / `B2_SECRET` / `B2_REGION` ← `~/.vps-ops/secrets/b2-scoped.env.sh` (`B2_APP_KEY_ID` / `B2_APP_KEY` aliases accepted; a `https://` prefix on the host is fine)
+   - `TG_HOST` / `TG_BUCKET` / `TG_KEY_ID` / `TG_SECRET` ← `~/.vps-ops/secrets/backup.env.sh` (`TIGRIS_BUCKET` / `TIGRIS_ACCESS_KEY_ID` / `TIGRIS_SECRET_ACCESS_KEY` aliases accepted)
+   - plus `ALERT_URL`, the `VOLUMES` allowlist, `DB_CONTAINERS` (names = the plain uuids), `SANITY_DB`/`SANITY_SQL`.
 4. Create the two repos ONCE (`restic init` with per-repo env — see the wrappers in the script) — then **escrow both passwords in the owner's password manager**. Lost password = lost backups, forever.
 5. Run a first manual round-trip: `coolify-backup.sh backup && coolify-backup.sh verify` — only after BOTH pass, enable timers.
 6. systemd (preferred over cron):

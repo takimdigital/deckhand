@@ -55,7 +55,7 @@ def render_registry(root):
     rows = read_index(root)
     reg = {
         "$schema": "https://ui.shadcn.com/schema/registry.json",
-        "name": "expert-build-library",
+        "name": "deckhand-library",
         "homepage": "",
         "items": [
             {
@@ -122,11 +122,10 @@ def cmd_add(args):
     if any(r["name"] == args.name for r in rows) and not args.force:
         print(f"{args.name} already exists (use --force to replace)")
         raise SystemExit(1)
-    dest = root / "items" / args.name
-    if dest.exists():
-        shutil.rmtree(dest)
-    dest.mkdir(parents=True)
-    deps, hexhits, files_rel = set(), [], []
+    # Validate EVERYTHING before touching the store: nothing is deleted or written until all inputs pass.
+    # (Fixed 2026-09-21: --force used to rmtree the old item BEFORE the strict hex check — a rejected
+    # re-add left index.jsonl/registry.json advertising files that no longer existed.)
+    deps, hexhits, loaded = set(), [], []
     for f in args.file:
         src = Path(f)
         if not src.exists():
@@ -137,15 +136,26 @@ def cmd_add(args):
         hits = HEX_RE.findall(text)
         if hits:
             hexhits.append(f"{src.name}: {len(hits)} raw hex value(s)")
-        shutil.copy2(src, dest / src.name)
-        files_rel.append(f"items/{args.name}/{src.name}")
+        loaded.append(src)
     if hexhits:
         msg = "; ".join(hexhits)
         if args.strict:
             print(f"strict: {msg} - not saved (drop --strict to allow)")
-            shutil.rmtree(dest)
             raise SystemExit(1)
         print(f"warning: {msg}")
+    names = [s.name for s in loaded]
+    dups = sorted({n for n in names if names.count(n) > 1})
+    if dups:
+        print(f"duplicate basenames {dups}: every file of a component needs a unique name - rename and retry")
+        raise SystemExit(1)
+    dest = root / "items" / args.name
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True)
+    files_rel = []
+    for src in loaded:
+        shutil.copy2(src, dest / src.name)
+        files_rel.append(f"items/{args.name}/{src.name}")
     row = {
         "name": args.name,
         "tags": sorted({t.strip() for t in (args.tags or "").split(",") if t.strip()}),
@@ -196,8 +206,8 @@ def cmd_copy(args):
         raise SystemExit(1)
     target = Path(args.to)
     if not target.exists():
-        print(f"target dir not found: {target}")
-        raise SystemExit(1)
+        target.mkdir(parents=True)
+        print(f"created target dir: {target}")
     for rel in row.get("files", []):
         src = root / rel
         shutil.copy2(src, target / Path(rel).name)

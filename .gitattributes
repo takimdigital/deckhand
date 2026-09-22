@@ -1,0 +1,5 @@
+# Line-ending law for this repo (PUBLIC).
+# Windows checkouts default to CRLF — a CRLF .sh dies on the VPS (shebang + \r in every arg) and a
+# CRLF-mangled /etc/backup/env hangs restic. Shell scripts here MUST ship LF; batch files CRLF.
+*.sh text eol=lf
+*.cmd text eol=crlf

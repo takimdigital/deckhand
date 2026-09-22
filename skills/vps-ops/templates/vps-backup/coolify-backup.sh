@@ -13,12 +13,21 @@
 # /etc/backup/env (root, 600 — MUST be LF line endings; CRLF breaks restic repo paths):
 #   B2_HOST=s3.us-east-005.backblazeb2.com  B2_BUCKET=…  B2_KEY_ID=…  B2_SECRET=…  B2_REGION=us-east-005
 #   TG_HOST=t3.storage.dev                  TG_BUCKET=…  TG_KEY_ID=…  TG_SECRET=…
+# The vault's own forms are accepted as-written too (b2_setup.py / tigris_bucket.py write these):
+# https:// prefixes on the hosts, B2_APP_KEY_ID/B2_APP_KEY for the key pair, TIGRIS_* / TIGRIS_BUCKET
+# names — normalized below (live-hit 2026-09-21: the first backup died on the raw naming mismatch).
 #   ALERT_URL=https://<app-domain>/api/mail-alert?secret=…   # guarded route -> mail chain (ref 70; route appends a link — the router rejects link-less bodies)
 #   VOLUMES="postgres-data-<uuid>"                            # explicit allowlist, space-separated
 #   DB_CONTAINERS="<db-uuid> coolify-db"                      # container name = uuid (ref 50 §5)
 #   SANITY_DB=<db-uuid>  SANITY_SQL="select count(*) from users"   # weekly drill checks the APP db
 set -euo pipefail
 source /etc/backup/env
+# Normalize the vault's forms — either naming works; a missing value fails later at restic with a clear repo URL:
+B2_HOST="${B2_HOST:-}"; B2_HOST="${B2_HOST#https://}"; B2_HOST="${B2_HOST#http://}"; B2_HOST="${B2_HOST#s3.}"
+TG_HOST="${TG_HOST:-}"; TG_HOST="${TG_HOST#https://}"; TG_HOST="${TG_HOST#http://}"
+B2_KEY_ID="${B2_KEY_ID:-${B2_APP_KEY_ID:-}}"; B2_SECRET="${B2_SECRET:-${B2_APP_KEY:-}}"
+TG_KEY_ID="${TG_KEY_ID:-${TIGRIS_ACCESS_KEY_ID:-}}"; TG_SECRET="${TG_SECRET:-${TIGRIS_SECRET_ACCESS_KEY:-}}"
+TG_BUCKET="${TG_BUCKET:-${TIGRIS_BUCKET:-}}"
 # systemd has no $HOME — pin restic's cache so the script cannot run in an env that breaks it:
 export RESTIC_CACHE_DIR="${RESTIC_CACHE_DIR:-/var/cache/restic}"; mkdir -p "$RESTIC_CACHE_DIR"
 B2PASS=/etc/backup/restic-b2.pass; TGPASS=/etc/backup/restic-tg.pass   # 600 root; ALSO escrow off-box

@@ -1,5 +1,9 @@
 # Changelog - Buildout
 
+## 0.4.8 — 2026-09-22
+
+- Docs-to-code fixes from the cold-read audit: the design-audit step now names the real driver commands (`pnpm design:audit` / `:fast` + the four CLI gates, ONE report via `design:fails`) and points at the one-time kit install (`templates/design-audit/README.md`); "refs are data" now distinguishes the pack's OWN refs (follow them; re-verify their commands) from externally sourced content (never execute unverified); premium/pro registries are allowed for their free/MIT items only, gated per-install with `registry_sync.py verify --item`; the verification list carries the hex gate's actual command; `gh` noted in compatibility.
+
 ## 0.4.7 — 2026-09-21
 
 Project pendings belong to the project.

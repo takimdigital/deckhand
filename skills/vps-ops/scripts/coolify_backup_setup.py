@@ -5,6 +5,8 @@ Reads:  ~/.vps-ops/secrets/env.sh            (COOLIFY_TOKEN, COOLIFY_URL — sin
         ~/.vps-ops/secrets/backup.env.sh     (Tigris key pair, optional TIGRIS_BUCKET)
         ~/.vps-ops/secrets/b2-scoped.env.sh  (B2 scoped key — run scripts/b2_setup.py first)
 Usage:  python3 coolify_backup_setup.py <db_uuid> [--schedules]
+Exit: 0 = every storage/schedule leg succeeded · 1 = any leg failed — check it (live-hit 2026-09-21:
+this script exited 0 no matter what).
 """
 import json, os, re, sys, urllib.request, urllib.error
 
@@ -55,6 +57,7 @@ def ensure_storage(name, endpoint, bucket, region, key, secret):
 
 def main():
     db = sys.argv[1]
+    ok = True
     b2_host = E.get("B2_HOST", "https://s3.us-east-005.backblazeb2.com")
     b2_region = E.get("B2_REGION", "us-east-005")
     b2 = ensure_storage("b2-backups", b2_host,
@@ -63,11 +66,15 @@ def main():
                         E["TIGRIS_ACCESS_KEY_ID"], E["TIGRIS_SECRET_ACCESS_KEY"])
     for label, uuid in (("B2", b2), ("Tigris", tg)):
         if not uuid:
+            ok = False
             continue
         v = call("POST", f"/api/v1/s3-storages/{uuid}/validate")
         print(f"validate {label}: {json.dumps(v)[:200]}")
+        if isinstance(v, dict) and "_http" in v:
+            ok = False
     if "--schedules" not in sys.argv:
-        return
+        print("SETUP OK" if ok else "SETUP FAILED — fix before trusting schedules")
+        return 0 if ok else 1
     # one schedule PER target; backup_now:true proves the first dump immediately.
     # NOTE: the executions endpoint can stay empty for on-demand runs — LIST THE BUCKET for proof.
     for label, uuid, freq, now in (("B2", b2, "0 2 * * *", True), ("Tigris", tg, "15 2 * * *", True)):
@@ -79,7 +86,11 @@ def main():
                   "database_backup_retention_amount_s3": 3,
                   "missing_backup_notification_days": 2})
         print(f"schedule {label}: {json.dumps(r)[:250]}")
+        if isinstance(r, dict) and "_http" in r:
+            ok = False
+    print("SETUP OK" if ok else "SETUP FAILED — fix before trusting schedules")
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

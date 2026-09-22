@@ -1,7 +1,7 @@
 ---
 name: deckhand-profile
 description: "Use when reading or writing the portable user files. Covers profile.md + pending.md (the human-task ledger)."
-version: 0.3.1
+version: 0.3.2
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -48,6 +48,7 @@ you ask; NEVER keep human tasks only in chat history.
 Format (strict — agents parse it):
 `- [ ] P-0NN · <what> · WHY: <consequence if skipped> · HOW: <the action, one line> · WHERE: <exact place — file path / URL / menu chain> · asked YYYY-MM-DD · status: open|waiting-confirm · nag: yes|no`
 (`asked` is required on every OPEN item — conditional ones included; optional `· project: <name>`, `· when: <trigger>` for conditional items)
+**IDs:** `P-001` — zero-padded to three digits; next = highest existing + 1; never reuse (closed IDs stay spent).
 
 Rules:
 - **HOW vs WHERE:** HOW = what to do; WHERE = exactly where to find it — a full file path, a URL, or a
@@ -55,6 +56,7 @@ Rules:
   that is the entire point of the field.
 - `status: open` = user hasn't done it; `waiting-confirm` = likely done but not confirmed; both nag — unless `nag: no` or a `when:` trigger hasn't fired yet.
 - `when:` items never nag before their trigger — no noise.
+- Ages in reports are days open, whole days, from `asked` — `open 6d` (never make the reader subtract dates).
 - Close = `- [x] … · done YYYY-MM-DD`, moved to `## Done` (keep only the last few; the ledger stays short).
 - Dropped = `- [x] … · dropped YYYY-MM-DD · reason` — never silently delete.
 - Nagging: surface open items in every deploy/ops report (short) and in scheduled runs; when the user
@@ -88,9 +90,9 @@ this file must not inherit another system's guesses. Unknown field → omit it, 
 3. The answers ARE the initial profile. Skipped = omitted. No placeholders, no guesses.
 
 **Write (both branches):**
-3. Write `~/.deckhand/profile.md` from `templates/profile.md` — ≤ 60 lines, only fields that change agent behavior.
-4. Show it to the user. Tell them: it is theirs — editable by hand, copyable to any harness or machine.
-5. No secrets, ever: account references (emails, handles, provider names) yes — tokens, passwords, keys NO.
+- Write `~/.deckhand/profile.md` from `templates/profile.md` — ≤ 60 lines, only fields that change agent behavior.
+- Show it to the user. Tell them: it is theirs — editable by hand, copyable to any harness or machine.
+- No secrets, ever: account references (emails, handles, provider names) yes — tokens, passwords, keys NO.
 
 ## Update flow
 

@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "Deploy apps on a VPS with Coolify — free preview or paid."
-version: 0.9.7
+version: 0.9.8
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -28,12 +28,7 @@ all from the harness, without the user ever touching the server.
 
 First read the user's portable files — `~/.deckhand/profile.md` (accounts, providers, defaults) and `~/.deckhand/pending.md` (the ledger of human tasks; skill `deckhand-profile`). Never re-ask what the profile answers. **Surface open pending items in every report** (short, with ages) and **record new human tasks the moment they appear** — keys to paste, clicks, escrows, rotations.
 The user provides ONLY: VPS + domain (+ optionally a provider API token). Everything else is your job.
-Two one-time browser moments are unavoidable and are guided click-by-click in `references/00-user-checklist.md`:
-1. Create the Coolify admin account + copy one API token.
-2. (Private repos) approve the GitHub App install.
-
-Never ask the user to open a terminal on the server or run server commands — you run everything
-via `ssh`/API from the harness.
+One-time browser moments are unavoidable and guided click-by-click in `references/00-user-checklist.md` — on Track P two approvals (create the Coolify admin account + copy one API token; approve the GitHub App install for private repos); Track F adds the signups/activations in §3b. The user never opens a terminal on the server or runs server commands — you run everything via `ssh`/API from the harness (single exception: the one-time public-key paste into the provider's web console, ref 00 §3).
 
 ## Two deployment tracks — the user chooses, nothing is forced
 
@@ -93,7 +88,7 @@ the paid bootstrap (`10`) and the OCI bootstrap (`11`) in a single deployment.
 
 Universal path (works in ANY harness, stdlib only):
 
-- `scripts/coolify_api.py` — `health | apps | app <uuid> | deploy <uuid> [--force] | deployments <uuid> | dlogs <uuid> [--grep TEXT] [--deployment ID] [--tail N] | wait <uuid> [--timeout 900] | logs <uuid> [--lines 200] [--timestamps] | envs <uuid> | envset <uuid> KEY=VAL... | status | smoke <url> [--expect 200] [--contains TEXT]`
+- `scripts/coolify_api.py` — `health | apps | app <uuid> | deploy <uuid> [--force] | deployments <uuid> [--limit N] | dlogs <uuid> [--grep TEXT] [--deployment ID] [--tail N] | wait <uuid> [--timeout 900] [--expect-commit <sha>] | tunnel | logs <uuid> [--lines 200] [--timestamps] | envs <uuid> | envset <uuid> KEY=VAL... | status | smoke <url> [--expect 200] [--contains TEXT]`
 - `scripts/repo_presence.py` — the repo's public face from ONE filled JSON (README/LICENSE/package.json + gh description/topics) — ref 40 §6b, kit in `templates/repo-presence/`
 - `scripts/hostinger_api.py` — `vm list|get|metrics|restart` · `snapshot create|list` · `sshkey ensure --vm <id>` · `dns get|set-a` · `firewall ensure --vm <id>` · `actions <vm> [action_id]`
 

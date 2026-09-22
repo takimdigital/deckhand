@@ -22,9 +22,10 @@ Coolify — or prove it live at $0 first on the free-preview track.
 
 ## Install
 
-Copy this folder into the harness's skills dir, or use the combined zip (`deckhand.zip`,
-contains `buildout/` + `component-library/` + `vps-ops/`).
-Known skill dirs: `~/.claude/skills/`, `~/.agents/skills/`, `~/.codex/skills/`, Hermes profile skills dir.
+Copy this folder into the harness's skills dir, or use the combined zip (`deckhand.zip`, contains
+all five skills: `buildout/`, `component-library/`, `vps-ops/`, `session-autopsy/`, `deckhand-profile/`).
+Known skill dirs: `~/.claude/skills/`, `~/.agents/skills/` (Cursor also reads `.cursor/skills/`), legacy
+`~/.codex/skills/`, and the Hermes skills dir (`%LOCALAPPDATA%\hermes\skills\` on Windows; `~/.local/share/hermes/skills/` on Linux).
 
 ## Layout
 
