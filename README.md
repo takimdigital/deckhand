@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Tests: 78 passing" src="https://img.shields.io/badge/tests-78%20passing-brightgreen.svg">
+  <img alt="Tests: 87 passing" src="https://img.shields.io/badge/tests-87%20passing-brightgreen.svg">
   <img alt="Version: 0.16.0" src="https://img.shields.io/badge/version-0.16.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
@@ -30,7 +30,7 @@ Think of it as a deckhand: **you keep the helm, it works the ropes.** Your job i
 ## 🚀 Zero → live, in three steps
 
 1. **Say what you want.** "An invoicing tool for freelancers", "a quiz site", "my bakery's booking page."
-2. **Your agent builds it.** From a living pool of vetted, MIT-licensed, human-designed components — with **one locked design system** (colour, type, radius, motion), so the result looks designed, not AI-generated.
+2. **Your agent builds it.** It measures a pool of real, open-source, MIT/Apache-licensed applications through GitHub's API, ranks them against what you asked for, clones the closest match and swaps the template's paid services for self-hosted ones. Code human maintainers wrote on purpose — not a model improvising.
 3. **Your agent ships it.** Server, domain, HTTPS padlock, database, backups — proven with real deploy logs and health checks, never "should work".
 
 After day one it's the everyday loop: *"add dark mode"* → change → deploy → verify. *"something's broken"* → read the logs → fix it or roll back.
@@ -73,8 +73,8 @@ The pack is free, forever — MIT, no tiers, no paywalls, no upsell. If it saved
 Most AI workflows burn tokens re-inventing things. Deckhand is engineered the other way:
 
 - **Procedures live in compact playbooks, not in the model's head.** The agent *reads* a deployment runbook once — with real API shapes and known pitfalls — instead of re-deriving the whole process from scratch. Re-deriving is what costs a fortune.
-- **Scripts do the labour.** Registry sync, design-token picking, deploy API calls, health checks — deterministic Python scripts handle the boring parts, so you're not paying tokens for boilerplate.
-- **Assemble, don't generate.** Design and code come from a living pool of already-excellent MIT components, not raw model output. Skipping "generate a UI from nothing" removes the single most expensive part of an AI build.
+- **Scripts do the labour.** Template scoring, cloning, swap checks, deploy API calls, health checks — deterministic Python scripts handle the boring parts, so you're not paying tokens for boilerplate.
+- **Clone, don't generate.** The app comes from an already-working open-source template with a licence and a commit history, not from raw model output. Skipping "generate a whole product from nothing" removes the single most expensive part of an AI build.
 - **Gates, not retry spirals.** Execution loops with verification: run → check → move on, or stop and fix the real error. No long "advice essays", no blind retrying.
 - **Failures are paid for once.** `session-autopsy` turns any red run into a pre-flight check the next agent can't miss — the pack gets sharper with use, never noisier.
 - **You answer once, ever.** `deckhand-profile` keeps your accounts, providers and defaults in one portable file — every agent reads it first instead of interrogating you again.
@@ -111,15 +111,15 @@ Deployed and validated end to end against a real Coolify instance:
 - [x] **Postgres** — provisioned via API → the app executes a real query over the internal network
 - [x] **Backups** — schedule → dump → **restore drill** (`pg_restore` into a scratch database, verified)
 - [x] **Build packs** — Nixpacks and Dockerfile · **ops** — logs, deployments, env vars, docker cleanup
-- [x] **78 unit tests** green (standard library only)
-- [x] **Template factory** — the registry, the clone, the swap gate and the leak check are covered by 27 offline tests; exercised end-to-end on a real MIT template: cloned to disk, `npm install` + `next build` green (15 routes), served with the on-disk BUILD_ID on the page (freshness), and both gates red where they must be — the swap check on the unswapped clone (3 vendors, 38 references left, file-and-line evidence) and the leak check on the live page (31 template-name hits).
+- [x] **87 unit tests** green (standard library only)
+- [x] **Template factory** — the registry, the clone, the swap gate and the leak check are covered by 36 offline tests and exercised end-to-end on a real MIT template: cloned, installed, built and served with a build-id freshness proof, with both gates red where they must be — leftover vendor references in the unswapped clone and the template's own name on the served page — because a gate that can't fail isn't a gate.
 - [x] **Paid track validated live** — a real Next.js + Postgres SaaS deployed end-to-end on a rented VPS: Coolify → Cloudflare DNS-only → Let's Encrypt, with migrations, seed data and a production-owner flow — every error it surfaced is now folded back into the runbooks.
 
 ## ⚡ The skills
 
 | Skill | What it does |
 | --- | --- |
-| [`buildout`](skills/buildout) | **Idea → live business, from a vetted template.** The assistant is a Matchmaker + DevOps Automator, not an architect: ≤10 questions → a registry of MIT/Apache full-app templates **measured through the GitHub API** (license, stack, vendor deps, risk, boot scorecard) ranks the pool deterministically → the chosen match is cloned to disk D with fresh git history → proprietary services (Clerk, Neon, Resend, Sentry, S3, Plausible…) are swapped for open-source targets and **proved gone by `swap_check`** → the owner's brand replaces the template's (template-leak check included) → a 6-row verify tail → Coolify. Cloning and booting third-party code is consent-gated; intake never clones. No code generation, no component assembly, no design systems. |
+| [`buildout`](skills/buildout) | **Idea → live business, from a vetted template.** The assistant is a Matchmaker + DevOps Automator, not an architect: ≤10 questions → a registry of MIT/Apache full-app templates **measured through the GitHub API** (license, stack, vendor deps, risk, boot scorecard) ranks the pool deterministically → the chosen match is cloned into a fresh project folder with its own git history → proprietary services (Clerk, Neon, Resend, Sentry, S3, Plausible…) are swapped for open-source targets and **proved gone by `swap_check`** → the owner's brand replaces the template's (template-leak check included) → a 6-row verify tail → Coolify. Cloning and booting third-party code is consent-gated; intake never clones. No code generation, no component assembly, no design systems. |
 | [`component-library`](skills/component-library) | **Build → reuse.** Save any component you build; the next project starts from what you already made. |
 | [`vps-ops`](skills/vps-ops) | **Codebase → live business.** Two tracks: **paid** (your VPS + domain) or **free preview** ($0 on Oracle Cloud Always Free + a free `.pp.ua` domain). Bootstraps Coolify, wires domain/SSL, deploys with Nixpacks or Dockerfile, then runs the everyday pipeline: deploy, monitor, env changes, database + backups, rollback — plus a migration runbook to move from the free preview to a paid host. And **login email that actually arrives**: a free multi-provider chain (Resend → Mailgun → Brevo) behind a drop-in failover router + deliverability DNS, with a modular MCP catalog for DNS/registrar/email. Backups are **offsite by default** — dual cloud targets (Backblaze B2 + Tigris, both **card-free**; R2 optional), 3-copy retention, verified restore drills (all live-proven), an optional home copy with a scheduled watchdog — and apps with uploads get RustFS S3 storage, backed up the same way. |
 | [`session-autopsy`](skills/session-autopsy) | **Failure → fix.** When a run goes red, it dissects the session, finds the instruction that allowed the wrong path, and rewrites it — on a strength ladder (eliminate → pre-flight → reorder → gate → pitfall). Pitfalls are counted as debt, not solutions. |
@@ -166,11 +166,11 @@ Then just start a conversation — the examples above work verbatim.
 
 ## 🔒 Principles
 
-- **MIT only.** Every component and registry is license-checked (SPDX) before use. No pro tier, no paywalled components, nothing proprietary bundled.
-- **Living pool, never hardcoded.** The component catalog is discovered fresh from the shadcn registry index — it grows as the ecosystem grows.
-- **Coherent-random design.** Design tokens (colour, type, radius, motion) are locked once per project, then applied to every component — random picks that still look designed.
+- **Open licences only.** Every template in the pool is licence-checked (MIT/Apache, SPDX) before it can be cloned. No pro tier, no paywalled parts, nothing proprietary bundled.
+- **Measured, never asserted.** Every pool row is measured from the live repository through the GitHub API — licence, stack, vendor dependencies, risk flags, boot scorecard. Nothing is taken from memory.
+- **The swap gate.** Templates lean on paid services (Clerk, Neon, Resend, Sentry, S3…). Each is replaced with a self-hosted equivalent and **proved gone** by a check that fails with file-and-line evidence — so the project is really yours, not rented.
 - **Agent-first ops.** The agent manages the server over its API: deploy, env, backups, rollback, logs. You never SSH in.
-- **Token-cheap by design.** Registry metadata is compacted before the model ever sees it; scripts do the deterministic work.
+- **Token-cheap by design.** Registry rows are compact facts, not documents; scripts do the deterministic work.
 - **Execution over advice.** The skills drive work in loops with verification gates, not advice essays.
 
 ## 📁 Repository layout
@@ -210,10 +210,10 @@ No. The skills are plain folders with a `SKILL.md`. Claude Code, OpenAI Codex, C
 A VPS and a domain — or nothing but an Oracle Cloud account if you start on the free-preview track. `vps-ops` bootstraps Coolify on the server and drives everything from there. Hostinger's API is baked in; any provider works over SSH.
 
 **Will my design look AI-generated?**
-That is what the Buildout Engine exists to avoid: it reuses already-excellent open-source components instead of generating slop, with tokens locked once so everything stays coherent.
+You start from a real app that a human designed and thousands of people starred — not from a model improvising a UI. Your brand replaces the template's, and a leak check refuses to ship while any trace of the original is still on the page.
 
 **Is anything paid required?**
-No. MIT-licensed components only; Coolify (Apache-2.0) runs on your own server — including the entire $0 preview stack.
+No. MIT/Apache-licensed templates and open-source replacements only; Coolify (Apache-2.0) runs on your own server — including the entire $0 preview stack.
 
 **Is my project locked into this system?**
 No. It's your code on your server, built from open-source parts. Stop using the pack any time — everything keeps running.

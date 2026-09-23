@@ -1,12 +1,22 @@
 // qa/form-drive.js — fill and submit a real form, then measure what a person would see.
-// Run through templates/qa/cdp.mjs (page context, exact viewport). Edit FORM_SEL if needed.
+// Run through templates/qa/cdp.mjs (page context, exact viewport).
+//
+// The site's language/selectors are NOT assumed: cdp.mjs injects globalThis.__QA from the env vars
+//   QA_FORM_SEL    CSS selector of the conversion form      (default: the French original)
+//   QA_RECEIPT_RE  regex (string) matching the confirmation  (default: FR + EN words)
+//   QA_SUBMIT_RE   regex (string) matching the submit label
+// An Arabic/Hebrew/other-locale run MUST pass its own QA_RECEIPT_RE, or `receipt: {found:false}` is
+// a harness gap, not a site defect.
 //
 // Reports: per-field read-back (catches silent fill failures), the API status the submit
 // produced, the receipt text + its rect against the viewport AT THE MOMENT IT APPEARS,
 // validation errors, occlusion hit-tests for on-screen controls (at max scroll and at
 // focus), the text floor and horizontal overflow.
 (async () => {
-  const FORM_SEL = '#soumission form';
+  const QA = (typeof globalThis !== 'undefined' && globalThis.__QA) || {};
+  const FORM_SEL = QA.formSel || '#soumission form';
+  const RECEIPT_RE = new RegExp(QA.receiptRe || 're[çc]u|merci|demande (est|a été)|enregistr|dans les|prochaine|received|thank you|request (was|has been)', 'i');
+  const SUBMIT_RE = new RegExp(QA.submitRe || 'envoyer|soumettre|recevoir|demande|submit|send', 'i');
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const txt = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
   const norm = s => (s || '').toLowerCase();
@@ -47,7 +57,7 @@
   out.readback = controls.map(el => ({ k: key(el), v: (el.type === 'checkbox' || el.type === 'radio') ? String(el.checked) : String(el.value).slice(0, 22) }));
   out.unfilled = out.readback.filter(x => x.v === '' || x.v === 'false').map(x => x.k);
 
-  const submit = [...form.querySelectorAll('button,input[type=submit]')].find(b => /envoyer|soumettre|recevoir|demande|submit/i.test(txt(b) || b.value || '')) || form.querySelector('button');
+  const submit = [...form.querySelectorAll('button,input[type=submit]')].find(b => SUBMIT_RE.test(txt(b) || b.value || '')) || form.querySelector('button');
   out.submitLabel = submit ? (txt(submit) || submit.value) : null;
   submit.click();
 
@@ -57,7 +67,7 @@
     await sleep(250);
     const fresh = [...sec.querySelectorAll('[role=status],[aria-live],[role=alert],h2,h3,p,div,li')].filter(e => { const t = txt(e); return t && t.length < 420 && !snapBefore.has(t); });
     for (const f of fresh) { const t = txt(f); if (!newTexts.includes(t)) newTexts.push(t); }
-    receipt = fresh.find(e => /re[çc]u|merci|demande (est|a été)|enregistr|dans les|prochaine/i.test(txt(e)) && txt(e).length > 40) || null;
+    receipt = fresh.find(e => RECEIPT_RE.test(txt(e)) && txt(e).length > 40) || null;
   }
   out.new_texts = newTexts.slice(0, 6);
   out.errors = [...sec.querySelectorAll('[role=alert],[aria-invalid=true],[class*=erreur],[class*=error]')].map(txt).filter(Boolean).slice(0, 8);

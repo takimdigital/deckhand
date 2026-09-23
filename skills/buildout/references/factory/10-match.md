@@ -43,7 +43,8 @@ repo you intend to use.
 
 Top 3, each with:
 - name, stars, last push, license, stack in one line;
-- **why it ranked** (the script's reasons, trimmed to 3);
+- **why it ranked** — the script's reasons (it prints up to 12). The **swap cost** line and the
+  **`not in stack:`** line are mandatory in what the owner reads; if you trim, trim the others.
 - **what it will not do** (the `not in stack:` line — the honest gap);
 - swap cost (how many proprietary services must be replaced, and with what).
 

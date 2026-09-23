@@ -26,8 +26,8 @@ services for open-source ones, rebrands it, verifies, and deploys.
 |---|---|---|---|
 | 0 | **Intake** — ≤10 questions, one pass | `intake.json` | the owner's answers only; no invented facts |
 | 1 | **Match** — the registry scores, the owner picks | top 3 + reasons | a script run, not an opinion; nothing > 0 → pool gap, stop |
-| 2 | **Clone** — after the owner picks (consent) | `D:/<slug>` + `.factory/` | license MIT/Apache; boot measured |
-| 3 | **Swap** — vendor service → open source | `.factory/swap-map.json` | `swap_check.py` exit 0 + smoke test |
+| 2 | **Clone** — after the owner picks (consent) | project folder + `.factory/` | licence enforced by the script; swap map measured from the clone (empty map = exit 3) |
+| 3 | **Swap** — vendor service → open source | `.factory/swap-map.json` | `swap_check.py` exit 0, every entry `OK`/`REMOVED` + smoke test + the build/start proof for vendor-key templates |
 | 4 | **Rebrand** — brand in, template leftovers out | `.factory/brand.json` | leak check clean + 6-row visual sanity |
 | 5 | **Verify & ship** — 6 rows, then Coolify | verify report + `PENDING.md` | every row carries a pasteable artifact |
 
@@ -44,8 +44,10 @@ Refs (load by phase): `references/factory/00-intake.md` · `10-match.md` · `20-
 3. **Canonical stack** = Next.js + PostgreSQL + Better Auth (+ Docker/Coolify). Non-canonical
    (Wasp, Remix, FastAPI, Clerk, Auth.js) is allowed with the swap cost stated out loud — every
    non-canonical template costs a fresh swap map that cannot be reused.
-4. **Disk D.** Projects are cloned to `D:/<slug>` (`--root` overrides). Never install to C: on this
-   host (it runs full); pnpm's store already lives on `D:/pnpm-store`.
+4. **Projects root.** Projects land in `D:/<slug>` on this host (`--root` overrides; on a non-Windows
+   host pass it explicitly — the script refuses a Windows-style root there). Never install into the
+   skill's own directory: installs run in the project, always (a regression test guards it); pnpm's
+   store lives on `D:/pnpm-store` here.
 5. **Remote until consent.** Intake and matching touch only the GitHub API — no clone, no disk, no
    execution. Cloning happens **after** the owner picks a match; `--deep` boot tests require `--yes`.
 6. **Evidence over assertion.** HTTP 200 is not proof of a fresh build; "it works" is not a row.

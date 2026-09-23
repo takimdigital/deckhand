@@ -35,6 +35,14 @@ ws.addEventListener('message', e => { const m = JSON.parse(e.data); if (m.method
 await send('Page.navigate', { url });
 await new Promise(r => setTimeout(r, 2500));
 
+const qaInjected = await send('Runtime.evaluate', {
+  expression: `globalThis.__QA = ${JSON.stringify({
+    formSel: process.env.QA_FORM_SEL || null,
+    receiptRe: process.env.QA_RECEIPT_RE || null,
+    submitRe: process.env.QA_SUBMIT_RE || null,
+  })};`,
+  returnByValue: true,
+});
 const r = await send('Runtime.evaluate', { expression: readFileSync(scriptFile, 'utf8'), awaitPromise: true, returnByValue: true, userGesture: true });
 console.log('RESULT ' + JSON.stringify({
   viewport: `${W}x${H}`,

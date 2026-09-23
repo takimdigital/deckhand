@@ -18,6 +18,9 @@ Output: `intake.json`. This file is the matchmaker's only input — keep it thin
 5. **Must-have features** — pick from: `accounts`, `payments`, `admin`, `i18n`, `jobs`, `search`, `notifications`, `files`, `booking`, `map`. Anything not picked is out of scope.
 6. **Who operates it** — solo or team; who needs admin access.
 7. **Hosting** — `vps-coolify` (default recommendation), `free-preview`, or `undecided`.
+   If the owner names an existing server, capture its **RAM/vCPU** in the same answer: Coolify's floor
+   is ≥2 vCPU / 2 GB (4 GB+ comfortable) and a "$5 VPS" is often below it — better surfaced now than
+   at deploy.
 8. **Money** — subscription, one-off, commission, invoice-by-hand, or "not yet".
 9. **Content** — does the owner have real copy/photos, or must they be drafted (and then corrected)?
 10. **Deadline** — a date or "no rush".

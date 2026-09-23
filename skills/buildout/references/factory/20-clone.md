@@ -1,17 +1,21 @@
 # 20 — Clone (the only step that touches the owner's disk)
 
 Nothing is cloned until the owner picks a match. Intake and matching read GitHub remotely.
-Projects live on **disk D**. Never install to C: (it is nearly full on this host).
+Projects land in the **projects root** (default `D:/<slug>` on this host; `--root` overrides —
+on a non-Windows host pass the root explicitly, the script refuses a Windows-style path there).
 
 ## Command
 
 ```
-py scripts/factory_clone.py --template <name> --slug <slug> --root D:/ [--ref <commit|tag>] [--install]
+py scripts/factory_clone.py --template <name> --slug <slug> --root D:/ [--ref <branch|tag|sha>] [--install]
 ```
 
 - `--template` reads the registry row (license gate runs: no verified MIT/Apache → refuse, exit 4).
-- `--ref` pins the upstream commit. **Pin it in the record even when you don't pass it** —
-  the scorecard stores the resolved commit, so a project can always be explained later.
+- `--repo owner/name` bypasses the registry — the licence is then **measured live** (GitHub API) and
+  a local-path fixture must carry its own LICENSE file. Never assume; the gate is measured either way.
+- `--ref` pins the upstream code: a branch or tag goes straight in; a **commit sha** is fetched and
+  checked out detached (plain `git clone --branch <sha>` fails). **Record the resolved commit even
+  when you don't pass `--ref`** — the scorecard stores it, so a project can always be explained later.
 - Refuses an existing non-empty folder (exit 5). No merging into someone's work.
 
 ## What lands on disk
@@ -20,15 +24,21 @@ py scripts/factory_clone.py --template <name> --slug <slug> --root D:/ [--ref <c
 D:/<slug>/
   <the template as-is>          # no rewriting at clone time — ever
   .factory/match.json           # template, repo, upstream commit, license, stack, cloned_at
-  .factory/swap-map.json        # vendor -> target drafts from intake (status pending)
+  .factory/swap-map.json        # vendor -> target entries: registry row + a scan of THIS clone
   .factory/brand.json           # empty; filled at 40-rebrand
   .factory/scorecard.md         # the record a buyer/dev can read
   PENDING.md                    # the mandatory facts only
 ```
 
+The swap map is **measured from the clone**, not only from the registry row: intake sees dep names,
+the local scan also reads `package.json`, `.env.example` and the README, so a vendor that appears
+only in code or docs still lands in the map (marked `source: local-scan`). If the map comes out
+empty, the clone says so and `swap_check` refuses it (exit 3) — an empty map is not a pass.
+
 Fresh git history: upstream `.git` is dropped, `git init` + one commit
-(`chore: clone <template> via buildout factory (upstream <sha>)`). The owner's repo starts at
-commit 1; upstream history is not theirs to carry.
+(`chore: clone <template> via buildout factory (upstream <sha>)`), cut **before** the install so no
+`node_modules`/`.next` can enter commit 1. The owner's repo starts at commit 1; upstream history is
+not theirs to carry.
 
 ## Order: clone → **swap** → build
 
@@ -75,6 +85,9 @@ and add a `PENDING.md` line to rotate it for production. Never generate a *vendo
 
 ## Done when
 
-- folder exists on D:, one commit, `.factory/*` complete;
-- install + build + start observed with a pasteable log line;
+- folder exists in the projects root, one commit (cut before any install), `.factory/*` complete;
+- `swap-map.json` has entries, or the run warned EMPTY and `template_intake.py` is the next step;
+- install + build + start observed with a pasteable log line. **For a template whose build names
+  vendor keys, this evidence is produced after the swap** (ref 30) — the contract with SKILL.md's
+  phase table: phase 2 proves the clone landed, phase 3 proves it swaps AND builds;
 - `PENDING.md` lists only facts only the owner can give (domain, email, legal, photos, payment, date).

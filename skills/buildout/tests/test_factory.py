@@ -345,3 +345,144 @@ def test_star_tiers_reward_proven_and_penalise_unproven():
     assert hot - cold >= 15
     assert any("community" in r for r in hot_reasons)
     assert any("unproven" in r for r in cold_reasons)
+
+
+# ------------------------------------------------- audit regressions (2026-09-23)
+def test_swap_check_ignores_its_own_map_in_the_project(tmp_path):
+    """Regression: the map lives in .factory/ and quotes the vendor patterns — counting it as
+    leftover vendor code made exit 0 structurally unreachable for every real project."""
+    root = _project(tmp_path, "selfmap", {"better-auth": "^1.3"},
+                    {"src/auth.ts": "import { betterAuth } from 'better-auth'"})
+    fdir = root / ".factory"
+    fdir.mkdir()
+    (fdir / "swap-map.json").write_text(json.dumps({"swaps": [{
+        "vendor": "clerk", "target": "better-auth", "patterns": ["@clerk/", "clerkMiddleware"],
+        "target_patterns": ["better-auth"], "status": "pending", "allow": []}]}), encoding="utf-8")
+    r = run("swap_check.py", "--project", root)   # no --map: uses .factory/swap-map.json
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "OK" in r.stdout
+
+
+def test_swap_check_empty_map_is_not_a_pass(tmp_path):
+    """Regression: an empty map (e.g. a --repo clone) used to print a note and exit 0."""
+    root = _project(tmp_path, "emptymap", {}, {})
+    fdir = root / ".factory"
+    fdir.mkdir()
+    (fdir / "swap-map.json").write_text(json.dumps({"swaps": []}), encoding="utf-8")
+    r = run("swap_check.py", "--project", root)
+    assert r.returncode == 3
+    assert "NOTHING-TO-VERIFY" in r.stdout
+
+
+def test_swap_check_removal_mode_proves_absence_only(tmp_path):
+    """`glitchtip or none` style targets: the vendor must be gone; no phantom library is required."""
+    root = _project(tmp_path, "owncode", {}, {"src/mw.ts": "export function middleware() {}"})
+    m = tmp_path / "swap-map.json"
+    m.write_text(json.dumps({"swaps": [{
+        "vendor": "sentry", "target": "glitchtip or none", "patterns": ["@sentry/"],
+        "target_patterns": ["glitchtip"], "status": "removed", "allow": []}]}), encoding="utf-8")
+    r = run("swap_check.py", "--project", root, "--map", m)
+    assert r.returncode == 0, r.stdout
+    assert "REMOVED" in r.stdout
+    (root / "src" / "sentry.ts").write_text("import * as Sentry from '@sentry/nextjs'", encoding="utf-8")
+    r2 = run("swap_check.py", "--project", root, "--map", m)
+    assert r2.returncode == 1 and "INCOMPLETE" in r2.stdout
+
+
+def test_vendor_target_patterns_are_identifiers_not_prose():
+    """The gate greps for the target: prose can never satisfy it, so the map must carry real needles."""
+    import _tpl_lib as L
+    _v, _s, _u, swap_map = L.classify_deps(["ably", "launchdarkly", "sentry"], "")
+    assert swap_map["ably"]["target_patterns"] == ["socket.io", "eventsource", "text/event-stream"]
+    assert "socket.io-or-sse" not in " ".join(swap_map["ably"]["target_patterns"])
+    assert swap_map["launchdarkly"]["status"] == "own-code"   # own code: absence-only
+    assert swap_map["sentry"]["removal_ok"] is True
+    for vendor, e in swap_map.items():
+        if e["status"] not in ("keep", "own-code", "removed") and not e.get("removal_ok"):
+            assert e["target_patterns"], f"{vendor} has no identifiers and is not removal-ok"
+
+
+def test_clone_refuses_a_repo_path_without_a_license(tmp_path):
+    """Regression: `--repo <path>` used to bypass the licence gate entirely (cloned with exit 0)."""
+    up = tmp_path / "nol"
+    (up / "src").mkdir(parents=True)
+    (up / "package.json").write_text(json.dumps({"name": "f", "private": True}), encoding="utf-8")
+    for cmd in (["init", "-q"], ["add", "-A"],
+                ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "init"]):
+        subprocess.run(["git", *cmd], cwd=up, check=True, capture_output=True)
+    r = run("factory_clone.py", "--repo", str(up).replace("\\", "/"), "--slug", "nolic",
+            "--root", tmp_path / "projects")
+    assert r.returncode == 4, r.stdout + r.stderr
+    assert "REFUSED" in r.stderr
+    assert not (tmp_path / "projects" / "nolic").exists()
+
+
+def test_clone_pins_a_commit_sha(tmp_path):
+    """`--ref <sha>`: git clone --branch only takes names — a sha must be fetched and checked out.
+
+    The project's own history is fresh (HEAD is not the upstream commit, by design), so the pin is
+    proved where it is recorded: `.factory/match.json`'s upstream_commit.
+    """
+    up = _upstream(tmp_path)
+    sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=up, capture_output=True, text=True).stdout.strip()
+    root = tmp_path / "projects"
+    r = run("factory_clone.py", "--repo", str(up).replace("\\", "/"), "--slug", "pinned",
+            "--root", root, "--ref", sha)
+    assert r.returncode == 0, r.stderr
+    match = json.loads((root / "pinned" / ".factory" / "match.json").read_text(encoding="utf-8"))
+    assert match["upstream_commit"] == sha
+    assert match["ref"] == sha
+
+
+def test_adapter_must_be_code_or_a_dependency(tmp_path):
+    """Regression: `.oxlintrc.json` lists the `EventSource` global — that is not an adapter."""
+    root = _project(tmp_path, "lintcfg", {}, {".oxlintrc.json": '{"globals": {"EventSource": "readonly"}}',
+                                              "README.md": "we use eventsource in the browser"})
+    m = tmp_path / "swap-map.json"
+    m.write_text(json.dumps({"swaps": [{
+        "vendor": "ably", "target": "socket.io-or-sse", "patterns": ["ably"],
+        "target_patterns": ["socket.io", "eventsource"], "status": "pending", "allow": []}]}), encoding="utf-8")
+    r = run("swap_check.py", "--project", root, "--map", m)
+    assert r.returncode == 1, r.stdout          # no adapter in code, no dependency → not proof
+    # the moment real code (or the dependency) carries it, the entry passes
+    (root / "src" / "rt.ts").write_text("import { EventSourcePolyfill } from 'eventsource'\n", encoding="utf-8")
+    r2 = run("swap_check.py", "--project", root, "--map", m)
+    assert r2.returncode == 0, r2.stdout
+
+
+def test_vendor_needles_do_not_match_inside_words(tmp_path):
+    """Regression: 'ably' matched 'pro-bably' in a README — a ghost that costs a real hunt."""
+    root = _project(tmp_path, "words", {"better-auth": "^1.3"},
+                    {"README.md": "It is probably overkill for small projects.",
+                     "src/a.ts": "import { betterAuth } from 'better-auth'"})
+    m = tmp_path / "swap-map.json"
+    m.write_text(json.dumps({"swaps": [{
+        "vendor": "ably", "target": "socket.io-or-sse", "patterns": ["ably"],
+        "target_patterns": ["socket.io", "eventsource"], "status": "removed", "allow": []}]}), encoding="utf-8")
+    r = run("swap_check.py", "--project", root, "--map", m)
+    assert r.returncode == 0, r.stdout          # "probably" is not a vendor reference
+    # but a real reference is still caught, and a symbol pattern stays substring-based
+    (root / "src" / "rt.ts").write_text("import Ably from 'ably'", encoding="utf-8")
+    r2 = run("swap_check.py", "--project", root, "--map", m)
+    assert r2.returncode == 1 and "INCOMPLETE" in r2.stdout
+
+
+def test_clone_scans_the_clone_for_vendors(tmp_path):
+    """The map must describe the CLONE: a --repo clone starts empty, the local scan fills it."""
+    up = _upstream(tmp_path)
+    (up / "package.json").write_text(json.dumps({"name": "u", "dependencies": {"@clerk/nextjs": "^5"}}),
+                                    encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=up, check=True, capture_output=True)
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "deps"],
+                   cwd=up, check=True, capture_output=True)
+    root = tmp_path / "projects"
+    r = run("factory_clone.py", "--repo", str(up).replace("\\", "/"), "--slug", "scanned", "--root", root)
+    assert r.returncode == 0, r.stderr
+    m = json.loads((root / "scanned" / ".factory" / "swap-map.json").read_text(encoding="utf-8"))
+    vendors = {e["vendor"] for e in m["swaps"]}
+    assert "clerk" in vendors, m
+    assert any(e.get("source") == "local-scan" for e in m["swaps"])
+    # and the commit was cut before any install artifact could land in it
+    log = subprocess.run(["git", "log", "--oneline"], cwd=root / "scanned",
+                         capture_output=True, text=True).stdout.strip()
+    assert len(log.splitlines()) == 1

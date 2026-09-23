@@ -52,11 +52,33 @@ VENDOR_MAP: dict[str, dict] = {
     "algolia": {"category": "search", "target": "meilisearch", "patterns": ["algoliasearch", "algolia"]},
     "pusher": {"category": "realtime", "target": "socket.io-or-sse", "patterns": ["pusher"]},
     "ably": {"category": "realtime", "target": "socket.io-or-sse", "patterns": ["ably"]},
-    "twilio": {"category": "sms", "target": "keep-or-provider-sms", "patterns": ["twilio"]},
+    "twilio": {"category": "sms", "target": "keep-or-provider-sms", "patterns": ["twilio"], "default_status": "keep"},
     "openai": {"category": "ai", "target": "ollama", "patterns": ["openai"]},
-    "launchdarkly": {"category": "flags", "target": "db-backed-flags", "patterns": ["launchdarkly"]},
-    "arcjet": {"category": "security", "target": "middleware or none", "patterns": ["@arcjet/", "arcjet"]},
+    "launchdarkly": {"category": "flags", "target": "db-backed-flags", "patterns": ["launchdarkly"], "default_status": "own-code"},
+    "arcjet": {"category": "security", "target": "middleware or none", "patterns": ["@arcjet/", "arcjet"], "default_status": "own-code"},
 }
+
+# The `target` column is prose for humans; the GATE needs identifiers. Any-of: one hit satisfies.
+# A target with no entry here (and not in REMOVAL_OK) can never be proven — keep this table aligned
+# with references/factory/30-swap.md whenever a vendor is added.
+TARGET_PATTERNS: dict[str, list[str]] = {
+    "better-auth": ["better-auth", "betterauth"],
+    "docker-postgres": ["postgres", "drizzle-orm", "@prisma/client", "pg", "psycopg"],
+    "docker-redis": ["redis", "ioredis"],
+    "docker-postgres + better-auth": ["better-auth", "postgres"],
+    "smtp": ["nodemailer", "smtp", "mailgun", "brevo"],
+    "minio": ["minio", "@aws-sdk/client-s3"],
+    "umami": ["umami"],
+    "meilisearch": ["meilisearch"],
+    "socket.io-or-sse": ["socket.io", "eventsource", "text/event-stream"],
+    "ollama": ["ollama", "11434"],
+    "glitchtip or none": ["glitchtip"],
+    "coolify (Docker)": ["dockerfile", "compose"],
+    "keep-or-provider-sms": ["twilio"],
+}
+# Targets the refs explicitly allow to be satisfied by the owner's OWN code or by deletion
+# ("glitchtip or none", "middleware or none", "db-backed flags") — absence only, no library.
+REMOVAL_OK = {"glitchtip or none", "middleware or none", "db-backed-flags", "keep-or-provider-sms"}
 SELFHOST_HINTS = {
     "postgres": ["postgres", "pg", "@prisma/client", "drizzle-orm", "psycopg", "asyncpg", "pgvector"],
     "sqlite": ["sqlite", "better-sqlite3", "libsql"],
@@ -325,15 +347,10 @@ def classify_deps(dep_names: list[str], texts: str) -> tuple[list, list, list, d
             vendor.append(key)
             swap_map[key] = {
                 "vendor": key, "category": spec["category"], "target": spec["target"],
-                "patterns": spec["patterns"], "target_patterns": (
-                    ["better-auth"] if spec["target"] == "better-auth" else
-                    ["minio", "s3"] if spec["target"] == "minio" else
-                    ["nodemailer", "smtp", "mailgun"] if spec["target"] == "smtp" else
-                    ["umami"] if spec["target"] == "umami" else
-                    ["postgres", "pg"] if spec["target"].startswith("docker-postgres") else
-                    [spec["target"].split(" ")[0]]
-                ),
-                "status": "keep" if spec["target"] == "keep" else "pending",
+                "patterns": spec["patterns"],
+                "target_patterns": TARGET_PATTERNS.get(spec["target"], []),
+                "removal_ok": spec["target"] in REMOVAL_OK,
+                "status": spec.get("default_status") or ("keep" if spec["target"] == "keep" else "pending"),
                 "note": spec.get("note", ""),
                 "verified": False,
             }

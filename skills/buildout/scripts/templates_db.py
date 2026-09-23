@@ -288,7 +288,8 @@ def cmd_score(con, intake_path: Path, top: int, as_json: bool) -> int:
         scored.append({"name": r["name"], "url": r["url"], "score": s,
                        "reasons": reasons, "blockers": blockers, "row": r})
     scored.sort(key=lambda x: (-x["score"], x["name"]))
-    ok = [x for x in scored if not x["blockers"] and x["score"] >= 0]
+    # `> 0`, not `>= 0`: a row with nothing in its favour is not a candidate (10-match.md).
+    ok = [x for x in scored if not x["blockers"] and x["score"] > 0]
     out = ok[:top] if top else ok
     if as_json:
         print(json.dumps({"intake": intake, "ranked": out,
@@ -299,8 +300,14 @@ def cmd_score(con, intake_path: Path, top: int, as_json: bool) -> int:
         print(f"candidates: {len(rows)} | eligible: {len(ok)}\n")
         for i, x in enumerate(out, 1):
             print(f"{i}. {x['name']}  score={x['score']}  {x['url']}")
-            for r in x["reasons"][:6]:
+            # print EVERY reason — the swap cost and "not in stack" lines land past index 6 and are
+            # exactly what the owner needs to choose; silently cutting them hides the cost of a pick.
+            for r in x["reasons"][:12]:
                 print(f"     - {r}")
+        if not out:
+            print("nothing ranks above 0 — there is no honest match in this pool for this ask.\n"
+                  "  Say so plainly (do not rank a bad candidate): grow the pool with\n"
+                  "  `py scripts/template_intake.py --repo <owner/name>`, or change the ask with the owner.")
         blocked = [x for x in scored if x["blockers"]]
         if blocked:
             print("\nblocked:")

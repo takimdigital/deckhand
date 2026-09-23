@@ -8,18 +8,22 @@ usage:
   py scripts/swap_check.py --project D:/my-app [--map D:/my-app/.factory/swap-map.json] [--json]
 
 exit 0 = all swaps verified · 1 = at least one swap incomplete · 2 = map/project missing
+        3 = the map is EMPTY (nothing to verify is not a pass)
 """
 from __future__ import annotations
 
 import argparse
 import fnmatch
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
+# .factory holds THIS check's own map — the map quotes the vendor patterns it is checking, so
+# counting it as "vendor code left in the project" made exit 0 structurally unreachable.
 SKIP_DIRS = {"node_modules", ".next", "dist", "build", ".git", ".turbo", "coverage",
-             ".vercel", "__pycache__", ".venv", "venv", "out"}
+             ".vercel", "__pycache__", ".venv", "venv", "out", ".factory"}
 SKIP_FILES = {"pnpm-lock.yaml", "package-lock.json", "yarn.lock", "bun.lockb", "bun.lock"}
 TEXT_EXT = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".py", ".css", ".md",
             ".env", ".example", ".yml", ".yaml", ".toml", ".prisma", ".sql", ".sh"}
@@ -36,6 +40,17 @@ def iter_files(root: Path):
         if p.suffix.lower() not in TEXT_EXT and p.name != "Dockerfile" and p.name != ".env.example":
             continue
         yield p
+
+
+def _needle_hit(needle: str, line_low: str) -> bool:
+    """Substring for SDK-shaped patterns ('@clerk/'); word-bounded for plain words.
+
+    A bare word must never match inside another word — measured false positives: `ably` matched
+    "pro**bably**" in a README and `pg` would match "jpg". Those ghosts cost an agent a real hunt.
+    """
+    if re.search(r"[^a-z0-9]", needle):     # symbols in the pattern → plain substring
+        return needle in line_low
+    return re.search(rf"(?<![a-z0-9_-]){re.escape(needle)}(?![a-z0-9_-])", line_low) is not None
 
 
 def scan(root: Path, patterns: list[str]) -> list[tuple[str, str, str]]:
@@ -55,7 +70,7 @@ def scan(root: Path, patterns: list[str]) -> list[tuple[str, str, str]]:
         for i, line in enumerate(text.splitlines(), 1):
             ll = line.lower()
             for n in needles:
-                if n in ll:
+                if _needle_hit(n, ll):
                     hits.append((str(p.relative_to(root)), n, line.strip()[:160]))
     return hits
 
@@ -71,16 +86,29 @@ def grep_present(root: Path, patterns: list[str], allow_globs: list[str]) -> dic
     return out
 
 
+ADAPTER_EXT = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".rb", ".go", ".php"}
+
+
 def must_present(root: Path, patterns: list[str]) -> dict:
-    """For 'must exist' patterns (the adapter): hits anywhere, plus a package.json check."""
+    """For 'must exist' patterns (the adapter): ANY of the alternatives counts (or package.json).
+
+    The patterns are real identifiers from the vendor table's target column (e.g. both
+    `socket.io` and `eventsource` for the realtime target) — prose like "socket.io-or-sse"
+    or "middleware or none" is never used as a needle; those become removal-mode entries.
+
+    An adapter is CODE or a dependency: only source files (and package.json) count. Measured false
+    positive: `.oxlintrc.json` lists the browser global `EventSource`, which made an unswapped
+    realtime entry report "adapter present".
+    """
     res = {"hits": [], "in_package_json": []}
     pkg = root / "package.json"
     pkg_text = pkg.read_text(encoding="utf-8", errors="ignore").lower() if pkg.exists() else ""
     for pat in patterns:
-        p = pat.lower()
+        p = str(pat).lower()
         if pkg_text and p in pkg_text:
             res["in_package_json"].append(pat)
-        res["hits"] += [{"file": r, "pattern": pa} for r, pa, _ in scan(root, [pat])]
+        res["hits"] += [{"file": r, "pattern": pa} for r, pa, _ in scan(root, [pat])
+                        if Path(r).suffix.lower() in ADAPTER_EXT or Path(r).name == "package.json"]
     return res
 
 
@@ -104,8 +132,16 @@ def main(argv=None) -> int:
     if isinstance(entries, dict):  # {vendor: entry} is also accepted
         entries = list(entries.values())
     entries = [e for e in entries if isinstance(e, dict)]
-    if not entries:
-        print("swap_check: swap map has no entries — nothing to verify (is that intended?)")
+    empty_map = not entries
+    if empty_map:
+        print(f"swap_check: {map_path} has no entries — NOTHING-TO-VERIFY IS NOT A PASS.\n"
+              "  An empty map proves nothing: it is built from the registry row's measured vendor\n"
+              "  deps, so a `--repo` clone (no registry row) starts empty even when the template\n"
+              "  leans on vendors. Fix it at the source, then re-run:\n"
+              "    py scripts/template_intake.py --repo <owner/name>   # measures licence/stack/vendors\n"
+              "    py scripts/factory_clone.py --template <name> --slug <slug> --root <root>   # rebuilds the map\n"
+              "  or hand-add entries to the map (vendor · patterns · target_patterns · status).")
+        return 3
 
     results = []
     failed = 0
@@ -118,17 +154,26 @@ def main(argv=None) -> int:
                             "adapter": {"hits": [], "in_package_json": []}, "verdict": "KEPT"})
             continue
         absent = grep_present(root, e.get("patterns") or [vendor], e.get("allow") or [])
-        adapter = must_present(root, e.get("target_patterns") or ([target] if target != "(kept)" else []))
-        ok = not absent["hits"] and bool(adapter["hits"] or adapter["in_package_json"])
+        # Some documented targets are the owner's OWN code (db-backed flags, app middleware) or an
+        # allowed deletion ("glitchtip or none") — there is no library to require. For those the
+        # gate proves ABSENCE only; the choice itself is recorded in the entry's status.
+        removal = str(status).lower() in ("removed", "own-code", "none") or \
+            str(target).strip().lower() in ("none", "(removed)", "removed")
+        if removal:
+            adapter = {"hits": [], "in_package_json": []}
+            ok = not absent["hits"]
+        else:
+            adapter = must_present(root, e.get("target_patterns") or [target])
+            ok = not absent["hits"] and bool(adapter["hits"] or adapter["in_package_json"])
         if not ok:
             failed += 1
         results.append({
-            "vendor": vendor, "target": target, "status": status,
+            "vendor": vendor, "target": target, "status": status, "removal_mode": removal,
             "vendor_hits": absent["hits"][:12], "vendor_hits_total": len(absent["hits"]),
             "allowed_hits": absent["allowed"][:6],
             "adapter": {"in_package_json": adapter["in_package_json"],
                         "files": sorted({h["file"] for h in adapter["hits"]})[:8]},
-            "verdict": "OK" if ok else "INCOMPLETE",
+            "verdict": (("REMOVED" if removal else "OK") if ok else "INCOMPLETE"),
         })
 
     if args.json:
@@ -140,6 +185,8 @@ def main(argv=None) -> int:
             print(f"  [{r['verdict']:10}] {r['vendor']:20} -> {r['target']}")
             if r["verdict"] == "OK":
                 print(f"        adapter present: {', '.join(r['adapter']['in_package_json']) or r['adapter']['files'][:3]}")
+            elif r["verdict"] == "REMOVED":
+                print("        vendor gone; no replacement library required (decision recorded in the map)")
             elif r["verdict"] == "INCOMPLETE":
                 if r["vendor_hits"]:
                     print(f"        {r['vendor_hits_total']} vendor reference(s) left, e.g. "

@@ -33,7 +33,7 @@ buildout/
 |   |-- factory_clone.py        # clone a match to D:/<slug> + .factory/* + PENDING.md
 |   |-- swap_check.py           # prove vendor deps are gone and adapters present
 |   `-- _tpl_lib.py             # shared detection/classification
-|-- templates/qa/               # probe.html · frame.html · calib.html · cdp.mjs · form-drive.js
+|-- templates/qa/               # probe.html · frame.html · cdp.mjs · form-drive.js
 |-- tests/                      # test_factory.py + test_budget_lines.py (offline)
 |-- CHANGELOG.md
 `-- README.md
@@ -77,7 +77,7 @@ CLI or a `GITHUB_TOKEN` env var for the registry calls.
   don't. A template that fails to boot is `rejected`.
 - **Remote until consent:** intake and matching read the GitHub API only; cloning happens after the
   owner picks.
-- **Disk D:** projects are cloned to `D:/<slug>`; never install to C: on this host.
+- **Projects root:** projects are cloned into the configured projects root (default `D:/<slug>` on this host); the factory never installs into the skill's own directory.
 - **Canonical stack** = Next.js + PostgreSQL + Better Auth (+ Docker/Coolify); non-canonical templates
   are allowed with the swap cost stated.
 - **Budgets:** SKILL.md ≤500 lines · each ref ≤~150 lines · ≤2 refs at once · intake ≤10 answers.

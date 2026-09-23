@@ -23,7 +23,40 @@ The Template Factory — a full rewrite of the creation logic, after the owner's
 - `tests/test_budget_lines.py` now gates the factory wiring — refs and scripts exist, SKILL.md routes to them, and the removed machinery may not reappear.
 - **Kept:** lifecycle/jargon/playbooks/formats refs · `templates/qa/` (probe, frame, cdp.mjs, form-drive.js) · the deckhand-profile + `PENDING.md` + `OPS.md` rules · the hard-won evidence rules (freshness, write-path, occlusion, text floor) compressed into the 6-row verify tail.
 
-Suite: **27 tests**, all offline (19 factory + 8 budget/wiring).
+Suite: **36 tests**, all offline (28 factory + 8 budget/wiring).
+
+### Audit pass (same release, pre-publish)
+
+A zero-context read of the skill found seven defects that the fixtures could not see, because they
+only exist on a real clone; each is fixed with a regression test:
+
+- **The swap gate could not reach exit 0 on any real project** — the scan counted its own
+  `.factory/swap-map.json` (which quotes the vendor patterns) as leftover vendor code. `.factory` is
+  now skipped; the gate is red only for the project's own files.
+- **An empty swap map exited 0** — "nothing to verify" is not a pass: it is now exit 3 with the fix
+  spelled out (`template_intake.py --repo …`, then re-clone).
+- **The adapter half was vacuous** — prose targets (`socket.io-or-sse`, `middleware or none`) were used
+  as literal needles, so they could never be satisfied. Targets now carry real identifier lists
+  (any-of), and targets whose replacement is the owner's own code (`own-code`) or an allowed deletion
+  (`removed`) prove ABSENCE only, recorded in the entry.
+- **Adapters could be satisfied by a lint config** — `.oxlintrc.json` lists the `EventSource` global;
+  adapter hits are now restricted to source files and `package.json`.
+- **Short vendor names matched inside words** — `ably` hit "pro**bably**" in a README. Plain-word
+  patterns are word-bounded; SDK-shaped patterns stay substring.
+- **The licence gate was bypassable** — `--repo` skipped it entirely (a repo with no LICENSE cloned
+  with exit 0). `--repo` now measures the licence live (GitHub API) or requires a LICENSE file on a
+  local-path fixture.
+- **`--ref <sha>` could not pin a commit** — `git clone --branch` only takes names; a sha is now
+  fetched and checked out detached.
+- **The map described the registry, not the clone** — the clone is scanned (`package.json`,
+  `.env.example`, README) so a vendor used only in code still lands in the map, marked `local-scan`.
+- **The match brief was truncated by the script** — the swap-cost reason sat at index 7 of a
+  six-line cap; the script now prints up to 12 and rows only rank above 0.
+- **The QA harness was French/LTR-only** — `form-drive.js` hardcoded the French form selector and
+  receipt pattern; both are now injected by `cdp.mjs` from `QA_FORM_SEL` / `QA_RECEIPT_RE`.
+- **Two dead-end instructions** — a re-import step that no gate read (and crashed without `url`), and
+  a `calib.html` listed in the README that does not exist. Both corrected. The commit is now cut
+  **before** the install so no `node_modules`/`.next` can enter commit 1.
 
 ## 0.7.0 — 2026-09-23
 
