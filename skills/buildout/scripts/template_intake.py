@@ -61,10 +61,11 @@ def measure(repo: str, ref: str | None = None, want_readme_text: bool = True) ->
     for key in ("requirements.txt", "pyproject.toml"):
         if key in texts:
             dep_names += re.findall(r"^([A-Za-z0-9_.\-]+)\s*[=><~!\[]", texts[key], flags=re.M)[:200]
-    blob = " ".join([texts.get("README.md") or "", texts.get("docker-compose.yml") or "",
+    blob = " ".join([texts.get("docker-compose.yml") or "",
                      texts.get("docker-compose.yaml") or "", texts.get("compose.yml") or "",
                      texts.get(".env.example") or "", " ".join(tree)])
-    vendor, selfhost, unclassified, swap_map = L.classify_deps(dep_names, blob)
+    vendor, selfhost, unclassified, swap_map, mentioned = L.classify_deps(
+        dep_names, blob, texts.get("README.md") or "")
     shape, shape_src = L.guess_shape(tree, texts.get("README.md") or "",
                                      info.get("description") or "", info.get("topics") or [])
     spdx, lic_path, lic_ok = L.license_of(repo)
@@ -95,7 +96,7 @@ def measure(repo: str, ref: str | None = None, want_readme_text: bool = True) ->
         "swap_map": swap_map, "rebrand_surface": rebrand_surface[:40], "risk_flags": flags,
         "evidence": {"source": "github-api (no clone)", "checked_at": DB.now(), "branch": branch,
                      "files_read": fetched, "tree_entries": len(tree), "locales": locales,
-                     "license_path": lic_path},
+                     "license_path": lic_path, "vendor_name_in_readme_only": mentioned},
     }
 
 

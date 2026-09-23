@@ -392,7 +392,7 @@ def test_swap_check_removal_mode_proves_absence_only(tmp_path):
 def test_vendor_target_patterns_are_identifiers_not_prose():
     """The gate greps for the target: prose can never satisfy it, so the map must carry real needles."""
     import _tpl_lib as L
-    _v, _s, _u, swap_map = L.classify_deps(["ably", "launchdarkly", "sentry"], "")
+    _v, _s, _u, swap_map, _m = L.classify_deps(["ably", "launchdarkly", "sentry"], "")
     assert swap_map["ably"]["target_patterns"] == ["socket.io", "eventsource", "text/event-stream"]
     assert "socket.io-or-sse" not in " ".join(swap_map["ably"]["target_patterns"])
     assert swap_map["launchdarkly"]["status"] == "own-code"   # own code: absence-only
@@ -451,10 +451,15 @@ def test_adapter_must_be_code_or_a_dependency(tmp_path):
 
 
 def test_vendor_needles_do_not_match_inside_words(tmp_path):
-    """Regression: 'ably' matched 'pro-bably' in a README — a ghost that costs a real hunt."""
+    """Regression: 'ably' matched 'pro-bably' in a README — a ghost that costs a real hunt.
+
+    But an env-var name must still hit: `NEXT_PUBLIC_CLERK_KEY` has to match `clerk`, so `_` is a
+    token separator, not a word character.
+    """
     root = _project(tmp_path, "words", {"better-auth": "^1.3"},
                     {"README.md": "It is probably overkill for small projects.",
-                     "src/a.ts": "import { betterAuth } from 'better-auth'"})
+                     "src/a.ts": "import { betterAuth } from 'better-auth'",
+                     ".env.example": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=\nCLERK_SECRET_KEY="})
     m = tmp_path / "swap-map.json"
     m.write_text(json.dumps({"swaps": [{
         "vendor": "ably", "target": "socket.io-or-sse", "patterns": ["ably"],
@@ -465,6 +470,13 @@ def test_vendor_needles_do_not_match_inside_words(tmp_path):
     (root / "src" / "rt.ts").write_text("import Ably from 'ably'", encoding="utf-8")
     r2 = run("swap_check.py", "--project", root, "--map", m)
     assert r2.returncode == 1 and "INCOMPLETE" in r2.stdout
+    # an env-var-only vendor reference (no symbols, snake case) is a hit, not a ghost
+    m2 = tmp_path / "map2.json"
+    m2.write_text(json.dumps({"swaps": [{
+        "vendor": "clerk", "target": "better-auth", "patterns": ["clerk", "@clerk/"],
+        "target_patterns": ["better-auth"], "status": "pending", "allow": []}]}), encoding="utf-8")
+    r3 = run("swap_check.py", "--project", root, "--map", m2)
+    assert "INCOMPLETE" in r3.stdout and r3.returncode == 1, r3.stdout
 
 
 def test_clone_scans_the_clone_for_vendors(tmp_path):
@@ -486,3 +498,207 @@ def test_clone_scans_the_clone_for_vendors(tmp_path):
     log = subprocess.run(["git", "log", "--oneline"], cwd=root / "scanned",
                          capture_output=True, text=True).stdout.strip()
     assert len(log.splitlines()) == 1
+
+
+# ---------------------------------------------------------------- pool details
+def _detail_file(tmp: Path, name: str, **over) -> Path:
+    rec = {
+        "repo": "acme/alpha", "slug": "alpha",
+        "framework": {"name": "next", "version": "16.0.0"},
+        "stack": {"i18n": {"library": "next-intl", "locales": ["fr", "ar"], "rtl_aware": True}},
+        "features": ["accounts", "billing", "i18n"],
+        "env": {"count": 3, "names": ["DATABASE_URL"]},
+        "deploy": {"docker": True, "paas_coupling": []},
+        "tests": {"frameworks": ["vitest"]},
+        "health": {"stars": 4200},
+        "verdict": {"best_for": "x", "weak_for": "y", "swap_burden": "light — one adapter"},
+        "evidence": {"framework": "package.json"},
+        "unmeasured": ["nothing"],
+        "blocking": [],
+    }
+    rec.update(over)
+    p = tmp / f"{name}.json"
+    p.write_text(json.dumps(rec, ensure_ascii=False), encoding="utf-8")
+    return p
+
+
+def test_import_details_promotes_and_digests(registry):
+    """Deep details land as: a blob, three queryable columns, and a compact export digest."""
+    db, tmp = registry
+    d = tmp / "pool-details"; d.mkdir()
+    _detail_file(d, "alpha")
+    r = run("templates_db.py", "--db", db, "import-details", d, "--store", tmp / "data" / "details")
+    assert r.returncode == 0, r.stderr
+    rows = {x["name"]: x for x in json.loads(run("templates_db.py", "--db", db, "list", "--json").stdout)}
+    a = rows["alpha"]
+    assert a["features"] == ["accounts", "billing", "i18n"]   # decoded by the exporter
+    assert a["locales"] == ["fr", "ar"]
+    assert a["swap_burden"] == "light"
+    assert Path(a["details_file"]).name == "alpha.json"
+    assert (tmp / "data" / "details" / "alpha.json").is_file()
+    out = tmp / "export.json"
+    assert run("templates_db.py", "--db", db, "export", "--out", out).returncode == 0
+    exp = json.loads(out.read_text(encoding="utf-8"))
+    assert exp["with_details"] == 1
+    row = [t for t in exp["templates"] if t["name"] == "alpha"][0]
+    assert "details" not in row, "the full blob must not travel in the bulk export"
+    assert row["details_digest"]["features"] == ["accounts", "billing", "i18n"]
+    assert row["details_digest"]["health"]["stars"] == 4200
+
+
+def test_import_details_refuses_a_credential_value(registry):
+    """Env vars travel by NAME. A value shaped like a key keeps the whole file out."""
+    db, tmp = registry
+    d = tmp / "pd"; d.mkdir()
+    _detail_file(d, "leaky", env={"count": 1, "names": ["STRIPE_SECRET_KEY"],
+                                  "sample": "sk_live_" + "A" * 20})
+    r = run("templates_db.py", "--db", db, "import-details", d, "--store", tmp / "out")
+    assert r.returncode == 1
+    assert "credential-shaped" in r.stderr, r.stderr
+    rows = {x["name"]: x for x in json.loads(run("templates_db.py", "--db", db, "list", "--json").stdout)}
+    assert rows["alpha"]["details_file"] is None, "a refused file must not reach the registry"
+    assert not (tmp / "out").exists() or not list((tmp / "out").glob("*.json"))
+
+
+def test_import_details_refuses_an_unknown_repo(registry):
+    db, tmp = registry
+    d = tmp / "pd"; d.mkdir()
+    _detail_file(d, "ghost", repo="acme/ghost", slug="ghost")
+    r = run("templates_db.py", "--db", db, "import-details", d, "--store", tmp / "out")
+    assert r.returncode == 1
+    assert "not in the registry" in r.stderr, r.stderr
+
+
+def test_import_details_refuses_cross_attachment(registry):
+    """A slug that collides with a different repo must not attach its details to that row."""
+    db, tmp = registry
+    d = tmp / "pd"; d.mkdir()
+    _detail_file(d, "mismatch", repo="acme/somewhere-else", slug="alpha")
+    r = run("templates_db.py", "--db", db, "import-details", d, "--store", tmp / "out")
+    assert r.returncode == 1
+    assert "refusing to attach" in r.stderr, r.stderr
+    rows = {x["name"]: x for x in json.loads(run("templates_db.py", "--db", db, "list", "--json").stdout)}
+    assert rows["alpha"]["details_file"] is None
+
+
+def test_import_details_derives_security_blockers(registry):
+    """A `blocking[]` claim becomes an auditable flag and stops the row from being ranked."""
+    db, tmp = registry
+    d = tmp / "pd"; d.mkdir()
+    _detail_file(d, "poisoned", blocking=[{
+        "kind": "injected-payload",
+        "why": "postcss.config.mjs carries an obfuscated JS payload (20,039 non-space chars welded "
+               "onto the export line)",
+        "evidence": "postcss.config.mjs line 13, 20,641 chars; gh api contents -> base64 -d",
+    }])
+    r = run("templates_db.py", "--db", db, "import-details", d, "--store", tmp / "out")
+    assert r.returncode == 0, r.stderr
+    row = [x for x in json.loads(run("templates_db.py", "--db", db, "list", "--json").stdout)
+           if x["name"] == "alpha"][0]
+    flags = [f for f in row["risk_flags"] if f.get("kind") == "injected-payload"]
+    assert flags and flags[0]["source"] == "pool-details" and "obfuscated" in flags[0]["detail"]
+    intake = tmp / "intake.json"
+    intake.write_text(json.dumps({"shape": "saas", "features": ["accounts"]}), encoding="utf-8")
+    ranked = json.loads(run("templates_db.py", "--db", db, "score", "--intake", intake, "--json").stdout)
+    assert ranked["ranked"] == [], ranked
+    assert any("injected-payload" in b for x in ranked["blocked"] for b in x["blockers"])
+
+
+def test_import_details_derives_install_blocker_and_refreshes_not_duplicates(registry):
+    db, tmp = registry
+    d = tmp / "pd"; d.mkdir()
+    _detail_file(d, "uninstallable", blocking=[{
+        "kind": "install-impossible",
+        "why": "npm install cannot resolve: '@radix-ui/react-skeleton@^0.0.5' does not exist on npm",
+        "evidence": "registry.npmjs.org/@radix-ui%2Freact-skeleton -> 404 (react-slot -> 200)",
+    }])
+    for _ in range(2):   # importing twice must refresh the flag, not stack it
+        assert run("templates_db.py", "--db", db, "import-details", d, "--store", tmp / "out").returncode == 0
+    row = [x for x in json.loads(run("templates_db.py", "--db", db, "list", "--json").stdout)
+           if x["name"] == "alpha"][0]
+    derived = [f for f in row["risk_flags"] if f.get("source") == "pool-details"]
+    assert [f["kind"] for f in derived] == ["install-impossible"]
+
+
+def test_pitfall_prose_alone_raises_no_blocker(registry):
+    """Regression: prose about a lockfile/obfuscation must NOT block a healthy template.
+
+    The first version derived flags by regexing pitfall text and gave two good templates a blocker
+    ("no bun lockfile" while an npm lockfile exists). Only structured `blocking[]` may block.
+    """
+    db, tmp = registry
+    d = tmp / "pd"; d.mkdir()
+    _detail_file(d, "healthy", pitfalls=[
+        {"kind": "docs-lie", "detail": "AGENTS.md says `bun run` but the repo ships package-lock.json "
+                                       "and CI runs `npm ci` - there is no bun lockfile"},
+        {"kind": "peer-conflicts", "detail": "npm ci as the Dockerfile and CI do; a lockfile is committed"},
+        {"kind": "docs-lie", "detail": "checked every config: no obfuscated payload found"},
+    ])
+    assert run("templates_db.py", "--db", db, "import-details", d, "--store", tmp / "out").returncode == 0
+    row = [x for x in json.loads(run("templates_db.py", "--db", db, "list", "--json").stdout)
+           if x["name"] == "alpha"][0]
+    assert [f for f in row["risk_flags"] if f.get("source") == "pool-details"] == []
+
+
+def test_reintake_does_not_erase_derived_blockers(registry):
+    """intake re-writes risk_flags on every measure; the detail-derived blockers must survive it."""
+    db, tmp = registry
+    d = tmp / "pd"; d.mkdir()
+    _detail_file(d, "poisoned", blocking=[{
+        "kind": "injected-payload", "why": "obfuscated JS payload appended to the export line",
+        "evidence": "postcss.config.mjs"}])
+    assert run("templates_db.py", "--db", db, "import-details", d, "--store", tmp / "out").returncode == 0
+    again = tmp / "again.json"          # a fresh intake record for the same template
+    again.write_text(json.dumps({"templates": [dict(MEASURED_ROWS["templates"][0],
+                                                    risk_flags=[{"kind": "no-tests", "detail": "x"}])]}),
+                     encoding="utf-8")
+    assert run("templates_db.py", "--db", db, "import", again).returncode == 0
+    row = [x for x in json.loads(run("templates_db.py", "--db", db, "list", "--json").stdout)
+           if x["name"] == "alpha"][0]
+    kinds = [f.get("kind") for f in row["risk_flags"]]
+    assert "injected-payload" in kinds, row["risk_flags"]
+    assert "no-tests" in kinds, "the intake's own flags must survive too"
+
+
+def test_score_uses_measured_details_to_price_a_missing_database(registry):
+    """A detail file can prove `db: none`; an app that must store data must not rank that first."""
+    db, tmp = registry
+    intake = tmp / "intake.json"
+    intake.write_text(json.dumps({"shape": "saas", "features": ["accounts", "payments"]}), encoding="utf-8")
+    before = json.loads(run("templates_db.py", "--db", db, "score", "--intake", intake, "--json").stdout)
+    a_before = [x for x in before["ranked"] if x["name"] == "alpha"][0]
+    d = tmp / "pd"; d.mkdir()
+    _detail_file(d, "alpha", stack={"i18n": {"locales": []}, "db": "none", "orm": "none"})
+    assert run("templates_db.py", "--db", db, "import-details", d, "--store", tmp / "out").returncode == 0
+    after = json.loads(run("templates_db.py", "--db", db, "score", "--intake", intake, "--json").stdout)
+    a_after = [x for x in after["ranked"] if x["name"] == "alpha"][0]
+    assert a_after["score"] == a_before["score"] - 25, (a_before["score"], a_after["score"])
+    assert any("NO database" in r for r in a_after["reasons"])
+
+
+def test_score_ignores_details_when_the_ask_needs_no_storage(registry):
+    db, tmp = registry
+    intake = tmp / "intake.json"
+    intake.write_text(json.dumps({"shape": "internal", "features": ["i18n"]}), encoding="utf-8")
+    d = tmp / "pd"; d.mkdir()
+    _detail_file(d, "alpha", stack={"i18n": {"locales": []}, "db": "none", "orm": "none"})
+    assert run("templates_db.py", "--db", db, "import-details", d, "--store", tmp / "out").returncode == 0
+    rows = json.loads(run("templates_db.py", "--db", db, "score", "--intake", intake, "--json").stdout)
+    ranked = [x for x in rows["ranked"] if x["name"] == "alpha"]
+    assert ranked and not any("NO database" in r for r in ranked[0]["reasons"])
+
+
+def test_connect_migrates_an_older_registry(tmp_path):
+    """A templates.db created before this feature keeps working — columns are added, not required."""
+    import sqlite3
+    db = tmp_path / "old.db"
+    con = sqlite3.connect(db)
+    con.execute("CREATE TABLE templates (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "name TEXT UNIQUE NOT NULL, url TEXT NOT NULL, updated_at TEXT)")
+    con.commit(); con.close()
+    r = run("templates_db.py", "--db", db, "list", "--json")
+    assert r.returncode == 0, r.stderr
+    con = sqlite3.connect(db)
+    cols = {row[1] for row in con.execute("PRAGMA table_info(templates)")}
+    con.close()
+    assert {"details", "details_at", "details_file", "features", "locales", "swap_burden"} <= cols

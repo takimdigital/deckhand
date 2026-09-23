@@ -39,6 +39,26 @@ When the owner's classification differs, record it: re-`import` the row with `sh
 `shape_source: "manual"`. Never edit the DB by hand and never leave `shape` at `unknown` for a
 repo you intend to use.
 
+## Deep details (measured, not promised)
+
+A row may carry a detail file (`data/details/<slug>.json`; a compact digest rides the export). It is
+the only place that says what the **code** does, so it outranks every heuristic above:
+
+- `features[]` / `locales[]` — measured, so they answer a "French + Arabic, wants invoicing" ask
+  on what exists rather than on README keywords;
+- `swap_burden` (none|light|medium|heavy) + `vendor[]`, each with the file it was seen in — the real
+  price of a non-canonical pick;
+- `env.required_at_build[]` — a build that demands a vendor key is a **swap input**, not a broken
+  template: it explains some `boot_build_ok = 0` rows and the fix order is swap, then build;
+- `pitfalls[]` — native modules, postinstall hooks, tracked `.env` files: read before cloning;
+- `blocking[]` — if a detail file declares `injected-payload` or `install-impossible`, the row is a
+  **hard blocker** (never cloned, never ranked, reason shown to the owner). It is structured and
+  evidence-quoted on purpose: no regex over prose may block a healthy template;
+- `verdict.weak_for` — what the owner will have to build themselves. Put it in the top-3 out loud.
+
+No details = not measured, not a blocker. Add them with `references/pool-details.md` (one subagent
+per repo, remote only, then one import command).
+
 ## Output the owner sees
 
 Top 3, each with:

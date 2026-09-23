@@ -336,14 +336,39 @@ def detect_stack(tree: list[str], pkg: dict, extra_texts: dict[str, str] | None 
     }
 
 
-def classify_deps(dep_names: list[str], texts: str) -> tuple[list, list, list, dict]:
-    """(vendor, selfhost, unclassified, swap_map_draft)."""
+_TOKEN_SPLIT = re.compile(r"[^a-z0-9]+")
+
+
+def tokens_of(blob_low: str) -> set[str]:
+    """Word tokens of a lowercased blob. `_` and `-` split, so env-var names work:
+    `next_public_posthog_key` must match the vendor `posthog`, while `probably` must not match
+    `ably`."""
+    return set(_TOKEN_SPLIT.split(blob_low))
+
+
+def word_hit(needle: str, blob_low: str, tokens: set[str] | None = None) -> bool:
+    """Substring for SDK-shaped patterns ('@clerk/', 'socket.io'); whole token for plain words."""
+    if re.search(r"[^a-z0-9]", needle):
+        return needle in blob_low
+    return needle in (tokens if tokens is not None else tokens_of(blob_low))
+
+
+def classify_deps(dep_names: list[str], config_texts: str, prose_texts: str = "") -> tuple[list, list, list, dict, list]:
+    """(vendor, selfhost, unclassified, swap_map_draft, mentioned_only_in_prose).
+
+    A vendor is a FACT about the code: it must appear in the dependency list or in a config file
+    (`.env.example`, compose, workflow). A README that name-drops a service is not a dependency —
+    conflating the two is how a pool acquires vendors that do not exist.
+    """
     low = [d.lower() for d in dep_names]
-    blob = (texts + " " + " ".join(low)).lower()
-    vendor, selfhost, unclassified = [], [], []
+    strong = (config_texts + " " + " ".join(low)).lower()
+    prose = (prose_texts or "").lower()
+    strong_tokens, prose_tokens = tokens_of(strong), tokens_of(prose)
+    vendor, selfhost, unclassified, mentioned = [], [], [], []
     swap_map: dict[str, dict] = {}
     for key, spec in VENDOR_MAP.items():
-        if any(p.lower() in blob for p in spec["patterns"]):
+        pats = [p.lower() for p in spec["patterns"]]
+        if any(word_hit(p, strong, strong_tokens) for p in pats):
             vendor.append(key)
             swap_map[key] = {
                 "vendor": key, "category": spec["category"], "target": spec["target"],
@@ -354,8 +379,10 @@ def classify_deps(dep_names: list[str], texts: str) -> tuple[list, list, list, d
                 "note": spec.get("note", ""),
                 "verified": False,
             }
+        elif any(word_hit(p, prose, prose_tokens) for p in pats):
+            mentioned.append(key)
     for key, needles in SELFHOST_HINTS.items():
-        if any(n.lower() in blob for n in needles):
+        if any(word_hit(n.lower(), strong, strong_tokens) for n in needles):
             selfhost.append(key)
     for d in low:
         if d in vendor or any(v in d for v in vendor):
@@ -363,7 +390,8 @@ def classify_deps(dep_names: list[str], texts: str) -> tuple[list, list, list, d
         if d.startswith(("@types/", "@radix-ui/", "eslint", "typescript", "prettier")):
             continue
         unclassified.append(d)
-    return sorted(set(vendor)), sorted(set(selfhost)), sorted(set(unclassified))[:80], swap_map
+    return (sorted(set(vendor)), sorted(set(selfhost)), sorted(set(unclassified))[:80],
+            swap_map, sorted(set(mentioned)))
 
 
 SHAPE_SIGNALS = {

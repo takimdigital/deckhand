@@ -1,7 +1,8 @@
 {
-  "generated_at": "2026-09-23T21:34:44Z",
+  "generated_at": "2026-09-23T22:23:48Z",
   "source": "data/templates.db",
   "count": 8,
+  "with_details": 8,
   "templates": [
     {
       "id": 1,
@@ -45,16 +46,12 @@
       "canonical_notes": "framework=wasp (canonical: next); no docker/compose (Coolify prefers a Dockerfile or nixpacks)",
       "deps_vendor": [
         "lemonsqueezy",
-        "mailgun",
         "openai",
         "plausible",
         "posthog",
-        "sendgrid",
         "stripe"
       ],
-      "deps_selfhost": [
-        "postgres"
-      ],
+      "deps_selfhost": [],
       "deps_unclassified": [
         "@eslint/js",
         "@typescript-eslint/eslint-plugin",
@@ -68,9 +65,8 @@
           "patterns": [
             "stripe"
           ],
-          "target_patterns": [
-            "keep"
-          ],
+          "target_patterns": [],
+          "removal_ok": false,
           "status": "keep",
           "note": "a processor is a service, not a code lock-in: keep it, or replace with the client's local method",
           "verified": false
@@ -83,43 +79,9 @@
             "@lemonsqueezy/",
             "lemonsqueezy"
           ],
-          "target_patterns": [
-            "keep"
-          ],
+          "target_patterns": [],
+          "removal_ok": false,
           "status": "keep",
-          "note": "",
-          "verified": false
-        },
-        "sendgrid": {
-          "vendor": "sendgrid",
-          "category": "email",
-          "target": "smtp",
-          "patterns": [
-            "@sendgrid/",
-            "sendgrid"
-          ],
-          "target_patterns": [
-            "nodemailer",
-            "smtp",
-            "mailgun"
-          ],
-          "status": "pending",
-          "note": "",
-          "verified": false
-        },
-        "mailgun": {
-          "vendor": "mailgun",
-          "category": "email",
-          "target": "smtp",
-          "patterns": [
-            "mailgun"
-          ],
-          "target_patterns": [
-            "nodemailer",
-            "smtp",
-            "mailgun"
-          ],
-          "status": "pending",
           "note": "",
           "verified": false
         },
@@ -133,6 +95,7 @@
           "target_patterns": [
             "umami"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -147,6 +110,7 @@
           "target_patterns": [
             "umami"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -159,8 +123,10 @@
             "openai"
           ],
           "target_patterns": [
-            "ollama"
+            "ollama",
+            "11434"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -185,7 +151,7 @@
       ],
       "evidence": {
         "source": "github-api (no clone)",
-        "checked_at": "2026-09-23T21:20:28Z",
+        "checked_at": "2026-09-23T22:23:25Z",
         "branch": "main",
         "files_read": [
           "package.json",
@@ -194,9 +160,120 @@
         ],
         "tree_entries": 674,
         "locales": [],
-        "license_path": "LICENSE"
+        "license_path": "LICENSE",
+        "vendor_name_in_readme_only": [
+          "mailgun",
+          "sendgrid"
+        ]
       },
-      "updated_at": "2026-09-23T21:20:28Z"
+      "updated_at": "2026-09-23T22:23:25Z",
+      "details_at": "2026-09-23T22:21:54Z",
+      "details_file": "data/details/open-saas.json",
+      "features": [
+        "accounts",
+        "admin",
+        "dashboard",
+        "billing",
+        "uploads",
+        "jobs",
+        "ai-demo-openai",
+        "contact-messages",
+        "analytics-dashboard",
+        "dark-mode",
+        "cookie-consent",
+        "credits",
+        "blog"
+      ],
+      "locales": [
+        "en"
+      ],
+      "swap_burden": "heavy",
+      "details_digest": {
+        "details_file": "data/details/open-saas.json",
+        "details_at": "2026-09-23T22:21:54Z",
+        "features": [
+          "accounts",
+          "admin",
+          "dashboard",
+          "billing",
+          "uploads",
+          "jobs",
+          "ai-demo-openai",
+          "contact-messages",
+          "analytics-dashboard",
+          "dark-mode",
+          "cookie-consent",
+          "credits",
+          "blog"
+        ],
+        "locales": [
+          "en"
+        ],
+        "swap_burden": "heavy",
+        "verdict": {
+          "best_for": "A founder who will stay on the Wasp framework and wants a free, MIT, batteries-included SaaS base today: verified email auth, Stripe/LemonSqueezy/Polar billing, an admin dashboard with analytics, S3 uploads, a PgBoss cron job and an AI demo, plus a separate Astro docs/blog site.",
+          "weak_for": "Anyone who needs mainstream node tooling (no npm run dev/build), a non-Wasp framework, i18n/multi-tenancy/teams, or a test suite that runs offline - none of that is in the code, and the framework choice is the whole app.",
+          "swap_burden": "heavy - the repo IS a Wasp spec; queries, actions, routes, auth, jobs and deploy are framework primitives, so leaving Wasp means a full rewrite, while swapping the individual services (payments, email, storage, analytics) is genuinely cheap because they are thin, isolated modules."
+        },
+        "routes_count": 19,
+        "tests": {
+          "frameworks": [
+            "playwright",
+            "vitest"
+          ],
+          "unit_files": 0,
+          "e2e_files": 4,
+          "ci_workflows": [
+            ".github/workflows/e2e-tests.yml",
+            ".github/workflows/lint.yml",
+            ".github/workflows/check-opensaas-diffs.yml",
+            ".github/workflows/template-release.yml",
+            ".github/workflows/blog-deployment.yml",
+            ".github/workflows/automation-pr-label-external.yaml",
+            ".github/workflows/automation-pr-close-stale.yaml"
+          ],
+          "notes": "4 Playwright specs (authRedirectTests, demoAppTests, landingPageTests, pricingPageTests) in template/e2e-tests with baseURL localhost:3000 and a webServer that runs the Wasp app itself. vitest 4.1.9 IS a devDependency of template/app but the template ships ZERO unit/component test files. e2e cannot run without real STRIPE_* test keys, an OPENAI_API_KEY and the Stripe CLI listening on /payments-webhook, so it is not a local-only smoke suite."
+        },
+        "deploy": {
+          "docker": false,
+          "standalone_output": null,
+          "paas_coupling": [
+            "fly.io",
+            "railway"
+          ],
+          "build_cmd": "wasp build",
+          "start_cmd": "wasp start"
+        },
+        "pitfalls": [
+          "build-needs-env",
+          "docs-lie",
+          "native-deps",
+          "peer-conflicts",
+          "docs-lie",
+          "dead-demo",
+          "dead-demo",
+          "build-needs-env",
+          "postinstall"
+        ],
+        "health": {
+          "stars": 15992,
+          "forks": 1925,
+          "open_issues": 107,
+          "contributors": 53,
+          "top_contributor_share": 0.454,
+          "last_commit": "2026-08-06",
+          "last_release": "wasp-v0.25-template",
+          "commits_last_90d": 19,
+          "issues_closed_last_90d": 4
+        },
+        "complexity": {
+          "pages": 18,
+          "components": 59,
+          "db_models": 8,
+          "migrations": 0,
+          "loc_estimate": 10700
+        }
+      }
     },
     {
       "id": 2,
@@ -248,12 +325,10 @@
         "arcjet",
         "clerk",
         "posthog",
-        "sentry",
-        "stripe"
+        "sentry"
       ],
       "deps_selfhost": [
-        "postgres",
-        "sqlite"
+        "postgres"
       ],
       "deps_unclassified": [
         "@chromatic-com/playwright",
@@ -309,24 +384,12 @@
             "CLERK_PUBLISHABLE"
           ],
           "target_patterns": [
-            "better-auth"
+            "better-auth",
+            "betterauth"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
-          "verified": false
-        },
-        "stripe": {
-          "vendor": "stripe",
-          "category": "payments",
-          "target": "keep",
-          "patterns": [
-            "stripe"
-          ],
-          "target_patterns": [
-            "keep"
-          ],
-          "status": "keep",
-          "note": "a processor is a service, not a code lock-in: keep it, or replace with the client's local method",
           "verified": false
         },
         "sentry": {
@@ -340,6 +403,7 @@
           "target_patterns": [
             "glitchtip"
           ],
+          "removal_ok": true,
           "status": "pending",
           "note": "",
           "verified": false
@@ -354,6 +418,7 @@
           "target_patterns": [
             "umami"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -366,10 +431,9 @@
             "@arcjet/",
             "arcjet"
           ],
-          "target_patterns": [
-            "middleware"
-          ],
-          "status": "pending",
+          "target_patterns": [],
+          "removal_ok": true,
+          "status": "own-code",
           "note": "",
           "verified": false
         }
@@ -402,7 +466,7 @@
       ],
       "evidence": {
         "source": "github-api (no clone)",
-        "checked_at": "2026-09-23T21:34:43Z",
+        "checked_at": "2026-09-23T22:23:28Z",
         "branch": "main",
         "files_read": [
           "package.json",
@@ -414,9 +478,97 @@
           "en",
           "fr"
         ],
-        "license_path": "LICENSE"
+        "license_path": "LICENSE",
+        "vendor_name_in_readme_only": [
+          "stripe"
+        ]
       },
-      "updated_at": "2026-09-23T21:34:43Z"
+      "updated_at": "2026-09-23T22:23:28Z",
+      "details_at": "2026-09-23T22:21:54Z",
+      "details_file": "data/details/next-js-boilerplate.json",
+      "features": [
+        "accounts",
+        "dashboard",
+        "i18n"
+      ],
+      "locales": [
+        "en",
+        "fr"
+      ],
+      "swap_burden": "light",
+      "details_digest": {
+        "details_file": "data/details/next-js-boilerplate.json",
+        "details_at": "2026-09-23T22:21:54Z",
+        "features": [
+          "accounts",
+          "dashboard",
+          "i18n"
+        ],
+        "locales": [
+          "en",
+          "fr"
+        ],
+        "swap_burden": "light",
+        "verdict": {
+          "best_for": "A new Next.js 16 App Router product that needs the boring plumbing done and nothing else: real auth with hosted UI, Postgres+Drizzle with migrations wired into the build, two-locale i18n, a full unit/integration/e2e/Storybook harness and a CI pipeline that works on day one.",
+          "weak_for": "Anything SaaS-shaped beyond accounts - no billing/Stripe, no teams, roles or permissions, no email, uploads, admin panel, analytics or API keys; the paid Pro/Plus sibling kits are where those live.",
+          "swap_burden": "light - no Dockerfile and almost no proprietary lock-in (Clerk is the only deep one, 3-5 days to replace), so the real work is deleting the sponsor/demo surface and adding your own UI kit and features."
+        },
+        "routes_count": 12,
+        "tests": {
+          "frameworks": [
+            "vitest",
+            "playwright",
+            "storybook"
+          ],
+          "unit_files": 2,
+          "e2e_files": 4,
+          "ci_workflows": [
+            ".github/workflows/CI.yml",
+            ".github/workflows/crowdin.yml",
+            ".github/workflows/release.yml"
+          ],
+          "notes": "unit_files = src/templates/BaseTemplate.test.tsx + src/utils/Helpers.test.ts. vitest.config.ts defines two projects: 'unit' (node env, src/**/*.test.ts) and 'ui' (*.test.tsx + src/hooks/**/*.test.ts in headless chromium via vitest browser mode + Playwright). e2e_files = tests/e2e/{Counter,I18n,Sanity.check,Visual}.e2e.ts; there is also 1 integration file (tests/integration/Counter.integ.ts) which Playwright, not vitest, runs (testMatch '*.(integ|e2e).ts'). Storybook 10 + 1 story file, tested with `npm run storybook:test`. CI.yml jobs: build, static (commitlint + next typegen + oxlint + knip + i18n-check), unit (+Codecov), storybook, e2e (+Chromatic visual regression; chromium locally, chromium+firefox in CI). Sanity.check.e2e.ts is consumed by Checkly, not by CI. package.json scripts: test, test:e2e, storybook:test, check:types, check:deps, check:i18n, lint."
+        },
+        "deploy": {
+          "docker": false,
+          "standalone_output": false,
+          "paas_coupling": [],
+          "build_cmd": "npm run build",
+          "start_cmd": "npm start"
+        },
+        "pitfalls": [
+          "build-needs-env",
+          "build-needs-env",
+          "dev-env-quirk",
+          "docs-lie",
+          "docs-lie",
+          "docs-lie",
+          "docs-lie",
+          "dead-demo",
+          "peer-conflicts",
+          "peer-conflicts",
+          "build-needs-env"
+        ],
+        "health": {
+          "stars": 13079,
+          "forks": 2407,
+          "open_issues": 3,
+          "contributors": 39,
+          "top_contributor_share": 0.878,
+          "last_commit": "2026-09-09",
+          "last_release": "v6.4.1",
+          "commits_last_90d": 9,
+          "issues_closed_last_90d": 0
+        },
+        "complexity": {
+          "pages": 9,
+          "components": 10,
+          "db_models": 1,
+          "migrations": 1,
+          "loc_estimate": 2084
+        }
+      }
     },
     {
       "id": 3,
@@ -487,6 +639,7 @@
           "target_patterns": [
             "glitchtip"
           ],
+          "removal_ok": true,
           "status": "pending",
           "note": "",
           "verified": false
@@ -502,7 +655,7 @@
       "risk_flags": [],
       "evidence": {
         "source": "github-api (no clone)",
-        "checked_at": "2026-09-23T21:20:34Z",
+        "checked_at": "2026-09-23T22:23:31Z",
         "branch": "master",
         "files_read": [
           "package.json",
@@ -514,9 +667,122 @@
         ],
         "tree_entries": 252,
         "locales": [],
-        "license_path": "LICENSE"
+        "license_path": "LICENSE",
+        "vendor_name_in_readme_only": []
       },
-      "updated_at": "2026-09-23T21:20:34Z"
+      "updated_at": "2026-09-23T22:23:31Z",
+      "details_at": "2026-09-23T22:21:54Z",
+      "details_file": "data/details/full-stack-fastapi-template.json",
+      "features": [
+        "accounts",
+        "admin",
+        "dashboard",
+        "password-recovery",
+        "user-management-crud",
+        "items-crud-placeholder-domain",
+        "dark-mode",
+        "generated-typescript-api-client",
+        "docker-compose-deploy",
+        "email-templates",
+        "note: no teams/billing/i18n/uploads/search/jobs/realtime/api-keys/audit-log in code"
+      ],
+      "locales": [
+        "en"
+      ],
+      "swap_burden": "medium",
+      "details_digest": {
+        "details_file": "data/details/full-stack-fastapi-template.json",
+        "details_at": "2026-09-23T22:21:54Z",
+        "features": [
+          "accounts",
+          "admin",
+          "dashboard",
+          "password-recovery",
+          "user-management-crud",
+          "items-crud-placeholder-domain",
+          "dark-mode",
+          "generated-typescript-api-client",
+          "docker-compose-deploy",
+          "email-templates",
+          "note: no teams/billing/i18n/uploads/search/jobs/realtime/api-keys/audit-log in code"
+        ],
+        "locales": [
+          "en"
+        ],
+        "swap_burden": "medium",
+        "verdict": {
+          "best_for": "A Python-team SaaS starter that already ships production-shaped plumbing — JWT auth with password recovery, admin user management, Postgres+SQLModel+Alembic migrations, typed auto-generated TS client, pytest+Playwright CI and Docker/Traefik deploy — so a new API+SPA product can start from login/admin/migrations on day one.",
+          "weak_for": "Anything needing multi-tenancy, teams/orgs, billing, i18n/RTL, file uploads, background jobs or a real Next.js/SSR frontend — none of those exist here, and the only domain model is a placeholder Item; it is also pinned to Python 3.14 and bleeding-edge JS majors.",
+          "swap_burden": "medium — auth is hand-rolled JWT (no library to rip out, but no OAuth/orgs either), the SwiftUI-free stack is otherwise standard; the real work is deleting the Item demo domain, rewriting the FastAPI-Cloud/Traefik deploy glue, and re-exporting the React Email templates after any copy change."
+        },
+        "routes_count": 32,
+        "tests": {
+          "frameworks": [
+            "pytest",
+            "playwright"
+          ],
+          "unit_files": 5,
+          "e2e_files": 6,
+          "ci_workflows": [
+            ".github/workflows/test-backend.yml",
+            ".github/workflows/playwright.yml",
+            ".github/workflows/test-docker-compose.yml",
+            ".github/workflows/deploy.yml",
+            ".github/workflows/deploy-docker-compose.yml",
+            ".github/workflows/pre-commit.yml",
+            ".github/workflows/smokeshow.yml",
+            ".github/workflows/zizmor.yml",
+            ".github/workflows/guard-dependencies.yml",
+            ".github/workflows/issue-manager.yml",
+            ".github/workflows/create-draft-release.yml",
+            ".github/workflows/prepare-release.yml",
+            ".github/workflows/detect-conflicts.yml",
+            ".github/workflows/add-to-project.yml",
+            ".github/workflows/bump-pre-commit-hooks.yml"
+          ],
+          "notes": "Backend: pytest 5 test modules (tests/api/routes/test_{items,login,private,users}.py + tests/crud/test_user.py) plus conftest.py and tests/utils; CI enforces `coverage report --fail-under=90` and uploads smokeshow HTML coverage. Frontend: Playwright only (6 spec files + tests/auth.setup.ts storage-state project, chromium/firefox/webkit projects) — no vitest/jest unit layer, so there is no frontend unit test safety net. E2E specs drive the real stack through Mailpit (frontend/tests/utils/mailpit.ts) for password-reset tokens. Lint/type CI: ruff+mypy+ty (backend), biome (frontend), pre-commit with zizmor. CI needs Docker (db + mailpit) and `scripts/prestart.sh` before tests."
+        },
+        "deploy": {
+          "docker": true,
+          "standalone_output": false,
+          "paas_coupling": [
+            "fastapi-cloud"
+          ],
+          "build_cmd": "bun run --filter frontend build (root) / in Docker: backend/Dockerfile stage 1 runs `bun install` + `bun run build` in frontend, output lands in backend/app/frontend",
+          "start_cmd": "backend image CMD: fastapi run --workers 4 ; compose.override dev command: fastapi dev --host 0.0.0.0"
+        },
+        "pitfalls": [
+          "build-needs-env",
+          "docs-lie",
+          "build-needs-env",
+          "native-deps",
+          "peer-conflicts",
+          "docs-lie",
+          "dead-demo",
+          "postinstall",
+          "postinstall",
+          "native-deps",
+          "docs-lie"
+        ],
+        "health": {
+          "stars": 45711,
+          "forks": 9088,
+          "open_issues": 0,
+          "contributors": 82,
+          "top_contributor_share": 0.23,
+          "last_commit": "2026-09-01",
+          "last_release": "0.12.0",
+          "commits_last_90d": 161,
+          "issues_closed_last_90d": 1
+        },
+        "complexity": {
+          "pages": 8,
+          "components": 51,
+          "db_models": 2,
+          "migrations": 5,
+          "loc_estimate": 11000
+        }
+      }
     },
     {
       "id": 4,
@@ -564,7 +830,6 @@
       "canonical": 0,
       "canonical_notes": "auth=next-auth -> swap to better-auth",
       "deps_vendor": [
-        "launchdarkly",
         "next-auth",
         "resend",
         "sentry",
@@ -629,8 +894,10 @@
             "Auth.js"
           ],
           "target_patterns": [
-            "better-auth"
+            "better-auth",
+            "betterauth"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -642,9 +909,8 @@
           "patterns": [
             "stripe"
           ],
-          "target_patterns": [
-            "keep"
-          ],
+          "target_patterns": [],
+          "removal_ok": false,
           "status": "keep",
           "note": "a processor is a service, not a code lock-in: keep it, or replace with the client's local method",
           "verified": false
@@ -659,8 +925,10 @@
           "target_patterns": [
             "nodemailer",
             "smtp",
-            "mailgun"
+            "mailgun",
+            "brevo"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -675,8 +943,10 @@
             "VERCEL_"
           ],
           "target_patterns": [
-            "coolify"
+            "dockerfile",
+            "compose"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -692,20 +962,7 @@
           "target_patterns": [
             "glitchtip"
           ],
-          "status": "pending",
-          "note": "",
-          "verified": false
-        },
-        "launchdarkly": {
-          "vendor": "launchdarkly",
-          "category": "flags",
-          "target": "db-backed-flags",
-          "patterns": [
-            "launchdarkly"
-          ],
-          "target_patterns": [
-            "db-backed-flags"
-          ],
+          "removal_ok": true,
           "status": "pending",
           "note": "",
           "verified": false
@@ -724,11 +981,17 @@
         {
           "kind": "readme-placeholders",
           "detail": "example.com, your-repo"
+        },
+        {
+          "kind": "install-impossible",
+          "detail": "the repo cannot install as shipped (phantom dependency or missing lockfile) — \"package.json depends on '@radix-ui/react-skeleton@^0.0.5', which does not exist on npm; a fresh install fails before anything else can run.\"",
+          "evidence": "verified by the pool owner: registry.npmjs.org/@radix-ui%2Freact-skeleton -> HTTP 404 (control @radix-ui%2Freact-slot -> HTTP 200)",
+          "source": "pool-details"
         }
       ],
       "evidence": {
         "source": "github-api (no clone)",
-        "checked_at": "2026-09-23T21:20:38Z",
+        "checked_at": "2026-09-23T22:23:35Z",
         "branch": "main",
         "files_read": [
           "package.json",
@@ -742,9 +1005,103 @@
         ],
         "tree_entries": 102,
         "locales": [],
-        "license_path": "LICENSE"
+        "license_path": "LICENSE",
+        "vendor_name_in_readme_only": [
+          "launchdarkly"
+        ]
       },
-      "updated_at": "2026-09-23T21:20:38Z"
+      "updated_at": "2026-09-23T22:23:35Z",
+      "details_at": "2026-09-23T22:21:54Z",
+      "details_file": "data/details/micro-saas-starter-kit.json",
+      "features": [
+        "accounts",
+        "dashboard",
+        "admin",
+        "teams",
+        "billing",
+        "api-keys",
+        "notifications"
+      ],
+      "locales": [
+        "en"
+      ],
+      "swap_burden": "heavy",
+      "details_digest": {
+        "details_file": "data/details/micro-saas-starter-kit.json",
+        "details_at": "2026-09-23T22:21:54Z",
+        "features": [
+          "accounts",
+          "dashboard",
+          "admin",
+          "teams",
+          "billing",
+          "api-keys",
+          "notifications"
+        ],
+        "locales": [
+          "en"
+        ],
+        "swap_burden": "heavy",
+        "verdict": {
+          "best_for": "A read-only reference/demo artifact - e.g. harvesting a broad multi-tenant Prisma schema or shadcn-style dashboard pages for ideas - not a base to install and launch.",
+          "weak_for": "Any real launch as-is: install is impossible (phantom @radix-ui/react-skeleton), there is no lockfile, no migrations, zero unit tests, sign-in is Google/GitHub OAuth only, and roughly half the advertised features are unreferenced lib code.",
+          "swap_burden": "heavy - Stripe, Resend, Redis/BullMQ, Sentry and NextAuth all need touching, but first the dependency tree, lockfile, migrations and ~13 dead modules have to be fixed or triaged."
+        },
+        "routes_count": 26,
+        "tests": {
+          "frameworks": [
+            "jest",
+            "playwright"
+          ],
+          "unit_files": 0,
+          "e2e_files": 1,
+          "ci_workflows": [
+            ".github/workflows/ci.yml"
+          ],
+          "notes": "CI has 4 jobs (lint, test, e2e, build), each starting with `npm ci`. The test job runs `jest --ci` against a repo with zero unit/integration test files (only jest.config.js + jest.setup.js exist). Playwright's single spec e2e/example.spec.ts holds 3 smoke tests whose expected headings match the current pages; playwright.config.ts runs chromium/firefox/webkit with a `npm run dev` webServer. README's `npm test` maps to `jest --watch`."
+        },
+        "deploy": {
+          "docker": true,
+          "standalone_output": true,
+          "paas_coupling": [
+            "vercel"
+          ],
+          "build_cmd": "npm run build",
+          "start_cmd": "npm start"
+        },
+        "pitfalls": [
+          "peer-conflicts",
+          "build-needs-env",
+          "docs-lie",
+          "dead-demo",
+          "dead-demo",
+          "dead-demo",
+          "build-needs-env",
+          "build-needs-env",
+          "postinstall",
+          "docs-lie",
+          "build-needs-env",
+          "build-needs-env"
+        ],
+        "health": {
+          "stars": 2,
+          "forks": 3,
+          "open_issues": 1,
+          "contributors": 2,
+          "top_contributor_share": 0.83,
+          "last_commit": "2025-11-23",
+          "last_release": null,
+          "commits_last_90d": 0,
+          "issues_closed_last_90d": 0
+        },
+        "complexity": {
+          "pages": 12,
+          "components": 14,
+          "db_models": 26,
+          "migrations": 0,
+          "loc_estimate": 8006
+        }
+      }
     },
     {
       "id": 5,
@@ -752,7 +1109,7 @@
       "url": "https://github.com/salmanshahriar/Next-Elite",
       "repo": "salmanshahriar/Next-Elite",
       "rank": 5,
-      "status": "verified",
+      "status": "unverified",
       "reject_reason": null,
       "license_spdx": "MIT",
       "license_file": "LICENSE",
@@ -798,7 +1155,6 @@
       "canonical": 0,
       "canonical_notes": "db=unknown (canonical: postgres)",
       "deps_vendor": [
-        "ably",
         "sentry",
         "vercel"
       ],
@@ -858,8 +1214,10 @@
             "VERCEL_"
           ],
           "target_patterns": [
-            "coolify"
+            "dockerfile",
+            "compose"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -875,20 +1233,7 @@
           "target_patterns": [
             "glitchtip"
           ],
-          "status": "pending",
-          "note": "",
-          "verified": false
-        },
-        "ably": {
-          "vendor": "ably",
-          "category": "realtime",
-          "target": "socket.io-or-sse",
-          "patterns": [
-            "ably"
-          ],
-          "target_patterns": [
-            "socket.io-or-sse"
-          ],
+          "removal_ok": true,
           "status": "pending",
           "note": "",
           "verified": false
@@ -917,27 +1262,126 @@
       ],
       "risk_flags": [],
       "evidence": {
-        "boot": {
-          "host": "windows / git-bash, node v24, npm 11",
-          "project": "D:/pilot-next-elite",
-          "upstream_commit": "8865298a9a0c",
-          "install": "ok — npm install (cache on D:/npm-cache)",
-          "build": "ok — next build, 15 routes",
-          "start": "ok — 6767 (the port is hardcoded in scripts.start; PORT env is ignored)",
-          "freshness": "served HTML carried the on-disk .next/BUILD_ID f4asx0olfnzcFL5uTDivi",
-          "routes": {
-            "/": 200,
-            "/login": 200,
-            "/register": 200,
-            "/dashboard": 307,
-            "/api/health": 200
-          },
-          "leak_check": "31 hits of the template name/author/demo domain on the served page — rebrand pending (expected pre-rebrand)",
-          "swap_check": "exit 1 — 3 vendors (vercel, sentry, ably), 38 references (expected pre-swap)",
-          "checked_at": "2026-09-23"
-        }
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-23T22:23:39Z",
+        "branch": "main",
+        "files_read": [
+          "package.json",
+          "docker-compose.yml",
+          "Dockerfile",
+          "README.md",
+          ".env.example",
+          "components.json",
+          "next.config.mjs"
+        ],
+        "tree_entries": 187,
+        "locales": [
+          "ar",
+          "bn",
+          "en",
+          "es",
+          "fr",
+          "zh"
+        ],
+        "license_path": "LICENSE",
+        "vendor_name_in_readme_only": []
       },
-      "updated_at": "2026-09-23T21:33:50Z"
+      "updated_at": "2026-09-23T22:23:39Z",
+      "details_at": "2026-09-23T22:21:54Z",
+      "details_file": "data/details/next-elite.json",
+      "features": [
+        "accounts",
+        "admin",
+        "dashboard",
+        "i18n"
+      ],
+      "locales": [
+        "en",
+        "bn",
+        "ar",
+        "fr",
+        "es",
+        "zh"
+      ],
+      "swap_burden": "light",
+      "details_digest": {
+        "details_file": "data/details/next-elite.json",
+        "details_at": "2026-09-23T22:21:54Z",
+        "features": [
+          "accounts",
+          "admin",
+          "dashboard",
+          "i18n"
+        ],
+        "locales": [
+          "en",
+          "bn",
+          "ar",
+          "fr",
+          "es",
+          "zh"
+        ],
+        "swap_burden": "light",
+        "verdict": {
+          "best_for": "A frontend-first Next.js 16 SaaS/admin shell where the backend already exists: auth pages, RBAC role slots, sidebar dashboards, 42 UI primitives and a 6-locale RTL-aware i18n layer are done and ready to point at your own REST/GraphQL API.",
+          "weak_for": "Anything that must store data itself - there is no database, ORM, migrations, billing, email, uploads, jobs or search code, and Better Auth has no adapter wired, so accounts and sessions must be finished before the demo credentials mean anything.",
+          "swap_burden": "light - nothing paid is load-bearing (Sentry and Vercel Analytics are DSN-gated and deletable) and branding/SEO is centralised in src/features/site/site.config.json plus messages/"
+        },
+        "routes_count": 14,
+        "tests": {
+          "frameworks": [
+            "vitest",
+            "playwright"
+          ],
+          "unit_files": 11,
+          "e2e_files": 1,
+          "ci_workflows": [
+            ".github/workflows/check.yml",
+            ".github/workflows/playwright.yml"
+          ],
+          "notes": "Unit/component tests are colocated as *.test.ts(x): button, card, demo/accounts, rbac/roles, schemas/login, schemas/register, libs/env, libs/utils, plus tests/auth/authorization.test.ts, tests/auth/roles.test.ts, tests/i18n/routing.test.ts (11 files). jsdom + @testing-library/react, shared renderWithProviders helper in tests/utils/render.tsx, config/vitest.config.ts forces SKIP_ENV_VALIDATION=true. E2E is one spec, e2e/home.spec.ts (home title, source-code link, /api/health json, /login field ids), with a self-started web server on 127.0.0.1:6767 - dev locally across chromium+firefox+webkit, production start:standalone + chromium only in CI. check.yml runs typecheck -> lint (oxlint + oxfmt) -> knip -> vitest -> build."
+        },
+        "deploy": {
+          "docker": true,
+          "standalone_output": true,
+          "paas_coupling": [
+            "vercel",
+            "docker/dokploy-selfhost"
+          ],
+          "build_cmd": "npm run build",
+          "start_cmd": "npm run start"
+        },
+        "pitfalls": [
+          "dead-demo",
+          "docs-lie",
+          "docs-lie",
+          "docs-lie",
+          "dead-demo",
+          "dead-demo",
+          "postinstall",
+          "native-deps",
+          "peer-conflicts",
+          "docs-lie"
+        ],
+        "health": {
+          "stars": 114,
+          "forks": 32,
+          "open_issues": 0,
+          "contributors": 4,
+          "top_contributor_share": 0.78,
+          "last_commit": "2026-09-21",
+          "last_release": "v2.0.1",
+          "commits_last_90d": 182,
+          "issues_closed_last_90d": 2
+        },
+        "complexity": {
+          "pages": 12,
+          "components": 75,
+          "db_models": 0,
+          "migrations": 0,
+          "loc_estimate": 11700
+        }
+      }
     },
     {
       "id": 6,
@@ -1046,8 +1490,10 @@
           "target_patterns": [
             "nodemailer",
             "smtp",
-            "mailgun"
+            "mailgun",
+            "brevo"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -1063,8 +1509,9 @@
           ],
           "target_patterns": [
             "minio",
-            "s3"
+            "@aws-sdk/client-s3"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -1080,6 +1527,7 @@
           "target_patterns": [
             "glitchtip"
           ],
+          "removal_ok": true,
           "status": "pending",
           "note": "",
           "verified": false
@@ -1130,7 +1578,7 @@
       "risk_flags": [],
       "evidence": {
         "source": "github-api (no clone)",
-        "checked_at": "2026-09-23T21:20:45Z",
+        "checked_at": "2026-09-23T22:23:42Z",
         "branch": "main",
         "files_read": [
           "package.json",
@@ -1142,9 +1590,127 @@
         ],
         "tree_entries": 370,
         "locales": [],
-        "license_path": "LICENSE.md"
+        "license_path": "LICENSE.md",
+        "vendor_name_in_readme_only": []
       },
-      "updated_at": "2026-09-23T21:20:45Z"
+      "updated_at": "2026-09-23T22:23:42Z",
+      "details_at": "2026-09-23T22:21:54Z",
+      "details_file": "data/details/epic-stack.json",
+      "features": [
+        "accounts",
+        "admin",
+        "uploads",
+        "search",
+        "notifications",
+        "2fa",
+        "passkeys",
+        "sso-github",
+        "notes-crud",
+        "rbac",
+        "theming",
+        "image-optimization",
+        "caching",
+        "seo",
+        "rate-limiting",
+        "healthcheck",
+        "data-export",
+        "email-verification"
+      ],
+      "locales": [
+        "en"
+      ],
+      "swap_burden": "heavy",
+      "details_digest": {
+        "details_file": "data/details/epic-stack.json",
+        "details_at": "2026-09-23T22:21:54Z",
+        "features": [
+          "accounts",
+          "admin",
+          "uploads",
+          "search",
+          "notifications",
+          "2fa",
+          "passkeys",
+          "sso-github",
+          "notes-crud",
+          "rbac",
+          "theming",
+          "image-optimization",
+          "caching",
+          "seo",
+          "rate-limiting",
+          "healthcheck",
+          "data-export",
+          "email-verification"
+        ],
+        "locales": [
+          "en"
+        ],
+        "swap_burden": "heavy",
+        "verdict": {
+          "best_for": "A production-shaped single-tenant web app that needs real auth (password + 2FA + passkeys + GitHub SSO), RBAC, file uploads, transactional email and a SQLite database, deployed as your own Docker container.",
+          "weak_for": "Multi-tenant SaaS that needs billing, i18n/RTL, Postgres scale-out, background jobs or edge/serverless hosting - none of that exists here, and the Fly.io + LiteFS + Tigris coupling is opinionated.",
+          "swap_burden": "heavy - auth is hand-rolled and correct but is entwined with sessions/verification/permissions, and hosting is woven through the Dockerfile, litefs.yml, fly.toml, CI, the rate limiter (fly-client-ip) and storage (AWS_ENDPOINT_URL_S3), so dropping Fly means rewriting the deploy layer plus the storage signature code."
+        },
+        "routes_count": 45,
+        "tests": {
+          "frameworks": [
+            "vitest",
+            "playwright",
+            "testing-library",
+            "msw"
+          ],
+          "unit_files": 7,
+          "e2e_files": 8,
+          "ci_workflows": [
+            ".github/workflows/deploy.yml"
+          ],
+          "notes": "Vitest config lives in vite.config.ts (include ./app/**/*.test.{ts,tsx}, globalSetup tests/setup/global-setup.ts, v8 coverage). 7 unit test files (app/**/*.test.*): auth.server, headers.server, misc.error-message, misc.use-double-check, sentry-event-filters, routes/_auth/auth.$provider/callback, routes/users/$username/index. 8 Playwright specs in tests/e2e (2fa, error-boundary, note-images, notes, onboarding, passkey, search, settings-profile) with image fixtures and test helpers. tests/setup/setup-test-env.ts loads .env via dotenv and makes console.error/console.warn THROW. CI is a single workflow with 5 jobs (lint, typecheck, vitest, playwright, container) plus a deploy job; each job copies .env.example to .env and runs prisma migrate deploy first. scripts.validate = run-p test lint typecheck test:e2e:run."
+        },
+        "deploy": {
+          "docker": true,
+          "standalone_output": false,
+          "paas_coupling": [
+            "fly.io",
+            "github-actions",
+            "tigris"
+          ],
+          "build_cmd": "npm run build",
+          "start_cmd": "npm start"
+        },
+        "pitfalls": [
+          "build-needs-env",
+          "postinstall",
+          "native-deps",
+          "peer-conflicts",
+          "docs-lie",
+          "docs-lie",
+          "docs-lie",
+          "dead-demo",
+          "native-deps",
+          "build-needs-env",
+          "docs-lie",
+          "peer-conflicts"
+        ],
+        "health": {
+          "stars": 5542,
+          "forks": 462,
+          "open_issues": 13,
+          "contributors": 176,
+          "top_contributor_share": 0.587,
+          "last_commit": "2026-08-29",
+          "last_release": "2026-01-20",
+          "commits_last_90d": 5,
+          "issues_closed_last_90d": 1
+        },
+        "complexity": {
+          "pages": 39,
+          "components": 19,
+          "db_models": 11,
+          "migrations": 1,
+          "loc_estimate": 14020
+        }
+      }
     },
     {
       "id": 7,
@@ -1225,8 +1791,10 @@
             "Auth.js"
           ],
           "target_patterns": [
-            "better-auth"
+            "better-auth",
+            "betterauth"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -1238,9 +1806,8 @@
           "patterns": [
             "stripe"
           ],
-          "target_patterns": [
-            "keep"
-          ],
+          "target_patterns": [],
+          "removal_ok": false,
           "status": "keep",
           "note": "a processor is a service, not a code lock-in: keep it, or replace with the client's local method",
           "verified": false
@@ -1255,8 +1822,10 @@
           "target_patterns": [
             "nodemailer",
             "smtp",
-            "mailgun"
+            "mailgun",
+            "brevo"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -1271,8 +1840,10 @@
             "VERCEL_"
           ],
           "target_patterns": [
-            "coolify"
+            "dockerfile",
+            "compose"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -1295,11 +1866,17 @@
         {
           "kind": "no-docker",
           "detail": "no Dockerfile/compose"
+        },
+        {
+          "kind": "injected-payload",
+          "detail": "security: the shipped code carries an obfuscated/injected blob — never clone — \"postcss.config.mjs ships ~20 KB of obfuscated JS welded onto the export line: 20,866 chars total, line 13 is 20,641 chars of which 20,039 are non-space (hex-escape soup: 0x-style literals, quotes, par\"",
+          "evidence": "verified by the pool owner: gh api repos/Shaisolaris/nextjs-saas-starter/contents/postcss.config.mjs -> 20,866 chars, line 13 = 20,641 chars (20,039 non-space)",
+          "source": "pool-details"
         }
       ],
       "evidence": {
         "source": "github-api (no clone)",
-        "checked_at": "2026-09-23T21:20:48Z",
+        "checked_at": "2026-09-23T22:23:45Z",
         "branch": "main",
         "files_read": [
           "package.json",
@@ -1311,9 +1888,92 @@
         ],
         "tree_entries": 65,
         "locales": [],
-        "license_path": "LICENSE"
+        "license_path": "LICENSE",
+        "vendor_name_in_readme_only": []
       },
-      "updated_at": "2026-09-23T21:20:48Z"
+      "updated_at": "2026-09-23T22:23:45Z",
+      "details_at": "2026-09-23T22:21:54Z",
+      "details_file": "data/details/nextjs-saas-starter.json",
+      "features": [
+        "accounts",
+        "dashboard",
+        "teams",
+        "billing"
+      ],
+      "locales": [
+        "en"
+      ],
+      "swap_burden": "medium",
+      "details_digest": {
+        "details_file": "data/details/nextjs-saas-starter.json",
+        "details_at": "2026-09-23T22:21:54Z",
+        "features": [
+          "accounts",
+          "dashboard",
+          "teams",
+          "billing"
+        ],
+        "locales": [
+          "en"
+        ],
+        "swap_burden": "medium",
+        "verdict": {
+          "best_for": "A solo builder who wants a skinnable Next.js 14 SaaS UI shell (landing page, auth pages, six dashboard pages, working Stripe Checkout/portal/webhook plumbing) and accepts writing the real data layer, invites and email.",
+          "weak_for": "Anything expected to work on day one: tenant-scoped real data, team invites, password reset and transactional email, self-hosting (no Dockerfile, no standalone output), or any pipeline that would run the npm scripts before the postcss.config.mjs payload is removed.",
+          "swap_burden": "medium -- the Stripe checkout/portal/webhook trio and the Prisma schema are reusable, but the NextAuth v4 auth stack, the demo-only data layer, the missing migrations and the absent tests and email all need real work."
+        },
+        "routes_count": 15,
+        "tests": {
+          "frameworks": [],
+          "unit_files": 0,
+          "e2e_files": 0,
+          "ci_workflows": [
+            ".github/workflows/ci.yml"
+          ],
+          "notes": "Zero tests: no vitest/jest/playwright/testing-library in dependencies and no test or spec file in the tree. The only workflow triggers on push/PR to main and runs checkout, setup-node 20, npm install, npx prisma generate, npx tsc --noEmit -- typecheck only, no build, no lint, and npm install rather than npm ci."
+        },
+        "deploy": {
+          "docker": false,
+          "standalone_output": false,
+          "paas_coupling": [
+            "vercel"
+          ],
+          "build_cmd": "npm run build (next build); vercel.json overrides with \"npx prisma generate && next build\"",
+          "start_cmd": "npm run start (next start)"
+        },
+        "pitfalls": [
+          "docs-lie",
+          "docs-lie",
+          "build-needs-env",
+          "dead-demo",
+          "dead-demo",
+          "docs-lie",
+          "peer-conflicts",
+          "dead-demo",
+          "postinstall",
+          "dead-demo",
+          "docs-lie",
+          "docs-lie"
+        ],
+        "health": {
+          "stars": 24,
+          "forks": 0,
+          "open_issues": 3,
+          "contributors": 1,
+          "top_contributor_share": 1.0,
+          "last_commit": "2026-06-05",
+          "last_release": "v1.0.0",
+          "commits_last_90d": 0,
+          "issues_closed_last_90d": 0
+        },
+        "complexity": {
+          "pages": 10,
+          "components": 15,
+          "db_models": 6,
+          "migrations": 0,
+          "loc_estimate": 2777
+        }
+      }
     },
     {
       "id": 8,
@@ -1357,7 +2017,6 @@
       "canonical": 0,
       "canonical_notes": "auth=next-auth -> swap to better-auth; no docker/compose (Coolify prefers a Dockerfile or nixpacks)",
       "deps_vendor": [
-        "neon",
         "next-auth",
         "resend",
         "stripe",
@@ -1419,25 +2078,10 @@
             "Auth.js"
           ],
           "target_patterns": [
-            "better-auth"
+            "better-auth",
+            "betterauth"
           ],
-          "status": "pending",
-          "note": "",
-          "verified": false
-        },
-        "neon": {
-          "vendor": "neon",
-          "category": "db",
-          "target": "docker-postgres",
-          "patterns": [
-            "@neondatabase",
-            "neon.tech",
-            "neon("
-          ],
-          "target_patterns": [
-            "postgres",
-            "pg"
-          ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -1449,9 +2093,8 @@
           "patterns": [
             "stripe"
           ],
-          "target_patterns": [
-            "keep"
-          ],
+          "target_patterns": [],
+          "removal_ok": false,
           "status": "keep",
           "note": "a processor is a service, not a code lock-in: keep it, or replace with the client's local method",
           "verified": false
@@ -1466,8 +2109,10 @@
           "target_patterns": [
             "nodemailer",
             "smtp",
-            "mailgun"
+            "mailgun",
+            "brevo"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -1482,8 +2127,10 @@
             "VERCEL_"
           ],
           "target_patterns": [
-            "coolify"
+            "dockerfile",
+            "compose"
           ],
+          "removal_ok": false,
           "status": "pending",
           "note": "",
           "verified": false
@@ -1532,7 +2179,7 @@
       ],
       "evidence": {
         "source": "github-api (no clone)",
-        "checked_at": "2026-09-23T21:20:52Z",
+        "checked_at": "2026-09-23T22:23:48Z",
         "branch": "main",
         "files_read": [
           "package.json",
@@ -1544,9 +2191,98 @@
         ],
         "tree_entries": 252,
         "locales": [],
-        "license_path": "LICENSE.md"
+        "license_path": "LICENSE.md",
+        "vendor_name_in_readme_only": [
+          "neon"
+        ]
       },
-      "updated_at": "2026-09-23T21:20:52Z"
+      "updated_at": "2026-09-23T22:23:48Z",
+      "details_at": "2026-09-23T22:21:54Z",
+      "details_file": "data/details/next-saas-stripe-starter.json",
+      "features": [
+        "accounts",
+        "admin",
+        "dashboard",
+        "billing",
+        "blog",
+        "docs",
+        "search",
+        "dark-mode"
+      ],
+      "locales": [
+        "en"
+      ],
+      "swap_burden": "medium",
+      "details_digest": {
+        "details_file": "data/details/next-saas-stripe-starter.json",
+        "details_at": "2026-09-23T22:21:54Z",
+        "features": [
+          "accounts",
+          "admin",
+          "dashboard",
+          "billing",
+          "blog",
+          "docs",
+          "search",
+          "dark-mode"
+        ],
+        "locales": [
+          "en"
+        ],
+        "swap_burden": "medium",
+        "verdict": {
+          "best_for": "A single-tenant B2C/B2B SaaS that needs a polished marketing site, a role-gated dashboard and Stripe subscription billing on Next 14 App Router, when you will rebrand and extend it yourself rather than track upstream.",
+          "weak_for": "Anything needing teams/orgs, i18n, uploads, background jobs, API keys or an audit trail - and any team that wants tests, CI or a maintained upgrade path (dormant since 2024-07-26, zero test files, zero workflows, beta Auth.js).",
+          "swap_burden": "medium - Stripe/Resend/Neon/Vercel are thin and mostly config-swappable, but rebranding (every page, OG/favicons, hero copy), replacing the mock admin/orders pages, removing the upstream GitHub star fetch, and adding the missing tests/CI/Docker are all manual."
+        },
+        "routes_count": 21,
+        "tests": {
+          "frameworks": [],
+          "unit_files": 0,
+          "e2e_files": 0,
+          "ci_workflows": [],
+          "notes": "No test runner and no test file anywhere: the 323-entry tree has no *.test.* / *.spec.* / __tests__ and no vitest/jest/playwright/cypress dependency or config; there is no .github/ directory at all, so no CI, issue templates or code scanning. Quality tooling is lint/format only (eslint + next/core-web-vitals, prettier + prettier-plugin-tailwindcss, commitlint, husky)."
+        },
+        "deploy": {
+          "docker": false,
+          "standalone_output": false,
+          "paas_coupling": [
+            "vercel",
+            "neon"
+          ],
+          "build_cmd": "pnpm build",
+          "start_cmd": "pnpm start"
+        },
+        "pitfalls": [
+          "build-needs-env",
+          "docs-lie",
+          "docs-lie",
+          "postinstall",
+          "dead-demo",
+          "dead-demo",
+          "outdated-deps",
+          "docs-lie",
+          "native-deps"
+        ],
+        "health": {
+          "stars": 3003,
+          "forks": 630,
+          "open_issues": 26,
+          "contributors": 4,
+          "top_contributor_share": 0.983,
+          "last_commit": "2024-07-26",
+          "last_release": "v1.0.0",
+          "commits_last_90d": 0,
+          "issues_closed_last_90d": 0
+        },
+        "complexity": {
+          "pages": 17,
+          "components": 108,
+          "db_models": 4,
+          "migrations": 1,
+          "loc_estimate": 12534
+        }
+      }
     }
   ]
 }

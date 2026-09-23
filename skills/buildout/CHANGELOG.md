@@ -1,5 +1,53 @@
 # Changelog - Buildout
 
+## 0.8.1 — 2026-09-23
+
+The pool got a memory. Each template now carries a **measured detail file** — real routes, real
+features, the env names it demands at build time, its deploy story, its rebrand surface, and the
+traps that would cost an hour. One subagent per repo measures it through the GitHub API (no clone);
+one command imports it. The registry became a place that answers *what is it like to work with this*,
+not only *what does it declare*.
+
+### Added
+- **`references/pool-details.md` + `references/pool-details-contract.md`** — the fan-out procedure
+  (one subagent per repo, remote-only, env vars by name) and the field-by-field schema.
+- **`templates_db.py import-details <dir|file>`** — validates each file, refuses a missing
+  `repo`/`slug`, a credential-shaped value, a repo that is not in the registry, and a file whose slug
+  matches a row measuring a **different** repo (cross-attachment). Stores the blob, promotes
+  `features`/`locales`/`swap_burden` into queryable columns, and ships `data/details/<slug>.json`.
+- **`blocking[]`** — the only channel that can stop a template: `injected-payload` (shipped code
+  carries an obfuscated blob) and `install-impossible` (a dependency that does not exist). Imported
+  as an auditable `risk_flags` entry with `source: pool-details` and made a hard blocker.
+- **Schema migration** — an older `templates.db` is brought forward column by column instead of
+  crashing (`connect` now ALTER-ADDs what is missing).
+- **Export digest** — the bulk `templates.json` carries a compact digest per row; the ~20 KB blobs
+  stay in SQLite and in `data/details/`, read on demand.
+- **Measured-cost scoring** — a detail file proving `db: none` now costs 25 points on an ask that
+  must store data, and says so in the reasons.
+- **`tests/test_factory.py`** — 47 tests (was 36): import validation, credential refusal,
+  cross-attachment, blocker derivation, blocker survival across a re-measurement, prose-≠-blocker
+  regression, migration, and the measured-cost scoring.
+
+### Fixed
+- **A phantom vendor in the pool.** `classify_deps` matched bare words inside other words and read
+  the README as config: `ably` was recorded as a Next-Elite dependency because the README says
+  "pro**bably**". Vendors now come from dependencies and config files only; a README name-drop is
+  recorded separately (`vendor_name_in_readme_only`) and never becomes a swap.
+- **Env-var names stopped matching.** The first word-boundary fix treated `_` as a word character, so
+  `NEXT_PUBLIC_POSTHOG_KEY` no longer matched `posthog` and real vendor deps silently disappeared
+  (proved by a pool-wide before/after diff). Plain-word patterns now match whole tokens, `_` splits.
+- **Two healthy templates were temporarily mis-flagged** by a text-regex blocker rule ("no bun
+  lockfile" while an npm lockfile exists; a passing mention of `npm ci`). Blockers are structured
+  now — a regex over free text is not a measurement.
+- `_promote` derives `swap_burden` from prose safely, and `upsert` merges instead of erasing the
+  detail-derived flags on a re-measurement.
+
+### Pool (8 repos, measured 2026-09-23)
+Featuring the first honest ranking: for a French+Arabic invoicing ask, Next-Elite falls from #1 to #3
+once its detail file proves it has **no database**, and the two poisoned repos are named as blocked —
+`nextjs-saas-starter` (≈20 KB of obfuscated JS welded onto `postcss.config.mjs`) and
+`Micro-SaaS-Starter-Kit` (`@radix-ui/react-skeleton` does not exist on npm).
+
 ## 0.8.0 — 2026-09-23
 
 The Template Factory — a full rewrite of the creation logic, after the owner's verdict on the 0.7.0 runs: *"multiple ideas inside one that interfere … the result is crappy … the problem is the workflow … we over think interconnected things."* The pack no longer **generates** products; it **matches, clones, swaps and rebrands** them. Intake → Match → Clone → Swap → Rebrand → Verify — one idea per phase. 0.7.0 was never released; its composition layer is deleted (below), not deprecated.

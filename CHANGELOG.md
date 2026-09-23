@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-23 — the pool gets a memory (pack v0.16.1)
+
+Every template in the factory pool now carries a **measured detail file** — not what its README claims, but what its code does: the real routes, the features that exist, the locales it actually ships, the environment names it demands at build time, the deploy story, the files that carry someone else's brand, and the traps that would cost an hour. One subagent per repository measures it through the GitHub API (no clone, no execution, env vars **by name only**); one command validates and imports it; the blobs ship in the pack and load on demand, while a compact digest rides the pool export.
+
+The first honest ranking came out of it: for a French + Arabic invoicing ask, the previous top pick drops to third once its own detail file proves it has **no database** — the factory now prices that in (−25) and says so in the reasons. Two repositories are also named as **blocked** rather than quietly ranked: one ships ~20 KB of obfuscated JavaScript welded onto `postcss.config.mjs` (verified by reading the file back), one depends on an npm package that does not exist (verified against the registry: 404 where a sibling returns 200). Blockers are structured and evidence-quoted — a regex over an agent's prose once flagged two healthy templates, and that mistake is now a regression test.
+
+The measure step also got honest about itself: a pool-wide before/after diff caught a phantom vendor (`ably`, recorded because a README said "pro**bably**"), proved that vendors must come from dependencies and config files rather than prose, and then caught a second bug in the first fix — env-var names stopped matching, so real vendor dependencies silently vanished. Both are fixed, with the diff as the evidence.
+
+buildout: **0.8.1 · 47 offline tests** (was 36) · older registries migrate in place instead of crashing.
+
 ## 2026-09-23 — buildout becomes a Template Factory (pack v0.16.0)
 
 buildout no longer *generates* applications: it **matches, clones, swaps and rebrands** vetted MIT/Apache full-app templates. A ≤10-question intake feeds a registry of templates **measured through the GitHub API** (license, stack, vendor dependencies, contributor concentration, risk flags, rebrand surface — never README claims), scored deterministically (shape · features · RTL · canonical stack · boot · stars · swap cost) with hard blockers on license, archived repos and build failures. The chosen match is cloned into a fresh project folder with its own git history and a small factory record (license, upstream commit, swap map, mandatory-facts list); proprietary services (Clerk, Neon, Resend, Sendgrid, Sentry, S3, Plausible, hosted Postgres…) are replaced by open-source targets and **proved gone by `swap_check`** (per-entry verdict, exit 1 on any leftover reference); the owner's brand replaces the template's — including the leak check that kills template names, demo copy and leftover logos; then a 6-row verify tail (fresh-clone boot with a build-id proof, swap check, leak check, core-flow write-path, mobile probe, PENDING) and the Coolify deploy. Cloning and booting third-party code is **consent-gated** (`--deep --yes`); intake itself never clones.
@@ -14,7 +24,7 @@ buildout no longer *generates* applications: it **matches, clones, swaps and reb
 
 The defects that run surfaced are fixed in this release: package-manager shims not resolving on Windows, an install running outside the project folder, a swap map written in the wrong shape, and a commit that is now cut before any install can land in it.
 
-Skill versions: buildout 0.8.0 · vps-ops 0.9.9 · deckhand-profile 0.3.3 · component-library 0.1.3. **87 stdlib tests green.**
+Skill versions: buildout 0.8.1 · vps-ops 0.9.9 · deckhand-profile 0.3.3 · component-library 0.1.3. **98 stdlib tests green.**
 
 ## 2026-09-22 — map before build, two directions compete, and the freeze gate that refuses (pack v0.15.0)
 

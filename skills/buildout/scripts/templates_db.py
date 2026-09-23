@@ -11,12 +11,14 @@ usage (from the skill dir):
   py scripts/templates_db.py list [--status S] [--shape S] [--canonical] [--json]
   py scripts/templates_db.py score --intake <intake.json> [--top N] [--json]
   py scripts/templates_db.py export [--out data/templates.json]
+  py scripts/templates_db.py import-details <dir|file>   # pool-details contract: data/details/*.json
 """
 from __future__ import annotations
 
 import argparse
 import datetime as _dt
 import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -41,6 +43,8 @@ TPL_FIELDS = [
     "deps_vendor", "deps_selfhost", "deps_unclassified",
     "swap_map", "boot_install_ok", "boot_build_ok", "boot_start_ok", "boot_tests",
     "boot_ms", "boot_port", "rebrand_surface", "risk_flags", "evidence", "updated_at",
+    # deep pool details (references/pool-details.md): a measured digest of the template
+    "details", "details_at", "details_file", "features", "locales", "swap_burden",
 ]
 
 SCHEMA = """
@@ -61,7 +65,9 @@ CREATE TABLE IF NOT EXISTS templates (
   swap_map TEXT,
   boot_install_ok INTEGER, boot_build_ok INTEGER, boot_start_ok INTEGER,
   boot_tests TEXT, boot_ms INTEGER, boot_port INTEGER,
-  rebrand_surface TEXT, risk_flags TEXT, evidence TEXT, updated_at TEXT
+  rebrand_surface TEXT, risk_flags TEXT, evidence TEXT, updated_at TEXT,
+  details TEXT, details_at TEXT, details_file TEXT,
+  features TEXT, locales TEXT, swap_burden TEXT
 );
 CREATE TABLE IF NOT EXISTS intake_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,11 +80,48 @@ def now() -> str:
     return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+# Columns added after the first row ever existed: `connect` migrates, so an older
+# templates.db keeps working instead of needing a rebuild.
+DETAIL_COLS = {"details": "TEXT", "details_at": "TEXT", "details_file": "TEXT",
+               "features": "TEXT", "locales": "TEXT", "swap_burden": "TEXT"}
+
+# Every column the registry ever adds, so an older templates.db is brought forward instead of crashing
+# (`name`/`url` are NOT NULL and always first; they are never ALTER-ADDed).
+COL_TYPES = {
+    "repo": "TEXT", "rank": "INTEGER", "status": "TEXT", "reject_reason": "TEXT",
+    "license_spdx": "TEXT", "license_file": "TEXT", "license_ok": "INTEGER",
+    "stars": "INTEGER", "forks": "INTEGER", "open_issues": "INTEGER",
+    "pushed_at": "TEXT", "archived": "INTEGER", "default_branch": "TEXT", "size_kb": "INTEGER",
+    "shape": "TEXT", "shape_source": "TEXT", "stack": "TEXT",
+    "canonical": "INTEGER", "canonical_notes": "TEXT",
+    "deps_vendor": "TEXT", "deps_selfhost": "TEXT", "deps_unclassified": "TEXT", "swap_map": "TEXT",
+    "boot_install_ok": "INTEGER", "boot_build_ok": "INTEGER", "boot_start_ok": "INTEGER",
+    "boot_tests": "TEXT", "boot_ms": "INTEGER", "boot_port": "INTEGER",
+    "rebrand_surface": "TEXT", "risk_flags": "TEXT", "evidence": "TEXT", "updated_at": "TEXT",
+    **DETAIL_COLS,
+}
+
+
+def _migrate(con: sqlite3.Connection) -> list[str]:
+    have = {r["name"] for r in con.execute("PRAGMA table_info(templates)")}
+    added = []
+    if not have:
+        return added
+    for col, typ in COL_TYPES.items():
+        if col not in have:
+            con.execute(f"ALTER TABLE templates ADD COLUMN {col} {typ}")
+            added.append(col)
+    if added:
+        con.commit()
+    return added
+
+
 def connect(db: Path) -> sqlite3.Connection:
     db.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(str(db))
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
+    _migrate(con)
     return con
 
 
@@ -118,7 +161,7 @@ def upsert(con: sqlite3.Connection, rec: dict) -> None:
     }
     # normalise json-ish fields
     for f in ("stack", "deps_vendor", "deps_selfhost", "deps_unclassified", "swap_map",
-              "rebrand_surface", "risk_flags", "evidence"):
+              "rebrand_surface", "risk_flags", "evidence", "details", "features", "locales"):
         if isinstance(rec.get(f), (dict, list)):
             rec[f] = json.dumps(rec[f], ensure_ascii=False)
     stack = jload(rec.get("stack"), {})
@@ -126,7 +169,17 @@ def upsert(con: sqlite3.Connection, rec: dict) -> None:
         rec["canonical"], rec["canonical_notes"] = compute_canonical(stack)
     rec["updated_at"] = now()
     cols = [c for c in TPL_FIELDS if c in rec]
-    existing = con.execute("SELECT id FROM templates WHERE name = ?", (rec.get("name"),)).fetchone()
+    existing = con.execute("SELECT id, risk_flags FROM templates WHERE name = ?", (rec.get("name"),)).fetchone()
+    if existing and "risk_flags" in rec:
+        # intake owns the repo facts, import-details owns the flags it derived from pitfalls:
+        # a re-measurement must not silently erase a security blocker.
+        kept = [f for f in (jload(existing["risk_flags"], []) or [])
+                if isinstance(f, dict) and f.get("source") == "pool-details"]
+        if kept:
+            incoming = jload(rec.get("risk_flags"), []) or []
+            kinds = {f.get("kind") for f in incoming if isinstance(f, dict)}
+            rec["risk_flags"] = json.dumps(incoming + [f for f in kept if f.get("kind") not in kinds],
+                                           ensure_ascii=False)
     if existing:
         sets = ", ".join(f"{c} = ?" for c in cols)
         con.execute(f"UPDATE templates SET {sets} WHERE name = ?", [rec[c] for c in cols] + [rec["name"]])
@@ -156,7 +209,7 @@ def load_seed(path: Path) -> list[dict]:
 def rowdict(r: sqlite3.Row) -> dict:
     d = dict(r)
     for f in ("stack", "deps_vendor", "deps_selfhost", "deps_unclassified", "swap_map",
-              "rebrand_surface", "risk_flags", "evidence"):
+              "rebrand_surface", "risk_flags", "evidence", "details", "features", "locales"):
         d[f] = jload(d.get(f), None)
     return d
 
@@ -264,6 +317,19 @@ def score_template(intake: dict, row: dict) -> tuple[int, list[str], list[str]]:
         s -= min(swaps * 2, 10)
         reasons.append(f"swap cost: {swaps} vendor dep(s) -> -{min(swaps * 2, 10)}")
 
+    # The detail file can prove something the remote heuristic cannot: there is no persistence at all
+    # (measured `db: none`). Recommending that for an app that must store data would be a lie with a
+    # high score attached, so it is priced in.
+    det = row.get("details") if isinstance(row.get("details"), dict) else {}
+    det_db = str(((det.get("stack") or {}).get("db")) or "").lower()
+    wants = {str(f).lower() for f in (intake.get("features") or [])}
+    needs_storage = want_shape in ("saas", "marketplace", "booking", "catalogue") or bool(
+        wants & {"accounts", "payments", "files", "admin", "booking"})
+    if det_db in ("none", "unknown") and needs_storage:
+        s -= 25
+        reasons.append(f"penalty: measured stack has NO database (details: db={det_db}) — "
+                       f"persistence would be built from scratch")
+
     for f in (row.get("risk_flags") or []):
         if isinstance(f, dict):
             if f.get("kind") == "stale":
@@ -272,6 +338,9 @@ def score_template(intake: dict, row: dict) -> tuple[int, list[str], list[str]]:
             elif f.get("kind") == "no-tests":
                 s -= 5
                 reasons.append("penalty: no tests detected")
+            elif f.get("kind") in ("injected-payload", "install-impossible"):
+                # Measured from the detail file: never merely a penalty.
+                blockers.append(f"{f['kind']}: {f.get('detail', '')[:160]}")
             else:
                 reasons.append(f"risk: {f.get('kind')}")
         else:
@@ -343,11 +412,189 @@ def cmd_list(con, args) -> int:
     return 0
 
 
+# ---------------------------------------------------------------- pool details
+# A detail file is written by an agent that read real files: the one thing that must never travel
+# back is a credential VALUE. Names are welcome; values are refused (see 10-match.md).
+SECRET_RE = re.compile(
+    r"sk_live_[A-Za-z0-9]{10,}|sk_test_[A-Za-z0-9]{10,}|sk-[A-Za-z0-9]{24,}"
+    r"|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}"
+    r"|-----BEGIN [A-Z ]*PRIVATE KEY|xox[baprs]-[A-Za-z0-9-]{10,}"
+)
+
+
+def _secret_hits(text: str) -> list[str]:
+    return sorted({m.group(0)[:10] for m in SECRET_RE.finditer(text)})
+
+
+def validate_details(rec: dict, text: str) -> tuple[list[str], list[str]]:
+    """(errors, warnings) for one pool-detail file. An error keeps it out of the registry."""
+    errs: list[str] = []
+    warns: list[str] = []
+    for k in ("repo", "slug"):
+        if not rec.get(k):
+            errs.append(f"missing `{k}`")
+    hits = _secret_hits(text)
+    if hits:
+        errs.append(f"credential-shaped value present ({', '.join(hits)}) — values are never recorded")
+    for k in ("framework", "stack", "features", "env", "deploy", "tests", "health", "verdict", "evidence"):
+        if k not in rec:
+            warns.append(f"section `{k}` absent")
+    if not rec.get("evidence"):
+        warns.append("no `evidence` map — its facts are not traceable")
+    if not rec.get("unmeasured"):
+        warns.append("no `unmeasured` list")
+    for b in (rec.get("blocking") or []):
+        if not isinstance(b, dict):
+            warns.append("`blocking` entries must be objects")
+        elif b.get("kind") not in BLOCKING_KINDS:
+            warns.append(f"unknown blocking kind `{b.get('kind')}` "
+                         f"(allowed: {', '.join(sorted(BLOCKING_KINDS))})")
+        elif not b.get("evidence"):
+            warns.append(f"blocking `{b.get('kind')}` carries no evidence")
+    return errs, warns
+
+
+BLOCKING_KINDS = {
+    "injected-payload": "security: the shipped code carries an obfuscated/injected blob — never clone",
+    "install-impossible": "the repo cannot install as shipped (phantom dependency or missing lockfile)",
+}
+
+
+def _derive_flags(rec: dict, existing: list) -> list[dict]:
+    """Blockers from the detail file's own `blocking[]` — a structured claim that carries evidence.
+
+    Deliberately NOT derived from pitfall prose: a regex over an agent's free text gave two healthy
+    templates a blocker ("no bun lockfile" while an npm lockfile exists; a passing mention of
+    `npm ci`). Structured or nothing — a flagged template is never cloned, so a false flag costs a
+    good candidate and a missed one ships a poisoned project.
+    """
+    keep = [f for f in existing if not (isinstance(f, dict) and f.get("source") == "pool-details")]
+    out: list[dict] = []
+    for b in (rec.get("blocking") or []):
+        if not isinstance(b, dict):
+            continue
+        kind = b.get("kind")
+        if kind not in BLOCKING_KINDS or any(f["kind"] == kind for f in out):
+            continue
+        out.append({"kind": kind,
+                    "detail": f"{BLOCKING_KINDS[kind]} — \"{(b.get('why') or '')[:200]}\"",
+                    "evidence": b.get("evidence"), "source": "pool-details"})
+    return keep + out
+
+
+def _promote(rec: dict) -> dict:
+    """Queryable columns, so matching never has to parse the blob."""
+    i18n = ((rec.get("stack") or {}).get("i18n") or {}) if isinstance(rec.get("stack"), dict) else {}
+    raw = str((rec.get("verdict") or {}).get("swap_burden") or "")
+    m = re.search(r"\b(none|light|medium|heavy)\b", raw, re.I)   # tolerate prose around the word
+    return {
+        "features": json.dumps(rec.get("features") or [], ensure_ascii=False),
+        "locales": json.dumps(i18n.get("locales") or [], ensure_ascii=False),
+        "swap_burden": (m.group(1).lower() if m else (raw.strip() or None)),
+    }
+
+
+def cmd_import_details(con, path: Path, store_dir: Path, as_json: bool) -> int:
+    files = [path] if path.is_file() else sorted(p for p in path.glob("*.json"))
+    if not files:
+        print(f"import-details: no *.json under {path}", file=sys.stderr)
+        return 1
+    ok: list[tuple[str, str, dict]] = []
+    bad: list[tuple[str, list[str]]] = []
+    warns: list[str] = []
+    for f in files:
+        text = f.read_text(encoding="utf-8")
+        try:
+            rec = json.loads(text)
+        except Exception as e:
+            bad.append((f.name, [f"invalid JSON: {e}"]))
+            continue
+        errs, ws = validate_details(rec, text)
+        if errs:
+            bad.append((f.name, errs))
+            continue
+        row = con.execute("SELECT name, repo, risk_flags FROM templates WHERE lower(repo) = lower(?)",
+                          (rec["repo"],)).fetchone()
+        if not row:
+            # A repo rename must not break the link — but details for repo X may never be attached to a
+            # row that measures repo Y: that would silently lie about the template.
+            row = con.execute("SELECT name, repo, risk_flags FROM templates WHERE lower(name) = lower(?)",
+                              (rec["slug"],)).fetchone()
+            if row and (row["repo"] or "").strip() and (row["repo"] or "").strip().lower() != rec["repo"].lower():
+                bad.append((f.name, [f"slug {rec['slug']} matches row '{row['name']}' but that row measures "
+                                     f"{row['repo']} — refusing to attach details for {rec['repo']}"]))
+                continue
+        if not row:
+            bad.append((f.name, [f"{rec['repo']} is not in the registry — run "
+                                 f"`template_intake.py --repo {rec['repo']}` first"]))
+            continue
+        store_dir.mkdir(parents=True, exist_ok=True)
+        target = store_dir / f"{rec['slug']}.json"
+        target.write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
+        try:
+            shown = str(target.relative_to(SKILL_DIR)).replace("\\", "/")
+        except ValueError:
+            shown = str(target)
+        upd = {"details": json.dumps(rec, ensure_ascii=False), "details_at": now(), "details_file": shown}
+        upd.update(_promote(rec))
+        flags = _derive_flags(rec, jload(row["risk_flags"], []) or [])
+        upd["risk_flags"] = json.dumps(flags, ensure_ascii=False)
+        con.execute(f"UPDATE templates SET {', '.join(f'{c} = ?' for c in upd)} WHERE name = ?",
+                    [upd[c] for c in upd] + [row["name"]])
+        con.commit()
+        ok.append((f.name, row["name"], rec))
+        warns += [f"{rec['slug']}: {w}" for w in ws]
+
+    if as_json:
+        print(json.dumps({"imported": [{"file": a, "template": b} for a, b, _ in ok],
+                          "rejected": [{"file": a, "errors": e} for a, e in bad],
+                          "warnings": warns}, ensure_ascii=False, indent=2))
+    else:
+        for fname, tpl, rec in ok:
+            pr = _promote(rec)
+            feats = len(json.loads(pr["features"]))
+            locs = len(json.loads(pr["locales"]))
+            print(f"  ok  {fname:38} -> {tpl:28} features={feats:3} locales={locs} "
+                  f"swap={pr['swap_burden'] or '?'}")
+        for fname, errs in bad:
+            print(f"  REFUSED {fname}: {'; '.join(errs)}", file=sys.stderr)
+        for w in warns:
+            print(f"  warn: {w}")
+        print(f"import-details: {len(ok)} imported, {len(bad)} refused, {len(warns)} warning(s)")
+    return 0 if ok and not bad else 1
+
+
+def _digest(r: dict) -> dict:
+    """What the bulk export carries: enough to rank and to decide, small enough to read."""
+    d = r.get("details") or {}
+    if not isinstance(d, dict):
+        d = {}
+    return {
+        "details_file": r.get("details_file"), "details_at": r.get("details_at"),
+        "features": r.get("features") or d.get("features") or [],
+        "locales": r.get("locales") or ((d.get("stack") or {}).get("i18n") or {}).get("locales") or [],
+        "swap_burden": r.get("swap_burden"),
+        "verdict": d.get("verdict") or {}, "routes_count": (d.get("routes") or {}).get("count"),
+        "tests": d.get("tests") or {},
+        "deploy": {k: (d.get("deploy") or {}).get(k) for k in
+                   ("docker", "standalone_output", "paas_coupling", "build_cmd", "start_cmd")},
+        "pitfalls": [p.get("kind") for p in (d.get("pitfalls") or []) if isinstance(p, dict)],
+        "health": d.get("health") or {}, "complexity": d.get("complexity") or {},
+    }
+
+
 def cmd_export(con, out: Path) -> int:
     rows = [rowdict(r) for r in con.execute("SELECT * FROM templates ORDER BY COALESCE(rank, 999), name").fetchall()]
-    payload = {"generated_at": now(), "source": "data/templates.db", "count": len(rows), "templates": rows}
+    detailed = 0
+    for r in rows:
+        r["details_digest"] = _digest(r)
+        if r.get("details_file"):
+            detailed += 1
+        r.pop("details", None)  # the blob lives in SQLite and in data/details/<slug>.json
+    payload = {"generated_at": now(), "source": "data/templates.db", "count": len(rows),
+               "with_details": detailed, "templates": rows}
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"exported {len(rows)} template(s) -> {out}")
+    print(f"exported {len(rows)} template(s) ({detailed} with deep details) -> {out}")
     return 0
 
 
@@ -361,6 +608,7 @@ def main(argv=None) -> int:
     p = sub.add_parser("list"); p.add_argument("--status", choices=STATUSES); p.add_argument("--shape", choices=SHAPES); p.add_argument("--canonical", action="store_true"); p.add_argument("--json", action="store_true")
     p = sub.add_parser("score"); p.add_argument("--intake", required=True); p.add_argument("--top", type=int, default=3); p.add_argument("--json", action="store_true")
     p = sub.add_parser("export"); p.add_argument("--out", default=str(DEFAULT_EXPORT))
+    p = sub.add_parser("import-details"); p.add_argument("path"); p.add_argument("--store", default=str(SKILL_DIR / "data" / "details")); p.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
     db = Path(args.db)
@@ -396,6 +644,8 @@ def main(argv=None) -> int:
         return cmd_score(con, Path(args.intake), args.top, args.json)
     if args.cmd == "export":
         return cmd_export(con, Path(args.out))
+    if args.cmd == "import-details":
+        return cmd_import_details(con, Path(args.path), Path(args.store), args.json)
     return 1
 
 

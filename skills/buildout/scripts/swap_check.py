@@ -43,14 +43,15 @@ def iter_files(root: Path):
 
 
 def _needle_hit(needle: str, line_low: str) -> bool:
-    """Substring for SDK-shaped patterns ('@clerk/'); word-bounded for plain words.
+    """Substring for SDK-shaped patterns ('@clerk/'); whole token for plain words.
 
-    A bare word must never match inside another word — measured false positives: `ably` matched
-    "pro**bably**" in a README and `pg` would match "jpg". Those ghosts cost an agent a real hunt.
+    Bare words must never match inside another word (`ably` matched "pro**bably**" in a README, `pg`
+    would match "jpg"), yet env-var names must still hit: `NEXT_PUBLIC_CLERK_KEY` must match `clerk`,
+    so `_` splits tokens.
     """
     if re.search(r"[^a-z0-9]", needle):     # symbols in the pattern → plain substring
         return needle in line_low
-    return re.search(rf"(?<![a-z0-9_-]){re.escape(needle)}(?![a-z0-9_-])", line_low) is not None
+    return needle in re.split(r"[^a-z0-9]+", line_low)
 
 
 def scan(root: Path, patterns: list[str]) -> list[tuple[str, str, str]]:

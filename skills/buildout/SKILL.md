@@ -1,7 +1,7 @@
 ---
 name: buildout
 description: "Use when building/shipping an online business: match a vetted open-source template, clone it, swap the proprietary services, rebrand, verify, deploy."
-version: 0.8.0
+version: 0.8.1
 author: Takim, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -33,6 +33,10 @@ services for open-source ones, rebrands it, verifies, and deploys.
 
 Refs (load by phase): `references/factory/00-intake.md` · `10-match.md` · `20-clone.md` ·
 `30-swap.md` · `40-rebrand.md` · `50-verify-deploy.md`. Never load all six at once.
+
+Pool data (load when the pool itself is the question): `references/pool-details.md` — the measured
+detail file per template (routes, features, env names, deploy story, pitfalls) and how it enters the
+registry; `references/pool-details-contract.md` — the schema a measuring subagent must fill.
 
 ## Hard rules
 

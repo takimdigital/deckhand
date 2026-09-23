@@ -60,7 +60,7 @@ def _scan_clone_for_vendors(dest: Path) -> dict:
         p = dest / name
         if p.exists():
             blob += p.read_text(encoding="utf-8", errors="ignore")[:20000] + "\n"
-    _v, _s, _u, swap_map = L.classify_deps(deps, blob)
+    _v, _s, _u, swap_map, _m = L.classify_deps(deps, blob)
     return swap_map
 
 
