@@ -1,0 +1,15 @@
+{
+  "$schema": "buildout template registry seed — records enter as status=unverified; template_intake.py fills the measured fields",
+  "generated_by": "buildout 0.8.0 (Template Factory)",
+  "note": "rank = the user's stated preference order (1 = most loved). Measured facts (license SPDX, stars, last push, stack, deps, boot) come from template_intake.py, never from READMEs.",
+  "templates": [
+    { "rank": 1, "name": "open-saas", "url": "https://github.com/wasp-lang/open-saas", "status": "unverified", "user_note": "top loved; Wasp full-stack framework — non-canonical stack" },
+    { "rank": 2, "name": "Next-js-Boilerplate", "url": "https://github.com/ixartz/Next-js-Boilerplate", "status": "unverified", "user_note": "mainstream Next.js boilerplate; expected swap surface: Clerk, Sentry, i18n" },
+    { "rank": 3, "name": "full-stack-fastapi-template", "url": "https://github.com/fastapi/full-stack-fastapi-template", "status": "unverified", "user_note": "FastAPI + React + Docker Compose; non-Next stack" },
+    { "rank": 4, "name": "Micro-SaaS-Starter-Kit", "url": "https://github.com/UNC-GDSC/Micro-SaaS-Starter-Kit", "status": "unverified", "user_note": "README shows template-generated badges (github.com/your-repo) — score by measurement only" },
+    { "rank": 5, "name": "Next-Elite", "url": "https://github.com/salmanshahriar/Next-Elite", "status": "unverified", "user_note": "Next + Better Auth + Docker standalone + next-intl (LTR/RTL) — closest to canonical stack" },
+    { "rank": 6, "name": "epic-stack", "url": "https://github.com/epicweb-dev/epic-stack", "status": "unverified", "user_note": "Remix — non-canonical stack" },
+    { "rank": 7, "name": "nextjs-saas-starter", "url": "https://github.com/Shaisolaris/nextjs-saas-starter", "status": "unverified", "user_note": "README not retrievable at review time" },
+    { "rank": 8, "name": "next-saas-stripe-starter", "url": "https://github.com/mickasmt/next-saas-stripe-starter", "status": "unverified", "user_note": "Neon + Auth.js + Resend + Stripe — real swap surface" }
+  ]
+}

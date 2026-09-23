@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qa probe — measure a local page at a true viewport width</title></head>
+<body style="font:12px/1.4 monospace;white-space:pre;margin:0;padding:8px">
+<!--
+  qa/probe.html — dependency-free page measurement harness (buildout 0.7.0).
+  Serve this file and the page under test from the SAME origin (the project's
+  static server or `py -m http.server`), then:
+
+    chrome --headless=new --disable-gpu --hide-scrollbars --virtual-time-budget=6000 \
+      --window-size=500,844 --dump-dom \
+      "http://localhost:<port>/qa/probe.html?url=/&w=390&h=844" | grep -o 'PROBE .*'
+
+  Why: `--window-size=390,844` does NOT give a 390px layout — Chrome on Windows
+  clamps windows to a 500px minimum, so the page lays out at 500 and the shot is
+  cropped (this false-positived a "mobile overflow" during a field test). The
+  iframe below is the only width the page actually sees. Cross-origin iframes
+  cannot be measured — keep both files on one origin.
+
+  Output: innerWidth/clientWidth/scrollWidth + overflowPx, heading sizes/boxes,
+  section boxes+backgrounds, image/svg boxes, tel/button CTAs, inter-section gaps.
+-->
+<script>
+const q = new URLSearchParams(location.search);
+const target = q.get('url') || '/';
+const W = +(q.get('w') || 390), H = +(q.get('h') || 844);
+const fr = document.createElement('iframe');
+fr.style.cssText = 'width:' + W + 'px;height:' + H + 'px;border:0;position:absolute;left:0;top:0';
+fr.src = target;
+document.body.textContent = 'PROBE loading ' + target;
+fr.addEventListener('load', () => {
+  try {
+    const d = fr.contentDocument, win = fr.contentWindow, de = d.documentElement;
+    const rect = el => { const r = el.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) }; };
+    const cs = el => win.getComputedStyle(el);
+    const out = {
+      url: target, viewport: W + 'x' + H, title: d.title,
+      innerWidth: win.innerWidth, clientWidth: de.clientWidth, scrollWidth: de.scrollWidth,
+      overflowPx: de.scrollWidth - de.clientWidth,
+      docHeight: de.scrollHeight,
+      bodyFont: cs(d.body).fontSize + '/' + cs(d.body).lineHeight,
+      overflowers: [...d.querySelectorAll('body *')]
+        .map(el => ({ sel: el.tagName.toLowerCase() + (el.className ? '.' + String(el.className).trim().split(/\s+/)[0] : ''), ...rect(el) }))
+        .filter(x => x.right > W + 1 || x.w > W + 1).slice(0, 15),
+      headings: [...d.querySelectorAll('h1,h2,h3')].slice(0, 12).map(h => ({ tag: h.tagName, text: (h.textContent || '').trim().slice(0, 48), ...rect(h), fs: cs(h).fontSize, lh: cs(h).lineHeight, weight: cs(h).fontWeight, align: cs(h).textAlign })),
+      sections: [...d.querySelectorAll('section, main > *, footer, header')].slice(0, 20).map(s => ({ sel: (s.id ? '#' + s.id : s.tagName.toLowerCase()) + (s.className ? '.' + String(s.className).trim().split(/\s+/)[0] : ''), ...rect(s), bg: cs(s).backgroundColor, color: cs(s).color })),
+      images: [...d.querySelectorAll('img, svg, picture, figure, canvas')].map(i => ({ sel: i.tagName.toLowerCase(), ...rect(i) })).slice(0, 12),
+      ctas: [...d.querySelectorAll('a[href^="tel:"], a[href*="soumission"], button')].slice(0, 10).map(a => ({ text: (a.textContent || '').trim().slice(0, 40), href: a.getAttribute('href') || '', ...rect(a), bg: cs(a).backgroundColor })),
+      gaps: (() => {
+        const secs = [...d.querySelectorAll('main > section, main > div > section, .hero, section')];
+        const g = [];
+        for (let i = 1; i < secs.length; i++) {
+          const a = secs[i - 1].getBoundingClientRect(), b = secs[i].getBoundingClientRect();
+          g.push({ from: secs[i - 1].id || secs[i - 1].tagName, to: secs[i].id || secs[i].tagName, gap: Math.round(b.top - a.bottom) });
+        }
+        return g.slice(0, 20);
+      })(),
+    };
+    document.body.textContent = 'PROBE ' + JSON.stringify(out);
+  } catch (e) {
+    document.body.textContent = 'PROBE ERROR ' + e + ' (cross-origin iframe? serve both files from one origin)';
+  }
+});
+document.body.appendChild(fr);
+</script>
+</body></html>

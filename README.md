@@ -11,8 +11,8 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Tests: 132 passing" src="https://img.shields.io/badge/tests-132%20passing-brightgreen.svg">
-  <img alt="Version: 0.15.0" src="https://img.shields.io/badge/version-0.15.0-blueviolet.svg">
+  <img alt="Tests: 77 passing" src="https://img.shields.io/badge/tests-77%20passing-brightgreen.svg">
+  <img alt="Version: 0.16.0" src="https://img.shields.io/badge/version-0.16.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
@@ -111,15 +111,15 @@ Deployed and validated end to end against a real Coolify instance:
 - [x] **Postgres** — provisioned via API → the app executes a real query over the internal network
 - [x] **Backups** — schedule → dump → **restore drill** (`pg_restore` into a scratch database, verified)
 - [x] **Build packs** — Nixpacks and Dockerfile · **ops** — logs, deployments, env vars, docker cleanup
-- [x] **132 unit tests** green (standard library only)
-- [x] **Design audit gate** — validated end-to-end on a production app by a zero-context agent: 28-test matrix, deterministic baselines, and real findings surfaced on its first run
+- [x] **77 unit tests** green (standard library only)
+- [x] **Template factory** — the registry, the clone, the swap gate and the leak check are covered by 26 offline tests; on a real, unswapped template the swap gate goes red with file-and-line evidence (`next-js-boilerplate`: 4 vendors, 187 live references, exit 1) instead of passing quietly.
 - [x] **Paid track validated live** — a real Next.js + Postgres SaaS deployed end-to-end on a rented VPS: Coolify → Cloudflare DNS-only → Let's Encrypt, with migrations, seed data and a production-owner flow — every error it surfaced is now folded back into the runbooks.
 
 ## ⚡ The skills
 
 | Skill | What it does |
 | --- | --- |
-| [`buildout`](skills/buildout) | **Idea → codebase.** Expert references, execution-first build loops, verified MIT boilerplates, coherent-random design assembly from the live shadcn registry pool (MIT-only), design tokens locked once and applied everywhere. **Every feature and edge state is mapped and frozen before the build, and two design directions compete down to one — locked before any code.** Ships the **design-audit gate**: one command runs 16 front-end checks (visual baselines per device, WCAG 2.2, console/network, overflow, Lighthouse, links, HTML/lint) and emits one machine-readable report for an AI fix loop. |
+| [`buildout`](skills/buildout) | **Idea → live business, from a vetted template.** The assistant is a Matchmaker + DevOps Automator, not an architect: ≤10 questions → a registry of MIT/Apache full-app templates **measured through the GitHub API** (license, stack, vendor deps, risk, boot scorecard) ranks the pool deterministically → the chosen match is cloned to disk D with fresh git history → proprietary services (Clerk, Neon, Resend, Sentry, S3, Plausible…) are swapped for open-source targets and **proved gone by `swap_check`** → the owner's brand replaces the template's (template-leak check included) → a 6-row verify tail → Coolify. Cloning and booting third-party code is consent-gated; intake never clones. No code generation, no component assembly, no design systems. |
 | [`component-library`](skills/component-library) | **Build → reuse.** Save any component you build; the next project starts from what you already made. |
 | [`vps-ops`](skills/vps-ops) | **Codebase → live business.** Two tracks: **paid** (your VPS + domain) or **free preview** ($0 on Oracle Cloud Always Free + a free `.pp.ua` domain). Bootstraps Coolify, wires domain/SSL, deploys with Nixpacks or Dockerfile, then runs the everyday pipeline: deploy, monitor, env changes, database + backups, rollback — plus a migration runbook to move from the free preview to a paid host. And **login email that actually arrives**: a free multi-provider chain (Resend → Mailgun → Brevo) behind a drop-in failover router + deliverability DNS, with a modular MCP catalog for DNS/registrar/email. Backups are **offsite by default** — dual cloud targets (Backblaze B2 + Tigris, both **card-free**; R2 optional), 3-copy retention, verified restore drills (all live-proven), an optional home copy with a scheduled watchdog — and apps with uploads get RustFS S3 storage, backed up the same way. |
 | [`session-autopsy`](skills/session-autopsy) | **Failure → fix.** When a run goes red, it dissects the session, finds the instruction that allowed the wrong path, and rewrites it — on a strength ladder (eliminate → pre-flight → reorder → gate → pitfall). Pitfalls are counted as debt, not solutions. |
@@ -178,10 +178,11 @@ Then just start a conversation — the examples above work verbatim.
 ```text
 assets/                    # logo + social preview (render-social-preview.ps1)
 skills/
-├── buildout/              # idea → codebase (references, buildout engine, design assembly, design-audit gate)
-│   ├── references/        # expert playbooks, formats, lifecycle, eval, buildout
-│   ├── scripts/           # registry sync + deterministic design picker
-│   ├── templates/         # design-audit/ — the front-end gate kit (16 checks, one report)
+├── buildout/              # idea → live business (Template Factory: match → clone → swap → rebrand)
+│   ├── references/        # factory/ (intake · match · clone · swap · rebrand · verify) + playbooks/formats/lifecycle/jargon
+│   ├── data/              # templates.seed.json · templates.db (the registry) · templates.json
+│   ├── scripts/           # registry, remote intake (GitHub API), clone, swap check
+│   ├── templates/         # qa/ — probe, frame, cdp.mjs, form-drive.js
 │   └── tests/             # stdlib unit tests
 ├── component-library/     # save / load reusable components
 ├── vps-ops/               # Coolify deploy & ops — paid VPS or free preview (Oracle + .pp.ua)

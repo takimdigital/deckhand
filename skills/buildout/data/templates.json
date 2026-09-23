@@ -1,0 +1,1555 @@
+{
+  "generated_at": "2026-09-23T21:20:52Z",
+  "source": "data/templates.db",
+  "count": 8,
+  "templates": [
+    {
+      "id": 1,
+      "name": "open-saas",
+      "url": "https://github.com/wasp-lang/open-saas",
+      "repo": "wasp-lang/open-saas",
+      "rank": 1,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": "MIT",
+      "license_file": "LICENSE",
+      "license_ok": 1,
+      "stars": 15992,
+      "forks": 1925,
+      "open_issues": 107,
+      "pushed_at": "2026-09-22",
+      "archived": 0,
+      "default_branch": "main",
+      "size_kb": 141455,
+      "shape": "saas",
+      "shape_source": "heuristic:saas boilerplate,subscription,pricing,plans",
+      "stack": {
+        "framework": "wasp",
+        "db": "postgres",
+        "orm": "none",
+        "auth": "custom",
+        "ui": [
+          "shadcn"
+        ],
+        "i18n": "dirs",
+        "rtl": false,
+        "locales": [],
+        "jobs": [],
+        "tests": [],
+        "docker": false,
+        "admin": true,
+        "package_manager": "npm",
+        "lang": "typescript"
+      },
+      "canonical": 0,
+      "canonical_notes": "framework=wasp (canonical: next); no docker/compose (Coolify prefers a Dockerfile or nixpacks)",
+      "deps_vendor": [
+        "lemonsqueezy",
+        "mailgun",
+        "openai",
+        "plausible",
+        "posthog",
+        "sendgrid",
+        "stripe"
+      ],
+      "deps_selfhost": [
+        "postgres"
+      ],
+      "deps_unclassified": [
+        "@eslint/js",
+        "@typescript-eslint/eslint-plugin",
+        "@typescript-eslint/parser"
+      ],
+      "swap_map": {
+        "stripe": {
+          "vendor": "stripe",
+          "category": "payments",
+          "target": "keep",
+          "patterns": [
+            "stripe"
+          ],
+          "target_patterns": [
+            "keep"
+          ],
+          "status": "keep",
+          "note": "a processor is a service, not a code lock-in: keep it, or replace with the client's local method",
+          "verified": false
+        },
+        "lemonsqueezy": {
+          "vendor": "lemonsqueezy",
+          "category": "payments",
+          "target": "keep",
+          "patterns": [
+            "@lemonsqueezy/",
+            "lemonsqueezy"
+          ],
+          "target_patterns": [
+            "keep"
+          ],
+          "status": "keep",
+          "note": "",
+          "verified": false
+        },
+        "sendgrid": {
+          "vendor": "sendgrid",
+          "category": "email",
+          "target": "smtp",
+          "patterns": [
+            "@sendgrid/",
+            "sendgrid"
+          ],
+          "target_patterns": [
+            "nodemailer",
+            "smtp",
+            "mailgun"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "mailgun": {
+          "vendor": "mailgun",
+          "category": "email",
+          "target": "smtp",
+          "patterns": [
+            "mailgun"
+          ],
+          "target_patterns": [
+            "nodemailer",
+            "smtp",
+            "mailgun"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "plausible": {
+          "vendor": "plausible",
+          "category": "analytics",
+          "target": "umami",
+          "patterns": [
+            "plausible"
+          ],
+          "target_patterns": [
+            "umami"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "posthog": {
+          "vendor": "posthog",
+          "category": "analytics",
+          "target": "umami",
+          "patterns": [
+            "posthog"
+          ],
+          "target_patterns": [
+            "umami"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "openai": {
+          "vendor": "openai",
+          "category": "ai",
+          "target": "ollama",
+          "patterns": [
+            "openai"
+          ],
+          "target_patterns": [
+            "ollama"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [],
+      "risk_flags": [
+        {
+          "kind": "no-tests",
+          "detail": "no test runner detected"
+        },
+        {
+          "kind": "no-docker",
+          "detail": "no Dockerfile/compose"
+        }
+      ],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-23T21:20:28Z",
+        "branch": "main",
+        "files_read": [
+          "package.json",
+          "README.md",
+          "template/app/components.json"
+        ],
+        "tree_entries": 674,
+        "locales": [],
+        "license_path": "LICENSE"
+      },
+      "updated_at": "2026-09-23T21:20:28Z"
+    },
+    {
+      "id": 2,
+      "name": "Next-js-Boilerplate",
+      "url": "https://github.com/ixartz/Next-js-Boilerplate",
+      "repo": "ixartz/Next-js-Boilerplate",
+      "rank": 2,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": "MIT",
+      "license_file": "LICENSE",
+      "license_ok": 1,
+      "stars": 13079,
+      "forks": 2407,
+      "open_issues": 4,
+      "pushed_at": "2026-09-09",
+      "archived": 0,
+      "default_branch": "main",
+      "size_kb": 45864,
+      "shape": "saas",
+      "shape_source": "heuristic:saas boilerplate,teams,boilerplate",
+      "stack": {
+        "framework": "next",
+        "db": "postgres",
+        "orm": "drizzle",
+        "auth": "clerk",
+        "ui": [
+          "tailwind"
+        ],
+        "i18n": "next-intl",
+        "rtl": false,
+        "locales": [
+          "en",
+          "fr"
+        ],
+        "jobs": [],
+        "tests": [
+          "@playwright/test",
+          "vitest"
+        ],
+        "docker": false,
+        "admin": true,
+        "package_manager": "npm",
+        "lang": "typescript"
+      },
+      "canonical": 0,
+      "canonical_notes": "auth=clerk -> swap to better-auth; no docker/compose (Coolify prefers a Dockerfile or nixpacks)",
+      "deps_vendor": [
+        "arcjet",
+        "clerk",
+        "posthog",
+        "sentry",
+        "stripe"
+      ],
+      "deps_selfhost": [
+        "postgres",
+        "sqlite"
+      ],
+      "deps_unclassified": [
+        "@chromatic-com/playwright",
+        "@commitlint/cli",
+        "@commitlint/config-conventional",
+        "@commitlint/prompt-cli",
+        "@commitlint/types",
+        "@electric-sql/pglite-socket",
+        "@faker-js/faker",
+        "@hookform/resolvers",
+        "@lingual/i18n-check",
+        "@logtape/logtape",
+        "@playwright/test",
+        "@spotlightjs/spotlight",
+        "@storybook/addon-a11y",
+        "@storybook/addon-docs",
+        "@storybook/addon-vitest",
+        "@storybook/nextjs-vite",
+        "@t3-oss/env-nextjs",
+        "@tailwindcss/postcss",
+        "@vitejs/plugin-react",
+        "@vitest/browser",
+        "@vitest/browser-playwright",
+        "@vitest/coverage-v8",
+        "dotenv-cli",
+        "drizzle-kit",
+        "drizzle-orm",
+        "knip",
+        "lefthook",
+        "next",
+        "next-intl",
+        "npm-run-all",
+        "oxfmt",
+        "oxlint",
+        "oxlint-tsgolint",
+        "pg",
+        "react",
+        "react-dom",
+        "react-hook-form",
+        "rimraf",
+        "semantic-release",
+        "storybook"
+      ],
+      "swap_map": {
+        "clerk": {
+          "vendor": "clerk",
+          "category": "auth",
+          "target": "better-auth",
+          "patterns": [
+            "@clerk/",
+            "clerkClient",
+            "CLERK_SECRET",
+            "CLERK_PUBLISHABLE"
+          ],
+          "target_patterns": [
+            "better-auth"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "stripe": {
+          "vendor": "stripe",
+          "category": "payments",
+          "target": "keep",
+          "patterns": [
+            "stripe"
+          ],
+          "target_patterns": [
+            "keep"
+          ],
+          "status": "keep",
+          "note": "a processor is a service, not a code lock-in: keep it, or replace with the client's local method",
+          "verified": false
+        },
+        "sentry": {
+          "vendor": "sentry",
+          "category": "observability",
+          "target": "glitchtip or none",
+          "patterns": [
+            "@sentry/",
+            "sentry"
+          ],
+          "target_patterns": [
+            "glitchtip"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "posthog": {
+          "vendor": "posthog",
+          "category": "analytics",
+          "target": "umami",
+          "patterns": [
+            "posthog"
+          ],
+          "target_patterns": [
+            "umami"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "arcjet": {
+          "vendor": "arcjet",
+          "category": "security",
+          "target": "middleware or none",
+          "patterns": [
+            "@arcjet/",
+            "arcjet"
+          ],
+          "target_patterns": [
+            "middleware"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [
+        "public/apple-touch-icon.png",
+        "public/assets/images/checkly-logo-dark.png",
+        "public/assets/images/checkly-logo-light.png",
+        "public/assets/images/clerk-logo-dark.png",
+        "public/assets/images/coderabbit-logo-dark.svg",
+        "public/assets/images/coderabbit-logo-light.svg",
+        "public/assets/images/posthog-logo.svg",
+        "public/assets/images/rapidproxy-logo.png",
+        "public/favicon-16x16.png",
+        "public/favicon-32x32.png",
+        "public/favicon.ico",
+        "src/app/sitemap.ts"
+      ],
+      "risk_flags": [
+        {
+          "kind": "no-docker",
+          "detail": "no Dockerfile/compose"
+        }
+      ],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-23T21:20:30Z",
+        "branch": "main",
+        "files_read": [
+          "package.json",
+          "README.md",
+          "next.config.ts"
+        ],
+        "tree_entries": 115,
+        "locales": [
+          "en",
+          "fr"
+        ],
+        "license_path": "LICENSE"
+      },
+      "updated_at": "2026-09-23T21:20:30Z"
+    },
+    {
+      "id": 3,
+      "name": "full-stack-fastapi-template",
+      "url": "https://github.com/fastapi/full-stack-fastapi-template",
+      "repo": "fastapi/full-stack-fastapi-template",
+      "rank": 3,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": "MIT",
+      "license_file": "LICENSE",
+      "license_ok": 1,
+      "stars": 45711,
+      "forks": 9088,
+      "open_issues": 12,
+      "pushed_at": "2026-09-18",
+      "archived": 0,
+      "default_branch": "master",
+      "size_kb": 7087,
+      "shape": "unknown",
+      "shape_source": "heuristic:no signal",
+      "stack": {
+        "framework": "fastapi",
+        "db": "postgres",
+        "orm": "sqlmodel",
+        "auth": "none",
+        "ui": [
+          "shadcn"
+        ],
+        "i18n": null,
+        "rtl": false,
+        "locales": [],
+        "jobs": [],
+        "tests": [
+          "pytest"
+        ],
+        "docker": true,
+        "admin": true,
+        "package_manager": "bun",
+        "lang": "python"
+      },
+      "canonical": 0,
+      "canonical_notes": "framework=fastapi (canonical: next)",
+      "deps_vendor": [
+        "sentry"
+      ],
+      "deps_selfhost": [
+        "docker",
+        "postgres"
+      ],
+      "deps_unclassified": [
+        "alls",
+        "dev",
+        "extend-exclude",
+        "extend-ignore-re",
+        "github-actions",
+        "members"
+      ],
+      "swap_map": {
+        "sentry": {
+          "vendor": "sentry",
+          "category": "observability",
+          "target": "glitchtip or none",
+          "patterns": [
+            "@sentry/",
+            "sentry"
+          ],
+          "target_patterns": [
+            "glitchtip"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [],
+      "risk_flags": [],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-23T21:20:34Z",
+        "branch": "master",
+        "files_read": [
+          "package.json",
+          "pyproject.toml",
+          "compose.yml",
+          "backend/Dockerfile",
+          "README.md",
+          "frontend/components.json"
+        ],
+        "tree_entries": 252,
+        "locales": [],
+        "license_path": "LICENSE"
+      },
+      "updated_at": "2026-09-23T21:20:34Z"
+    },
+    {
+      "id": 4,
+      "name": "Micro-SaaS-Starter-Kit",
+      "url": "https://github.com/UNC-GDSC/Micro-SaaS-Starter-Kit",
+      "repo": "UNC-GDSC/Micro-SaaS-Starter-Kit",
+      "rank": 4,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": "MIT",
+      "license_file": "LICENSE",
+      "license_ok": 1,
+      "stars": 2,
+      "forks": 3,
+      "open_issues": 1,
+      "pushed_at": "2025-11-23",
+      "archived": 0,
+      "default_branch": "main",
+      "size_kb": 106,
+      "shape": "saas",
+      "shape_source": "heuristic:saas boilerplate,saas starter,saas starter kit,subscription business",
+      "stack": {
+        "framework": "next",
+        "db": "postgres",
+        "orm": "prisma",
+        "auth": "next-auth",
+        "ui": [
+          "tailwind"
+        ],
+        "i18n": null,
+        "rtl": false,
+        "locales": [],
+        "jobs": [
+          "bullmq"
+        ],
+        "tests": [
+          "@playwright/test",
+          "jest"
+        ],
+        "docker": true,
+        "admin": true,
+        "package_manager": "unknown",
+        "lang": "typescript"
+      },
+      "canonical": 0,
+      "canonical_notes": "auth=next-auth -> swap to better-auth",
+      "deps_vendor": [
+        "launchdarkly",
+        "next-auth",
+        "resend",
+        "sentry",
+        "stripe",
+        "vercel"
+      ],
+      "deps_selfhost": [
+        "docker",
+        "postgres",
+        "redis"
+      ],
+      "deps_unclassified": [
+        "@playwright/test",
+        "@prisma/client",
+        "@testing-library/jest-dom",
+        "@testing-library/react",
+        "autoprefixer",
+        "bcrypt",
+        "bullmq",
+        "class-variance-authority",
+        "clsx",
+        "cookie",
+        "date-fns",
+        "framer-motion",
+        "husky",
+        "ioredis",
+        "jest",
+        "jest-environment-jsdom",
+        "lint-staged",
+        "lucide-react",
+        "nanoid",
+        "next",
+        "next-themes",
+        "postcss",
+        "prisma",
+        "qrcode",
+        "react",
+        "react-chartjs-2",
+        "react-dom",
+        "react-hook-form",
+        "recharts",
+        "slugify",
+        "sonner",
+        "speakeasy",
+        "swagger-jsdoc",
+        "swagger-ui-react",
+        "tailwind-merge",
+        "tailwindcss",
+        "tailwindcss-animate",
+        "tsx",
+        "ua-parser-js",
+        "zod"
+      ],
+      "swap_map": {
+        "next-auth": {
+          "vendor": "next-auth",
+          "category": "auth",
+          "target": "better-auth",
+          "patterns": [
+            "next-auth",
+            "@auth/core",
+            "Auth.js"
+          ],
+          "target_patterns": [
+            "better-auth"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "stripe": {
+          "vendor": "stripe",
+          "category": "payments",
+          "target": "keep",
+          "patterns": [
+            "stripe"
+          ],
+          "target_patterns": [
+            "keep"
+          ],
+          "status": "keep",
+          "note": "a processor is a service, not a code lock-in: keep it, or replace with the client's local method",
+          "verified": false
+        },
+        "resend": {
+          "vendor": "resend",
+          "category": "email",
+          "target": "smtp",
+          "patterns": [
+            "resend"
+          ],
+          "target_patterns": [
+            "nodemailer",
+            "smtp",
+            "mailgun"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "vercel": {
+          "vendor": "vercel",
+          "category": "hosting",
+          "target": "coolify (Docker)",
+          "patterns": [
+            "@vercel/",
+            "vercel.json",
+            "VERCEL_"
+          ],
+          "target_patterns": [
+            "coolify"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "sentry": {
+          "vendor": "sentry",
+          "category": "observability",
+          "target": "glitchtip or none",
+          "patterns": [
+            "@sentry/",
+            "sentry"
+          ],
+          "target_patterns": [
+            "glitchtip"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "launchdarkly": {
+          "vendor": "launchdarkly",
+          "category": "flags",
+          "target": "db-backed-flags",
+          "patterns": [
+            "launchdarkly"
+          ],
+          "target_patterns": [
+            "db-backed-flags"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [
+        "app/globals.css"
+      ],
+      "risk_flags": [
+        {
+          "kind": "readme-placeholders",
+          "detail": "example.com, your-repo"
+        }
+      ],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-23T21:20:38Z",
+        "branch": "main",
+        "files_read": [
+          "package.json",
+          "docker-compose.yml",
+          "Dockerfile",
+          "README.md",
+          ".env.example",
+          "prisma/schema.prisma",
+          "next.config.js",
+          "vercel.json"
+        ],
+        "tree_entries": 102,
+        "locales": [],
+        "license_path": "LICENSE"
+      },
+      "updated_at": "2026-09-23T21:20:38Z"
+    },
+    {
+      "id": 5,
+      "name": "Next-Elite",
+      "url": "https://github.com/salmanshahriar/Next-Elite",
+      "repo": "salmanshahriar/Next-Elite",
+      "rank": 5,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": "MIT",
+      "license_file": "LICENSE",
+      "license_ok": 1,
+      "stars": 114,
+      "forks": 32,
+      "open_issues": 0,
+      "pushed_at": "2026-09-21",
+      "archived": 0,
+      "default_branch": "main",
+      "size_kb": 10297,
+      "shape": "saas",
+      "shape_source": "heuristic:saas boilerplate,boilerplate,starter kit",
+      "stack": {
+        "framework": "next",
+        "db": "unknown",
+        "orm": "none",
+        "auth": "better-auth",
+        "ui": [
+          "shadcn",
+          "tailwind"
+        ],
+        "i18n": "next-intl",
+        "rtl": true,
+        "locales": [
+          "ar",
+          "bn",
+          "en",
+          "es",
+          "fr",
+          "zh"
+        ],
+        "jobs": [],
+        "tests": [
+          "@playwright/test",
+          "vitest"
+        ],
+        "docker": true,
+        "admin": true,
+        "package_manager": "npm",
+        "lang": "typescript"
+      },
+      "canonical": 0,
+      "canonical_notes": "db=unknown (canonical: postgres)",
+      "deps_vendor": [
+        "ably",
+        "sentry",
+        "vercel"
+      ],
+      "deps_selfhost": [
+        "docker"
+      ],
+      "deps_unclassified": [
+        "@commitlint/cli",
+        "@commitlint/config-conventional",
+        "@hookform/resolvers",
+        "@next/bundle-analyzer",
+        "@phosphor-icons/react",
+        "@playwright/test",
+        "@t3-oss/env-nextjs",
+        "@tailwindcss/postcss",
+        "@tanstack/react-query",
+        "@testing-library/jest-dom",
+        "@testing-library/react",
+        "@vitejs/plugin-react",
+        "better-auth",
+        "class-variance-authority",
+        "clsx",
+        "embla-carousel-react",
+        "input-otp",
+        "jsdom",
+        "knip",
+        "lefthook",
+        "lucide-react",
+        "next",
+        "next-intl",
+        "nextjs-toploader",
+        "oxfmt",
+        "oxlint",
+        "postcss",
+        "postprocessing",
+        "react",
+        "react-day-picker",
+        "react-dom",
+        "react-hook-form",
+        "server-only",
+        "sonner",
+        "tailwind-merge",
+        "tailwindcss",
+        "three",
+        "tw-animate-css",
+        "vitest",
+        "zod"
+      ],
+      "swap_map": {
+        "vercel": {
+          "vendor": "vercel",
+          "category": "hosting",
+          "target": "coolify (Docker)",
+          "patterns": [
+            "@vercel/",
+            "vercel.json",
+            "VERCEL_"
+          ],
+          "target_patterns": [
+            "coolify"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "sentry": {
+          "vendor": "sentry",
+          "category": "observability",
+          "target": "glitchtip or none",
+          "patterns": [
+            "@sentry/",
+            "sentry"
+          ],
+          "target_patterns": [
+            "glitchtip"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "ably": {
+          "vendor": "ably",
+          "category": "realtime",
+          "target": "socket.io-or-sse",
+          "patterns": [
+            "ably"
+          ],
+          "target_patterns": [
+            "socket.io-or-sse"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [
+        "config/vitest.config.ts",
+        "config/vitest.setup.ts",
+        "messages/ar.json",
+        "messages/bn.json",
+        "messages/en.json",
+        "messages/es.json",
+        "messages/fr.json",
+        "messages/zh.json",
+        "public/favicon.ico",
+        "public/icon.svg",
+        "public/logo.svg",
+        "src/app/globals.css",
+        "src/app/sitemap.ts"
+      ],
+      "risk_flags": [],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-23T21:20:42Z",
+        "branch": "main",
+        "files_read": [
+          "package.json",
+          "docker-compose.yml",
+          "Dockerfile",
+          "README.md",
+          ".env.example",
+          "components.json",
+          "next.config.mjs"
+        ],
+        "tree_entries": 187,
+        "locales": [
+          "ar",
+          "bn",
+          "en",
+          "es",
+          "fr",
+          "zh"
+        ],
+        "license_path": "LICENSE"
+      },
+      "updated_at": "2026-09-23T21:20:42Z"
+    },
+    {
+      "id": 6,
+      "name": "epic-stack",
+      "url": "https://github.com/epicweb-dev/epic-stack",
+      "repo": "epicweb-dev/epic-stack",
+      "rank": 6,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": "MIT",
+      "license_file": "LICENSE.md",
+      "license_ok": 1,
+      "stars": 5542,
+      "forks": 462,
+      "open_issues": 13,
+      "pushed_at": "2026-08-29",
+      "archived": 0,
+      "default_branch": "main",
+      "size_kb": 14635,
+      "shape": "unknown",
+      "shape_source": "heuristic:no signal",
+      "stack": {
+        "framework": "remix",
+        "db": "postgres",
+        "orm": "prisma",
+        "auth": "custom",
+        "ui": [
+          "shadcn",
+          "tailwind"
+        ],
+        "i18n": null,
+        "rtl": false,
+        "locales": [],
+        "jobs": [],
+        "tests": [
+          "@playwright/test",
+          "vitest"
+        ],
+        "docker": true,
+        "admin": true,
+        "package_manager": "npm",
+        "lang": "typescript"
+      },
+      "canonical": 0,
+      "canonical_notes": "framework=remix (canonical: next)",
+      "deps_vendor": [
+        "aws-s3",
+        "resend",
+        "sentry"
+      ],
+      "deps_selfhost": [
+        "docker",
+        "postgres",
+        "sqlite"
+      ],
+      "deps_unclassified": [
+        "@conform-to/react",
+        "@conform-to/zod",
+        "@epic-web/cachified",
+        "@epic-web/client-hints",
+        "@epic-web/config",
+        "@epic-web/invariant",
+        "@epic-web/remember",
+        "@epic-web/totp",
+        "@faker-js/faker",
+        "@mjackson/form-data-parser",
+        "@mjackson/headers",
+        "@nasa-gcn/remix-seo",
+        "@nichtsam/helmet",
+        "@oslojs/crypto",
+        "@oslojs/encoding",
+        "@paralleldrive/cuid2",
+        "@playwright/test",
+        "@prisma/client",
+        "@prisma/instrumentation",
+        "@react-email/components",
+        "@react-router/dev",
+        "@react-router/express",
+        "@react-router/node",
+        "@remix-run/server-runtime",
+        "@simplewebauthn/browser",
+        "@simplewebauthn/server",
+        "@sly-cli/sly",
+        "@tailwindcss/vite",
+        "@testing-library/dom",
+        "@testing-library/jest-dom",
+        "@testing-library/react",
+        "@testing-library/user-event",
+        "@total-typescript/ts-reset",
+        "@tusbar/cache-control",
+        "@vitejs/plugin-react",
+        "@vitest/coverage-v8",
+        "address",
+        "bcryptjs",
+        "class-variance-authority",
+        "close-with-grace"
+      ],
+      "swap_map": {
+        "resend": {
+          "vendor": "resend",
+          "category": "email",
+          "target": "smtp",
+          "patterns": [
+            "resend"
+          ],
+          "target_patterns": [
+            "nodemailer",
+            "smtp",
+            "mailgun"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "aws-s3": {
+          "vendor": "aws-s3",
+          "category": "storage",
+          "target": "minio",
+          "patterns": [
+            "@aws-sdk/",
+            "aws-sdk",
+            "AWS_ACCESS_KEY"
+          ],
+          "target_patterns": [
+            "minio",
+            "s3"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "sentry": {
+          "vendor": "sentry",
+          "category": "observability",
+          "target": "glitchtip or none",
+          "patterns": [
+            "@sentry/",
+            "sentry"
+          ],
+          "target_patterns": [
+            "glitchtip"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [
+        "app/assets/favicons/apple-touch-icon.png",
+        "app/assets/favicons/favicon.svg",
+        "app/components/ui/icon.tsx",
+        "app/routes/_auth/logout.tsx",
+        "app/routes/_marketing/+logos/docker.svg",
+        "app/routes/_marketing/+logos/eslint.svg",
+        "app/routes/_marketing/+logos/faker.svg",
+        "app/routes/_marketing/+logos/fly.svg",
+        "app/routes/_marketing/+logos/github.svg",
+        "app/routes/_marketing/+logos/logos.ts",
+        "app/routes/_marketing/+logos/msw.svg",
+        "app/routes/_marketing/+logos/playwright.svg",
+        "app/routes/_marketing/+logos/prettier.svg",
+        "app/routes/_marketing/+logos/prisma.svg",
+        "app/routes/_marketing/+logos/radix.svg",
+        "app/routes/_marketing/+logos/react-email.svg",
+        "app/routes/_marketing/+logos/remix.svg",
+        "app/routes/_marketing/+logos/resend.svg",
+        "app/routes/_marketing/+logos/sentry.svg",
+        "app/routes/_marketing/+logos/shadcn-ui.svg",
+        "app/routes/_marketing/+logos/sqlite.svg",
+        "app/routes/_marketing/+logos/stars.jpg",
+        "app/routes/_marketing/+logos/tailwind.svg",
+        "app/routes/_marketing/+logos/testing-library.png",
+        "app/routes/_marketing/+logos/typescript.svg",
+        "app/routes/_marketing/+logos/vitest.svg",
+        "app/routes/_marketing/+logos/zod.svg",
+        "app/routes/_seo/sitemap[.]xml.ts",
+        "app/routes/resources/theme-switch.tsx",
+        "app/utils/providers/constants.ts",
+        "app/utils/theme.server.ts",
+        "public/favicon.ico",
+        "public/favicons/android-chrome-192x192.png",
+        "public/favicons/android-chrome-512x512.png"
+      ],
+      "risk_flags": [],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-23T21:20:45Z",
+        "branch": "main",
+        "files_read": [
+          "package.json",
+          "other/Dockerfile",
+          "README.md",
+          ".env.example",
+          "prisma/schema.prisma",
+          "components.json"
+        ],
+        "tree_entries": 370,
+        "locales": [],
+        "license_path": "LICENSE.md"
+      },
+      "updated_at": "2026-09-23T21:20:45Z"
+    },
+    {
+      "id": 7,
+      "name": "nextjs-saas-starter",
+      "url": "https://github.com/Shaisolaris/nextjs-saas-starter",
+      "repo": "Shaisolaris/nextjs-saas-starter",
+      "rank": 7,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": "MIT",
+      "license_file": "LICENSE",
+      "license_ok": 1,
+      "stars": 24,
+      "forks": 0,
+      "open_issues": 3,
+      "pushed_at": "2026-06-26",
+      "archived": 0,
+      "default_branch": "main",
+      "size_kb": 173,
+      "shape": "saas",
+      "shape_source": "heuristic:saas boilerplate,saas starter,subscription,pricing",
+      "stack": {
+        "framework": "next",
+        "db": "postgres",
+        "orm": "prisma",
+        "auth": "next-auth",
+        "ui": [
+          "tailwind"
+        ],
+        "i18n": null,
+        "rtl": false,
+        "locales": [],
+        "jobs": [],
+        "tests": [],
+        "docker": false,
+        "admin": true,
+        "package_manager": "npm",
+        "lang": "typescript"
+      },
+      "canonical": 0,
+      "canonical_notes": "auth=next-auth -> swap to better-auth; no docker/compose (Coolify prefers a Dockerfile or nixpacks)",
+      "deps_vendor": [
+        "next-auth",
+        "resend",
+        "stripe",
+        "vercel"
+      ],
+      "deps_selfhost": [
+        "postgres"
+      ],
+      "deps_unclassified": [
+        "@prisma/client",
+        "autoprefixer",
+        "bcryptjs",
+        "clsx",
+        "date-fns",
+        "lucide-react",
+        "next",
+        "next-themes",
+        "postcss",
+        "prisma",
+        "react",
+        "react-dom",
+        "recharts",
+        "sonner",
+        "tailwind-merge",
+        "tailwindcss",
+        "zod"
+      ],
+      "swap_map": {
+        "next-auth": {
+          "vendor": "next-auth",
+          "category": "auth",
+          "target": "better-auth",
+          "patterns": [
+            "next-auth",
+            "@auth/core",
+            "Auth.js"
+          ],
+          "target_patterns": [
+            "better-auth"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "stripe": {
+          "vendor": "stripe",
+          "category": "payments",
+          "target": "keep",
+          "patterns": [
+            "stripe"
+          ],
+          "target_patterns": [
+            "keep"
+          ],
+          "status": "keep",
+          "note": "a processor is a service, not a code lock-in: keep it, or replace with the client's local method",
+          "verified": false
+        },
+        "resend": {
+          "vendor": "resend",
+          "category": "email",
+          "target": "smtp",
+          "patterns": [
+            "resend"
+          ],
+          "target_patterns": [
+            "nodemailer",
+            "smtp",
+            "mailgun"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "vercel": {
+          "vendor": "vercel",
+          "category": "hosting",
+          "target": "coolify (Docker)",
+          "patterns": [
+            "@vercel/",
+            "vercel.json",
+            "VERCEL_"
+          ],
+          "target_patterns": [
+            "coolify"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [
+        "src/app/globals.css"
+      ],
+      "risk_flags": [
+        {
+          "kind": "no-tests",
+          "detail": "no test runner detected"
+        },
+        {
+          "kind": "no-docker",
+          "detail": "no Dockerfile/compose"
+        }
+      ],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-23T21:20:48Z",
+        "branch": "main",
+        "files_read": [
+          "package.json",
+          "README.md",
+          ".env.example",
+          "prisma/schema.prisma",
+          "next.config.mjs",
+          "vercel.json"
+        ],
+        "tree_entries": 65,
+        "locales": [],
+        "license_path": "LICENSE"
+      },
+      "updated_at": "2026-09-23T21:20:48Z"
+    },
+    {
+      "id": 8,
+      "name": "next-saas-stripe-starter",
+      "url": "https://github.com/mickasmt/next-saas-stripe-starter",
+      "repo": "mickasmt/next-saas-stripe-starter",
+      "rank": 8,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": "MIT",
+      "license_file": "LICENSE.md",
+      "license_ok": 1,
+      "stars": 3003,
+      "forks": 630,
+      "open_issues": 26,
+      "pushed_at": "2024-08-16",
+      "archived": 0,
+      "default_branch": "main",
+      "size_kb": 3162,
+      "shape": "saas",
+      "shape_source": "heuristic:saas starter,subscription,pricing,plans",
+      "stack": {
+        "framework": "next",
+        "db": "postgres",
+        "orm": "prisma",
+        "auth": "next-auth",
+        "ui": [
+          "shadcn",
+          "tailwind"
+        ],
+        "i18n": null,
+        "rtl": false,
+        "locales": [],
+        "jobs": [],
+        "tests": [],
+        "docker": false,
+        "admin": true,
+        "package_manager": "pnpm",
+        "lang": "typescript"
+      },
+      "canonical": 0,
+      "canonical_notes": "auth=next-auth -> swap to better-auth; no docker/compose (Coolify prefers a Dockerfile or nixpacks)",
+      "deps_vendor": [
+        "neon",
+        "next-auth",
+        "resend",
+        "stripe",
+        "vercel"
+      ],
+      "deps_selfhost": [
+        "postgres"
+      ],
+      "deps_unclassified": [
+        "@auth/prisma-adapter",
+        "@commitlint/cli",
+        "@commitlint/config-conventional",
+        "@hookform/resolvers",
+        "@ianvs/prettier-plugin-sort-imports",
+        "@prisma/client",
+        "@react-email/button",
+        "@react-email/components",
+        "@react-email/html",
+        "@t3-oss/env-nextjs",
+        "@tailwindcss/line-clamp",
+        "@tailwindcss/typography",
+        "@typescript-eslint/parser",
+        "autoprefixer",
+        "class-variance-authority",
+        "clsx",
+        "cmdk",
+        "concurrently",
+        "contentlayer2",
+        "date-fns",
+        "husky",
+        "lucide-react",
+        "mdast-util-toc",
+        "ms",
+        "next",
+        "next-contentlayer2",
+        "next-themes",
+        "postcss",
+        "pretty-quick",
+        "prisma",
+        "prop-types",
+        "react",
+        "react-day-picker",
+        "react-dom",
+        "react-email",
+        "react-hook-form",
+        "react-textarea-autosize",
+        "recharts",
+        "rehype",
+        "rehype-autolink-headings"
+      ],
+      "swap_map": {
+        "next-auth": {
+          "vendor": "next-auth",
+          "category": "auth",
+          "target": "better-auth",
+          "patterns": [
+            "next-auth",
+            "@auth/core",
+            "Auth.js"
+          ],
+          "target_patterns": [
+            "better-auth"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "neon": {
+          "vendor": "neon",
+          "category": "db",
+          "target": "docker-postgres",
+          "patterns": [
+            "@neondatabase",
+            "neon.tech",
+            "neon("
+          ],
+          "target_patterns": [
+            "postgres",
+            "pg"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "stripe": {
+          "vendor": "stripe",
+          "category": "payments",
+          "target": "keep",
+          "patterns": [
+            "stripe"
+          ],
+          "target_patterns": [
+            "keep"
+          ],
+          "status": "keep",
+          "note": "a processor is a service, not a code lock-in: keep it, or replace with the client's local method",
+          "verified": false
+        },
+        "resend": {
+          "vendor": "resend",
+          "category": "email",
+          "target": "smtp",
+          "patterns": [
+            "resend"
+          ],
+          "target_patterns": [
+            "nodemailer",
+            "smtp",
+            "mailgun"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "vercel": {
+          "vendor": "vercel",
+          "category": "hosting",
+          "target": "coolify (Docker)",
+          "patterns": [
+            "@vercel/",
+            "vercel.json",
+            "VERCEL_"
+          ],
+          "target_patterns": [
+            "coolify"
+          ],
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [
+        "config/blog.ts",
+        "config/dashboard.ts",
+        "config/docs.ts",
+        "config/landing.ts",
+        "config/marketing.ts",
+        "config/site.ts",
+        "config/subscriptions.ts",
+        "public/_static/docs/gg-auth-config.jpg",
+        "public/_static/favicons/android-chrome-192x192.png",
+        "public/_static/favicons/android-chrome-512x512.png",
+        "public/_static/favicons/apple-touch-icon.png",
+        "public/_static/favicons/favicon-16x16.png",
+        "public/_static/favicons/favicon-32x32.png",
+        "public/favicon.ico",
+        "styles/globals.css"
+      ],
+      "risk_flags": [
+        {
+          "kind": "stale",
+          "detail": "last push 768 days ago"
+        },
+        {
+          "kind": "no-tests",
+          "detail": "no test runner detected"
+        },
+        {
+          "kind": "no-docker",
+          "detail": "no Dockerfile/compose"
+        },
+        {
+          "kind": "bus-factor",
+          "detail": "mickasmt owns 98% of commits"
+        }
+      ],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-23T21:20:52Z",
+        "branch": "main",
+        "files_read": [
+          "package.json",
+          "README.md",
+          ".env.example",
+          "prisma/schema.prisma",
+          "components.json",
+          "next.config.js"
+        ],
+        "tree_entries": 252,
+        "locales": [],
+        "license_path": "LICENSE.md"
+      },
+      "updated_at": "2026-09-23T21:20:52Z"
+    }
+  ]
+}

@@ -1,15 +1,21 @@
-"""Budget + wiring checks for the buildout skill.
+"""Budget + wiring checks for the buildout skill (Template Factory).
 
 Budgets are pack law: SKILL.md <=500 lines, each ref <=~150 lines.
-Wiring: the new map/direction refs exist and SKILL.md routes to them
-(so the pieces can never be silently dropped).
+Wiring: the factory refs and scripts exist, SKILL.md routes to them, and the
+removed machinery may never quietly reappear.
 """
 from __future__ import annotations
 
 from pathlib import Path
 
 SKILL = Path(__file__).resolve().parents[1]
-REFS = SKILL / "references" / "buildout"
+FACTORY_REFS = ["00-intake.md", "10-match.md", "20-clone.md", "30-swap.md",
+                "40-rebrand.md", "50-verify-deploy.md"]
+FACTORY_SCRIPTS = ["templates_db.py", "template_intake.py", "factory_clone.py", "swap_check.py", "_tpl_lib.py"]
+REMOVED = ["map_check.py", "registry_sync.py", "styles_fetch.py", "styles_pick.py", "assemble_pick.py",
+           "45-map.md", "50-direction-competition.md", "10-design-assembly.md", "15-reference-library.md",
+           "20-component-library.md", "30-design-audit.md", "01-start-from-boilerplate.md",
+           "00-start-from-boilerplate.md", "design-audit", "registries.snapshot", "data/styles"]
 
 
 def test_skill_md_under_500_lines():
@@ -26,16 +32,40 @@ def test_every_ref_under_150_lines():
     assert not over, f"refs over budget: {over}"
 
 
-def test_new_refs_exist():
-    assert (REFS / "45-map.md").is_file()
-    assert (REFS / "50-direction-competition.md").is_file()
+def test_factory_refs_exist():
+    for name in FACTORY_REFS:
+        assert (SKILL / "references" / "factory" / name).is_file(), f"missing factory ref {name}"
 
 
-def test_skill_routes_to_map_and_direction():
+def test_factory_scripts_exist():
+    for name in FACTORY_SCRIPTS:
+        assert (SKILL / "scripts" / name).is_file(), f"missing factory script {name}"
+
+
+def test_skill_routes_to_factory():
     text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-    for needle in ("45-map.md", "50-direction-competition.md", "map_check.py"):
+    for needle in FACTORY_REFS + ["templates_db.py", "template_intake.py", "factory_clone.py", "swap_check.py"]:
         assert needle in text, f"SKILL.md no longer routes to {needle}"
 
 
-def test_map_gate_script_exists():
-    assert (SKILL / "scripts" / "map_check.py").is_file()
+def test_removed_machinery_does_not_reappear():
+    """The 0.8.0 deletions are permanent: SKILL.md must not reference them again
+    (its history section may name them once, under 'What 0.8.0 removed')."""
+    text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+    routing = text.split("## What 0.8.0 removed")[0]
+    for needle in REMOVED:
+        assert needle not in routing, f"SKILL.md routes to removed machinery: {needle}"
+
+
+def test_design_generation_inputs_are_gone():
+    for rel in ("data/styles", "data/items", "data/registries.snapshot.json",
+                "references/buildout", "templates/design-audit"):
+        assert not (SKILL / rel).exists(), f"{rel} should have been deleted in 0.8.0"
+
+
+def test_registry_seed_is_present_and_parsable():
+    import json
+    seed = json.loads((SKILL / "data" / "templates.seed.json").read_text(encoding="utf-8"))
+    rows = seed["templates"]
+    assert len(rows) >= 8
+    assert all(r["url"].startswith("https://github.com/") for r in rows)

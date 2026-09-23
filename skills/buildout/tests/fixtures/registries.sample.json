@@ -1,8 +1,0 @@
-[
-  {"name":"@good","homepage":"https://good.example","url":"https://good.example/r/{name}.json","description":"Animated marketing components.","health":{"status":"healthy","score":96.5,"hidden":false,"checkedAt":"2026-09-17T00:00:00Z","firstObservedAt":"2026-08-01T00:00:00Z"}},
-  {"name":"@hidden","homepage":"https://hidden.example","url":"https://hidden.example/r/{name}.json","description":"Hidden.","health":{"status":"healthy","score":99.0,"hidden":true}},
-  {"name":"@degraded","homepage":"https://degraded.example","url":"https://degraded.example/r/{name}.json","description":"Degraded.","health":{"status":"degraded","score":70.0,"hidden":false}},
-  {"name":"@low","homepage":"https://low.example","url":"https://low.example/r/{name}.json","description":"Low score.","health":{"status":"healthy","score":60.0,"hidden":false}},
-  {"name":"@observing","homepage":"https://obs.example","url":"https://obs.example/r/{name}.json","description":"Observing.","health":{"status":"observing","score":88.0,"hidden":false}},
-  {"name":"@default","homepage":"https://default.example","url":"https://default.example/r/{name}.json","description":"Default registry.","health":{"status":"healthy","score":97.0,"hidden":false,"checkedAt":"2026-09-17T00:00:00Z","firstObservedAt":"2026-08-01T00:00:00Z"}}
-]

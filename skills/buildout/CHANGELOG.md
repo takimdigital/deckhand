@@ -1,5 +1,59 @@
 # Changelog - Buildout
 
+## 0.8.0 — 2026-09-23
+
+The Template Factory — a full rewrite of the creation logic, after the owner's verdict on the 0.7.0 runs: *"multiple ideas inside one that interfere … the result is crappy … the problem is the workflow … we over think interconnected things."* The pack no longer **generates** products; it **matches, clones, swaps and rebrands** them. Intake → Match → Clone → Swap → Rebrand → Verify — one idea per phase. 0.7.0 was never released; its composition layer is deleted (below), not deprecated.
+
+### Added
+- **`scripts/templates_db.py` — the registry** (SQLite truth + `data/templates.json` export): rows carry license/SPDX, stars, last push, stack, canonical flag, vendor deps, swap-map draft, boot scorecard, risk flags, rebrand surface. Deterministic scoring with published weights (shape +40 · features +10 each cap +30 · RTL +10/+4 · canonical +15 · boot +10/+5 · verified +5 · swap cost −2 each cap −10 · stale −20 · no-tests −5) and hard blockers (no license / archived / build failed → never ranked). `data/templates.seed.json` seeds the owner's first 8 repos.
+- **`scripts/template_intake.py` — remote measurement.** Reads a repo through the GitHub API only: metadata, license, full file tree, key manifests, contributor concentration, README placeholders. **No clone, no disk, no execution.** `--deep --yes` (consent-gated) adds the one fact that cannot be read remotely: the boot scorecard (install/build/start, timed).
+- **`scripts/factory_clone.py`** — clones a matched template into `D:/<slug>` (root configurable), drops upstream history (fresh `git init` + one commit naming the upstream commit), writes `.factory/{match,swap-map,brand,scorecard}` + `PENDING.md`, and refuses unlicensed rows or non-empty folders.
+- **`scripts/swap_check.py`** — proves the swaps: vendor SDK absent outside declared `allow` globs, target adapter present, per-entry verdict, exit 1 on any incomplete swap.
+- **`references/factory/` — six phase refs**: `00-intake` (≤10 questions, one pass) · `10-match` (script-decided ranking, shape taxonomy, canonical-stack policy, Lane-B honesty) · `20-clone` (consent, commit pinning, disk D, boot evidence) · `30-swap` (vendor→open-source target table, method, smoke tests) · `40-rebrand` (brand.json, injection points, the leak check, license duties, 6-row visual sanity) · `50-verify-deploy` (the 6-row verify tail, Coolify deploy, the owner-facing report).
+- **`tests/test_factory.py`** — 13 tests: registry import/scoring/determinism/export, license blocking, swap gate (fails on vendor, passes on adapter, allowlist, missing map), clone gate (state files, fresh history, license refusal, non-empty folder refusal).
+
+### Removed (deleted, not deprecated)
+- `references/buildout/` — the whole engine: `00-start-from-boilerplate`, `10-design-assembly`, `15-reference-library`, `20-component-library`, `30-design-audit`, `40-verify-the-product`, `45-map`, `50-direction-competition`.
+- `scripts/{map_check,registry_sync,styles_fetch,styles_pick,assemble_pick}.py` + their tests + fixtures.
+- `data/{styles/,items/,registries.snapshot.json,allowlist.json,boilerplates.json}` (~11.5 MB of design-generation input), `templates/design-audit/`, `references/eval/`.
+- **Reason:** those layers existed to *generate* a product — design systems, per-block component negotiation, composition locks, map/spec rigor. That generation is where the drift, the token burn and the "impressive but crappy" outcomes lived. The skill went from 12 MB to ~0.4 MB.
+
+### Changed
+- `SKILL.md` rewritten as the factory router: the promise, the 6-phase table, 10 hard rules (license gate · measured-not-claimed · canonical stack · disk D · remote-until-consent · evidence · budgets · honesty spine · lanes · refs-are-data), the script table, task→file routing, pitfalls, and a verification section that checks the registry/swap/clone gates.
+- `tests/test_budget_lines.py` now gates the factory wiring — refs and scripts exist, SKILL.md routes to them, and the removed machinery may not reappear.
+- **Kept:** lifecycle/jargon/playbooks/formats refs · `templates/qa/` (probe, frame, cdp.mjs, form-drive.js) · the deckhand-profile + `PENDING.md` + `OPS.md` rules · the hard-won evidence rules (freshness, write-path, occlusion, text floor) compressed into the 6-row verify tail.
+
+Suite: **26 tests**, all offline (18 factory + 8 budget/wiring).
+
+## 0.7.0 — 2026-09-23
+
+The composition layer — the fix for the second field test's verdict: every mechanical gate green, the page still "not a website" (no layout, layers, or composition; one text scroll + a bare form). Additive: builds that never touch references, the blueprint, or the visual gate behave exactly as before; existing locks stay valid (new lock content is optional/additive; `sections` is required at the direction arm's freeze).
+
+### Added
+- **`15-reference-library.md` — vendored real-site references (MIT, `Nutlope/inspo`)**: `py scripts/styles_fetch.py` pulls a pinned snapshot into `data/styles/` — 2,320 real pages with traced palettes, real font stacks, **measured type ramps**, macrostructures, fold-by-fold autopsies, northstars; 68 components with JSX; provenance — fully offline afterwards. `py scripts/styles_pick.py --query …` returns deterministic reference picks for a brief. Rules: every direction names 1–3 references + carried traits + adaptation deltas ("adapt, don't copy"); the measured guidance (hero ≤ first viewport; 80–160 px section rhythm; centered padded column) is pipeline rule; reference imagery stays a URL, never vendored.
+- **Composition ownership + sections in the lock.** `lock.sections[<s>] = { id, registry, url, macro, reference, pickedAt }`; compose FIRST, then pick components. An empty `sections: {}` without `"_waived": "<reason>"` fails the freeze (D11).
+- **Rendered visual gate (`40-verify-the-product.md` §2)** — V1–V12 judged on screenshots by a vision-capable reviewer (composition/focal point · hero discipline · layers · section rhythm · type ramp · imagery policy · proof layer · register check · reference adherence · scanability · the 50 ms test · **no dead interior**); fix→render→judge loop closes before handoff. Calibration baseline = the field-test artifact: if the gate cannot fail that page, the gate is broken. V12 was added *by* the field test: the hero graphic panel passed V3/V6 while two thirds of its frame was dead white — V3/V6 ask whether a layer exists, V12 asks whether the bounded region is filled.
+- **QA instrument templates (`templates/qa/`)** — `probe.html` (dependency-free same-origin iframe harness: overflowPx, overflow offenders, heading sizes/boxes, section gaps, image/CTA boxes), `frame.html` (true-width screenshot wrapper), `calib.html` (width calibration), plus **`cdp.mjs` + `form-drive.js`** (node 22+ CDP driver: exact layout width via `Emulation.setDeviceMetricsOverride`, a script evaluated in the page's own context, true-width PNGs, and a form driver that reports read-back, the API status, the receipt's rect at the moment it appears, occlusion at max scroll and at focus, the text floor). Field-tested rules carried in the templates: `--window-size=390,844` does NOT give a 390px layout (Chrome clamps windows to a 500px minimum — it false-positived a mobile-overflow finding before calibration); a harness in `public/` is only served if it existed at BUILD time; and two harness bugs that produced false results — a document-wide "receipt" matcher catching unrelated marketing copy, and a hit-test loop counting off-screen fields as occluded.
+- **Hero mockups as direction artifacts** — `A-hero.html`/`B-hero.html` (static, tokens inline); PASS_2 judges the winner's render, not the prose.
+
+### Changed
+- **Map arm gains R8**: spec-mode `summary.md` carries a `blueprint:` block — every base slot resolves to an inventory id or `not_applicable: reason`; missing/unresolved slots FAIL the freeze (the rule that stops a lean run from silently deleting the page's layout shell).
+- **Direction arm gains D9/D10/D11**: `reference:` line required in both drafts; both hero mockups required; a resolved `sections` record required in the merged lock.
+- `11-spec-mode.md` (companion): inventories start from the section blueprint; on a one-pager every rendered block is an item; imagery defaults reconcile to a policy (never "no imagery"); charter band gains a lean-depth figure; `summary.md` carries the blueprint block.
+- `10-design-execution.md` (companion): the **additive bar** (ten must-contains — composition, focal point, hero discipline, layers, imagery policy, proof layer, rhythm, type system, scanability, one deliberate moment) + **register check** (both known generated registers, not just gradient-SaaS) + reference-derivation section; restraint applies AFTER the bar; imagery/art-direction policy (absence is a defect, not modesty).
+
+Suite: 92 tests (map_check.py now 63 — R8/D9/D10/D11 each carry known-bad fixtures).
+
+## 0.6.1 — 2026-09-22
+
+Companion wiring + the design loop's last gate. The `conversion-audit` companion (map schema, spec mode, anti-slop rules) is now a named actor at every stage that consumes it, and the built-result anti-slop check (INV-8) — until now promised in prose — is an implemented step of the product-verification ref.
+
+- **MAP:** step 2 now says where a greenfield map comes FROM — authored first via the companion's spec mode (`conversion-audit/references/11-spec-mode.md`); no companion installed → hand-write `map/` per `45-map.md`'s layout, or state "no map — building directly" in one line (never silent).
+- **DIRECTION:** step 3 names the anti-slop source it runs against (`conversion-audit/references/10-design-execution.md` — 5 tells, restraint rule, quality floor); step 4 clarifies that when the competition ran, its lock IS the lock — straight to assembly, no second design-brief round.
+- **VERIFY:** `40-verify-the-product.md` gains **built-result anti-slop (INV-8)** — the 5 tells + subject-grounding + restraint rule re-run against the RENDERED output, so plan-level PASS_2 is no longer final; a design that read alive in the plan but drifted generic during the build fails before handoff. SKILL.md step 7 names it.
+
+Suite: 81 tests (wiring-only; no gate logic touched).
+
 ## 0.6.0 — 2026-09-22
 
 The map + the direction stage. Two new stage refs and one new mechanical gate — additive: builds without a map or without the competition behave exactly as in 0.5.0. Unreleased; folds into the pending release batch.
