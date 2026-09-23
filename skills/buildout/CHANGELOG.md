@@ -1,5 +1,17 @@
 # Changelog - Buildout
 
+## 0.8.2 — 2026-09-23
+
+### Fixed
+- **A stale measurement can no longer roll the registry back.** Two intake runs on one registry were
+  observed racing: both measured the same eight templates, and the slower one finished last, silently
+  overwriting newer rows with older measurements. `upsert` now takes the run's start stamp
+  (`not_before`) and refuses to overwrite a row updated after it — `template_intake.py` passes it and
+  prints `SKIPPED` instead of pretending to write. Exercised against the live registry (stale write
+  skipped, a template's real star count intact). Rule recorded in `references/factory/00-intake.md`:
+  never run two intakes at once.
+- `tests/test_factory.py` — 48 tests (was 47).
+
 ## 0.8.1 — 2026-09-23
 
 The pool got a memory. Each template now carries a **measured detail file** — real routes, real

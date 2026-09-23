@@ -688,6 +688,26 @@ def test_score_ignores_details_when_the_ask_needs_no_storage(registry):
     assert ranked and not any("NO database" in r for r in ranked[0]["reasons"])
 
 
+def test_a_stale_measurement_cannot_roll_the_registry_back(registry):
+    """Two intake runs raced once and the slower one won, silently rolling rows back.
+
+    A run now refuses to overwrite a row that was updated after the run started.
+    """
+    db, tmp = registry
+    T = __import__("templates_db")
+    con = T.connect(db)
+    stale = dict(MEASURED_ROWS["templates"][0], stars=1)
+    out = T.upsert(con, stale, not_before="2000-01-01T00:00:00Z")   # run started long before this row
+    assert out == "skipped-newer"
+    row = con.execute("SELECT stars FROM templates WHERE name = 'alpha'").fetchone()
+    assert row["stars"] == 4200, "the older run must not overwrite the newer measurement"
+    # a run that started after the row was written still writes (and without the guard, always)
+    assert T.upsert(con, stale, not_before="2999-01-01T00:00:00Z") == "written"
+    assert con.execute("SELECT stars FROM templates WHERE name = 'alpha'").fetchone()["stars"] == 1
+    assert T.upsert(con, dict(stale, stars=2)) == "written"        # no not_before = legacy behaviour
+    con.close()
+
+
 def test_connect_migrates_an_older_registry(tmp_path):
     """A templates.db created before this feature keeps working — columns are added, not required."""
     import sqlite3

@@ -213,6 +213,7 @@ def main(argv=None) -> int:
         return 3
 
     con = DB.connect(Path(args.db))
+    run_start = DB.now()          # a row updated after this instant belongs to a newer run
     results = []
     for repo in targets:
         print(f"measuring {repo} (remote)...", flush=True)
@@ -232,7 +233,11 @@ def main(argv=None) -> int:
             rank = seed["rank"]
         if rank:
             rec["rank"] = rank
-        DB.upsert(con, rec)
+        outcome = DB.upsert(con, rec, not_before=run_start)
+        if outcome == "skipped-newer":
+            print("  SKIPPED: a newer measurement of this template is already in the registry "
+                  "(another run started after this one)")
+            continue
         results.append(rec)
         lic = rec.get("license_spdx") or "?"
         st = rec.get("stack") or {}

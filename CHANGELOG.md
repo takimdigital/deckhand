@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-23 — a stale measurement cannot roll the pool back (pack v0.16.2)
+
+Two pool-measuring runs on the same registry were observed racing: both measured the same eight templates and the slower one finished last, silently overwriting newer rows with older measurements. The registry now refuses it — a run carries the stamp of the moment it started and skips any row that was updated after it (printed as `SKIPPED`, not silently), with the rule written into the intake reference: never run two measurements at once. Proven against the live registry: a deliberately stale write was refused and the template's real star count stayed intact.
+
+buildout: **0.8.2 · 48 offline tests.**
+
 ## 2026-09-23 — the pool gets a memory (pack v0.16.1)
 
 Every template in the factory pool now carries a **measured detail file** — not what its README claims, but what its code does: the real routes, the features that exist, the locales it actually ships, the environment names it demands at build time, the deploy story, the files that carry someone else's brand, and the traps that would cost an hour. One subagent per repository measures it through the GitHub API (no clone, no execution, env vars **by name only**); one command validates and imports it; the blobs ship in the pack and load on demand, while a compact digest rides the pool export.
@@ -24,7 +30,7 @@ buildout no longer *generates* applications: it **matches, clones, swaps and reb
 
 The defects that run surfaced are fixed in this release: package-manager shims not resolving on Windows, an install running outside the project folder, a swap map written in the wrong shape, and a commit that is now cut before any install can land in it.
 
-Skill versions: buildout 0.8.1 · vps-ops 0.9.9 · deckhand-profile 0.3.3 · component-library 0.1.3. **98 stdlib tests green.**
+Skill versions: buildout 0.8.2 · vps-ops 0.9.9 · deckhand-profile 0.3.3 · component-library 0.1.3. **99 stdlib tests green.**
 
 ## 2026-09-22 — map before build, two directions compete, and the freeze gate that refuses (pack v0.15.0)
 

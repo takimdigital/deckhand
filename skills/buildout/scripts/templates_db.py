@@ -155,7 +155,14 @@ def compute_canonical(stack: dict) -> tuple[int, str]:
     return (1 if ok else 0), "; ".join(notes)
 
 
-def upsert(con: sqlite3.Connection, rec: dict) -> None:
+def upsert(con: sqlite3.Connection, rec: dict, not_before: str | None = None) -> str:
+    """Insert or update a row. Returns `written` or `skipped-newer`.
+
+    `not_before` is the ISO stamp of the moment the *measuring run* started. A row whose `updated_at`
+    is newer than that was written by a run that started later — overwriting it with this run's older
+    measurement would silently roll the registry back. Observed for real: two intake runs on the same
+    registry, the slower one finishing last and winning.
+    """
     rec = {k: rec.get(k) for k in TPL_FIELDS if k in rec} | {
         k: rec[k] for k in ("name", "url") if k in rec
     }
@@ -169,7 +176,10 @@ def upsert(con: sqlite3.Connection, rec: dict) -> None:
         rec["canonical"], rec["canonical_notes"] = compute_canonical(stack)
     rec["updated_at"] = now()
     cols = [c for c in TPL_FIELDS if c in rec]
-    existing = con.execute("SELECT id, risk_flags FROM templates WHERE name = ?", (rec.get("name"),)).fetchone()
+    existing = con.execute("SELECT id, risk_flags, updated_at FROM templates WHERE name = ?",
+                           (rec.get("name"),)).fetchone()
+    if existing and not_before and (existing["updated_at"] or "") > not_before:
+        return "skipped-newer"
     if existing and "risk_flags" in rec:
         # intake owns the repo facts, import-details owns the flags it derived from pitfalls:
         # a re-measurement must not silently erase a security blocker.
@@ -187,6 +197,7 @@ def upsert(con: sqlite3.Connection, rec: dict) -> None:
         con.execute(f"INSERT INTO templates ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
                     [rec[c] for c in cols])
     con.commit()
+    return "written"
 
 
 def load_seed(path: Path) -> list[dict]:

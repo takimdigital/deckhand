@@ -35,6 +35,16 @@ Output: `intake.json`. This file is the matchmaker's only input — keep it thin
   a lead-gen site is Lane B and is **not** served by this pool yet. Do not force a SaaS template onto it.
 - After the answers: read back a **5-line summary** and move to `10-match.md` in the same turn.
 
+## Measuring the pool (only when the pool itself must grow)
+
+`template_intake.py --seed …` or `--repo <owner/name>`. Two rules learned from real runs:
+
+- **Remote only, and never two runs at once on one registry.** A run refuses to overwrite a row that
+  was updated after it started (`not_before`), because two concurrent intakes were observed racing —
+  the slower one finished last and rolled rows back to older measurements.
+- A build that fails naming vendor keys is a **swap input**, not a pool rejection: the order is
+  clone → swap → build (`--deep --yes` is the consent-gated boot test).
+
 ## intake.json
 
 ```json
