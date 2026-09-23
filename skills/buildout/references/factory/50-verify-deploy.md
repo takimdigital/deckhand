@@ -19,6 +19,11 @@ A row without a pasteable artifact is not a row.
 
 ## Deploy (vps-ops, Coolify)
 
+**Runner first:** if the template sets `output: "standalone"`, the deploy command is
+`node .next/standalone/server.js` (or its Dockerfile) — **not** `next start`, which warns and
+behaves differently. Note the port the app actually listens on (templates sometimes hardcode it in
+`scripts.start`) and set Coolify's port accordingly.
+
 1. Project pushes to its own repo (the owner's account, fresh history).
 2. Coolify on the VPS: app from the repo, Dockerfile/nixpacks, env vars from `.env.example`.
 3. Postgres container + volume + scheduled backup; the app connects over the internal network.

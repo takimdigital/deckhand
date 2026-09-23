@@ -41,6 +41,12 @@ the scorer keeps the candidate rankable.
 
 ## Boot (measure, never assert)
 
+**Read the template's own scripts before assuming a port.** Measured case (`salmanshahriar/Next-Elite`):
+`"start": "next start -p 6767"` — the port is hardcoded in the script, so `PORT=… npm run start`
+serves on 6767 anyway. Read `scripts` in `package.json`, then curl *that* port.
+`output: "standalone"` prints a warning that `next start` is not the right runner — the deploy
+target is `node .next/standalone/server.js` (or the template's Dockerfile); record it for ref 50.
+
 ```
 cd D:/<slug> && <pm> install     # pnpm store is already D:/pnpm-store
 <pm> run build

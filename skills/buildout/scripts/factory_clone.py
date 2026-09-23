@@ -147,6 +147,11 @@ Boot evidence is measured, never asserted: install/build/start are recorded in
     if (dest / ".env.example").exists() and not (dest / ".env").exists():
         shutil.copy(dest / ".env.example", dest / ".env")
         env_note = "env scaffolded from .env.example (fill only what boot needs; real secrets stay out of git)"
+        rc_ci, _ = git(["check-ignore", "-q", ".env"], dest)
+        if rc_ci != 0:  # the template does not ignore .env -> never let the first commit carry it
+            with open(dest / ".gitignore", "a", encoding="utf-8") as gi:
+                gi.write("\n# added by buildout factory: never commit secrets\n.env\n")
+            env_note += " · .env was not gitignored by the template — added to .gitignore"
 
     runner = {"pnpm": "pnpm", "npm": "npm", "yarn": "yarn", "bun": "bun"}.get(
         ((row or {}).get("stack") or {}).get("package_manager"), "npm")

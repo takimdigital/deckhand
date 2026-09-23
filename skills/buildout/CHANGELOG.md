@@ -23,7 +23,7 @@ The Template Factory — a full rewrite of the creation logic, after the owner's
 - `tests/test_budget_lines.py` now gates the factory wiring — refs and scripts exist, SKILL.md routes to them, and the removed machinery may not reappear.
 - **Kept:** lifecycle/jargon/playbooks/formats refs · `templates/qa/` (probe, frame, cdp.mjs, form-drive.js) · the deckhand-profile + `PENDING.md` + `OPS.md` rules · the hard-won evidence rules (freshness, write-path, occlusion, text floor) compressed into the 6-row verify tail.
 
-Suite: **26 tests**, all offline (18 factory + 8 budget/wiring).
+Suite: **27 tests**, all offline (19 factory + 8 budget/wiring).
 
 ## 0.7.0 — 2026-09-23
 

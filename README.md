@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Tests: 77 passing" src="https://img.shields.io/badge/tests-77%20passing-brightgreen.svg">
+  <img alt="Tests: 78 passing" src="https://img.shields.io/badge/tests-78%20passing-brightgreen.svg">
   <img alt="Version: 0.16.0" src="https://img.shields.io/badge/version-0.16.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
@@ -111,8 +111,8 @@ Deployed and validated end to end against a real Coolify instance:
 - [x] **Postgres** — provisioned via API → the app executes a real query over the internal network
 - [x] **Backups** — schedule → dump → **restore drill** (`pg_restore` into a scratch database, verified)
 - [x] **Build packs** — Nixpacks and Dockerfile · **ops** — logs, deployments, env vars, docker cleanup
-- [x] **77 unit tests** green (standard library only)
-- [x] **Template factory** — the registry, the clone, the swap gate and the leak check are covered by 26 offline tests; on a real, unswapped template the swap gate goes red with file-and-line evidence (`next-js-boilerplate`: 4 vendors, 187 live references, exit 1) instead of passing quietly.
+- [x] **78 unit tests** green (standard library only)
+- [x] **Template factory** — the registry, the clone, the swap gate and the leak check are covered by 27 offline tests; exercised end-to-end on a real MIT template: cloned to disk, `npm install` + `next build` green (15 routes), served with the on-disk BUILD_ID on the page (freshness), and both gates red where they must be — the swap check on the unswapped clone (3 vendors, 38 references left, file-and-line evidence) and the leak check on the live page (31 template-name hits).
 - [x] **Paid track validated live** — a real Next.js + Postgres SaaS deployed end-to-end on a rented VPS: Coolify → Cloudflare DNS-only → Let's Encrypt, with migrations, seed data and a production-owner flow — every error it surfaced is now folded back into the runbooks.
 
 ## ⚡ The skills

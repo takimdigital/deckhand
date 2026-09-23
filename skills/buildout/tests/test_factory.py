@@ -238,6 +238,25 @@ def test_install_runs_in_the_project_dir(tmp_path):
     assert not (Path.cwd() / "install-ran.txt").exists(), "npm install leaked into the caller's cwd"
 
 
+def test_clone_gitignores_env_when_the_template_does_not(tmp_path):
+    """The factory seeds .env; if the template doesn't ignore it, the factory must, before commit."""
+    up = tmp_path / "upenv"
+    (up / "src").mkdir(parents=True)
+    (up / "package.json").write_text(json.dumps({"name": "f", "private": True}), encoding="utf-8")
+    (up / ".env.example").write_text("SECRET=\n", encoding="utf-8")
+    (up / ".gitignore").write_text("node_modules\n", encoding="utf-8")
+    (up / "LICENSE").write_text("MIT\n", encoding="utf-8")
+    for cmd in (["init", "-q"], ["add", "-A"],
+                ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "init"]):
+        subprocess.run(["git", *cmd], cwd=up, check=True, capture_output=True)
+    root = tmp_path / "projects"
+    r = run("factory_clone.py", "--repo", str(up).replace("\\", "/"), "--slug", "env", "--root", root)
+    assert r.returncode == 0, r.stderr
+    assert ".env" in (root / "env" / ".gitignore").read_text(encoding="utf-8")
+    tracked = subprocess.run(["git", "ls-files"], cwd=root / "env", capture_output=True, text=True).stdout.split()
+    assert ".env" not in tracked
+
+
 def test_module_level_helpers_are_importable(tmp_path):
     root = _project(tmp_path, "x", {"@clerk/nextjs": "^5"}, {"src/a.ts": "clerkMiddleware()"})
     absent = swap_check.grep_present(root, ["@clerk/"], [])
