@@ -1,5 +1,15 @@
 # Changelog - Buildout
 
+## 0.8.3 — 2026-09-23
+
+### Fixed
+- **The interview now starts from the profile.** `references/factory/00-intake.md` — the file an agent
+  loads to run the intake — said nothing about the portable profile, so a session that loaded only the
+  ref could re-ask what `~/.deckhand/profile.md` already answers (hosting, stack, DNS/SSL, currency,
+  accounts, brand tone). The ref now opens with the profile-first rule, states that those items are
+  `assumed: true` rather than questions, and says what to do when no profile exists: create it with
+  the `deckhand-profile` skill first, then run the intake.
+
 ## 0.8.2 — 2026-09-23
 
 ### Fixed

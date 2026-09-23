@@ -3,6 +3,14 @@
 Goal: capture the business in **≤10 answers**, one pass, then stop asking.
 Output: `intake.json`. This file is the matchmaker's only input — keep it thin.
 
+## Before you ask anything
+
+Read `~/.deckhand/profile.md` + `~/.deckhand/pending.md` (skill `deckhand-profile`). The profile
+already answers part of this interview — **hosting, stack, DNS/SSL, currency, accounts, brand tone** —
+so those are not questions: state the default you are taking and mark it `assumed: true`. Never
+re-ask what the profile answers. No profile yet → create it first with the `deckhand-profile` skill
+(one pass, then it is reused forever, for every future business).
+
 ## Questions (ask in this order, all in one message)
 
 1. **What the business does** — one line, in the owner's words.

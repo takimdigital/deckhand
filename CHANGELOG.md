@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-23 — the interview starts from the profile (pack v0.16.3)
+
+The phase reference that runs a business intake said nothing about the portable profile, so a session that loaded only that file could ask an owner for facts `~/.deckhand/profile.md` already answers — hosting, stack, DNS/SSL, currency, accounts, brand tone. The intake now opens by reading the profile and treating those items as taken defaults (`assumed: true`) rather than questions, and when no profile exists it creates one first, once, for every future business. The profile step itself was never removed — it is wired into the router and the pack ships the `deckhand-profile` skill; this closes the gap where the ref could contradict it.
+
+buildout: **0.8.3 · 48 offline tests.**
+
 ## 2026-09-23 — a stale measurement cannot roll the pool back (pack v0.16.2)
 
 Two pool-measuring runs on the same registry were observed racing: both measured the same eight templates and the slower one finished last, silently overwriting newer rows with older measurements. The registry now refuses it — a run carries the stamp of the moment it started and skips any row that was updated after it (printed as `SKIPPED`, not silently), with the rule written into the intake reference: never run two measurements at once. Proven against the live registry: a deliberately stale write was refused and the template's real star count stayed intact.

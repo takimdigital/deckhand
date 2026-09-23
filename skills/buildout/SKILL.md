@@ -1,7 +1,7 @@
 ---
 name: buildout
 description: "Use when building/shipping an online business: match a vetted open-source template, clone it, swap the proprietary services, rebrand, verify, deploy."
-version: 0.8.2
+version: 0.8.3
 author: Takim, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
