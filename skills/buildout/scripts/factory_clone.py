@@ -143,6 +143,11 @@ Boot evidence is measured, never asserted: install/build/start are recorded in
 """, encoding="utf-8")
     (dest / "PENDING.md").write_text(PENDING_SEED, encoding="utf-8")
 
+    env_note = ""
+    if (dest / ".env.example").exists() and not (dest / ".env").exists():
+        shutil.copy(dest / ".env.example", dest / ".env")
+        env_note = "env scaffolded from .env.example (fill only what boot needs; real secrets stay out of git)"
+
     runner = {"pnpm": "pnpm", "npm": "npm", "yarn": "yarn", "bun": "bun"}.get(
         ((row or {}).get("stack") or {}).get("package_manager"), "npm")
     install_ok = None
@@ -165,6 +170,8 @@ Boot evidence is measured, never asserted: install/build/start are recorded in
     else:
         st = (row or {}).get("stack") or {}
         print(f"cloned {repo} -> {dest}\n  upstream commit {commit[:12]}\n  license {(row or {}).get('license_spdx')}")
+        if env_note:
+            print(f"  {env_note}")
         print(f"  next: cd {dest} && {runner} install  # then py scripts/swap_check.py --project {dest}")
         print(f"  state: {state}\\  |  mandatory facts: {dest / 'PENDING.md'}")
     return 0
