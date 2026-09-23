@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-23T21:20:52Z",
+  "generated_at": "2026-09-23T21:33:50Z",
   "source": "data/templates.db",
   "count": 8,
   "templates": [
@@ -752,7 +752,7 @@
       "url": "https://github.com/salmanshahriar/Next-Elite",
       "repo": "salmanshahriar/Next-Elite",
       "rank": 5,
-      "status": "unverified",
+      "status": "verified",
       "reject_reason": null,
       "license_spdx": "MIT",
       "license_file": "LICENSE",
@@ -894,12 +894,12 @@
           "verified": false
         }
       },
-      "boot_install_ok": null,
-      "boot_build_ok": null,
-      "boot_start_ok": null,
-      "boot_tests": null,
+      "boot_install_ok": 1,
+      "boot_build_ok": 1,
+      "boot_start_ok": 1,
+      "boot_tests": "not run (playwright suite would need browser downloads)",
       "boot_ms": null,
-      "boot_port": null,
+      "boot_port": 6767,
       "rebrand_surface": [
         "config/vitest.config.ts",
         "config/vitest.setup.ts",
@@ -917,30 +917,27 @@
       ],
       "risk_flags": [],
       "evidence": {
-        "source": "github-api (no clone)",
-        "checked_at": "2026-09-23T21:20:42Z",
-        "branch": "main",
-        "files_read": [
-          "package.json",
-          "docker-compose.yml",
-          "Dockerfile",
-          "README.md",
-          ".env.example",
-          "components.json",
-          "next.config.mjs"
-        ],
-        "tree_entries": 187,
-        "locales": [
-          "ar",
-          "bn",
-          "en",
-          "es",
-          "fr",
-          "zh"
-        ],
-        "license_path": "LICENSE"
+        "boot": {
+          "host": "windows / git-bash, node v24, npm 11",
+          "project": "D:/pilot-next-elite",
+          "upstream_commit": "8865298a9a0c",
+          "install": "ok — npm install (cache on D:/npm-cache)",
+          "build": "ok — next build, 15 routes",
+          "start": "ok — 6767 (the port is hardcoded in scripts.start; PORT env is ignored)",
+          "freshness": "served HTML carried the on-disk .next/BUILD_ID f4asx0olfnzcFL5uTDivi",
+          "routes": {
+            "/": 200,
+            "/login": 200,
+            "/register": 200,
+            "/dashboard": 307,
+            "/api/health": 200
+          },
+          "leak_check": "31 hits of the template name/author/demo domain on the served page — rebrand pending (expected pre-rebrand)",
+          "swap_check": "exit 1 — 3 vendors (vercel, sentry, ably), 38 references (expected pre-swap)",
+          "checked_at": "2026-09-23"
+        }
       },
-      "updated_at": "2026-09-23T21:20:42Z"
+      "updated_at": "2026-09-23T21:33:50Z"
     },
     {
       "id": 6,
