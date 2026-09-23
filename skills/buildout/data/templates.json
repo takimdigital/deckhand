@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-23T21:33:50Z",
+  "generated_at": "2026-09-23T21:34:44Z",
   "source": "data/templates.db",
   "count": 8,
   "templates": [
@@ -402,7 +402,7 @@
       ],
       "evidence": {
         "source": "github-api (no clone)",
-        "checked_at": "2026-09-23T21:20:30Z",
+        "checked_at": "2026-09-23T21:34:43Z",
         "branch": "main",
         "files_read": [
           "package.json",
@@ -416,7 +416,7 @@
         ],
         "license_path": "LICENSE"
       },
-      "updated_at": "2026-09-23T21:20:30Z"
+      "updated_at": "2026-09-23T21:34:43Z"
     },
     {
       "id": 3,

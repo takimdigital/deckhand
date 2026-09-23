@@ -63,7 +63,15 @@ Evidence rules:
 
 Copy `.env.example` → `.env` and fill only what boot needs (DB URL, auth secret, SMTP).
 Every value the owner must supply later goes to `PENDING.md`, never into a fake default.
-`.env` is gitignored by the template; verify that before the first commit.
+`.env` is gitignored by the template; verify that before the first commit (the clone step adds the
+ignore rule itself when the template forgot one).
+
+**Secrets the app needs only locally are generated, not faked.** Measured case: the pilot boots
+green and still prints `[auth] Missing BETTER_AUTH_SECRET` — sessions are insecure without it. A
+*project* secret (`BETTER_AUTH_SECRET`, `NEXTAUTH_SECRET`, `APP_KEY`, 32+ chars) is not a vendor
+credential: generate one (`py -c "import secrets;print(secrets.token_hex(32))"`), put it in `.env`,
+and add a `PENDING.md` line to rotate it for production. Never generate a *vendor* key
+(Clerk/Stripe/…): those are what the swap phase removes.
 
 ## Done when
 
