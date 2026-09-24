@@ -141,6 +141,28 @@ def test_check_does_not_count_a_refused_repo_as_missing(tmp_path, registry):
     assert "1/1 measurable repo(s) ready" in r.stdout and "ALL READY" in r.stdout
 
 
+def test_check_flags_files_dropped_into_the_skill_root(tmp_path, registry):
+    """A child once dropped two scratch JSONs into the skill root and they shipped inside the pack.
+
+    The manifest snapshots the root at plan time; anything new at check time is a stray file.
+    """
+    db, _ = registry
+    _plan(tmp_path, "acme/alpha", db=db)
+    _detail_file(tmp_path / INBOX / "b1" / "files", "alpha")
+    m = tmp_path / INBOX / "b1" / "batch.json"
+    man = json.loads(m.read_text(encoding="utf-8"))
+    man["root_before"] = []                     # pretend the root was empty when the batch was planned
+    m.write_text(json.dumps(man), encoding="utf-8")
+    r = run("pool_batch.py", "--db", db, "--inbox", tmp_path / INBOX, "check", "b1")
+    assert r.returncode == 3 and "STRAY" in r.stdout, r.stdout
+    assert "would ship inside the pack" in r.stdout
+    # a batch whose root is unchanged stays green
+    _plan(tmp_path / "clean", "acme/alpha", db=db)
+    _detail_file(tmp_path / "clean" / INBOX / "b1" / "files", "alpha")
+    r2 = run("pool_batch.py", "--db", db, "--inbox", tmp_path / "clean" / INBOX, "check", "b1")
+    assert r2.returncode == 0, r2.stdout
+
+
 def test_check_is_green_when_every_file_validates(tmp_path, registry):
     db, _ = registry
     _plan(tmp_path, "acme/alpha", db=db)

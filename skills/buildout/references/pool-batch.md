@@ -52,5 +52,10 @@ is `data/details/` plus the row, which `import` writes.
   the two drift apart. The batch id is printed; use it for `check`/`import`.
 - **Don't let a child widen its slice** ("while I was there I also measured…") — that file belongs to
   another slice and will be overwritten by whichever agent writes second.
+- **`check` also guards the skill root**: `plan` snapshots it and `check` fails with `STRAY` if any
+  file appeared since (children have dropped scratch JSONs into the shipped tree before). Delete the
+  named files — or say why they belong — before importing.
+- **After a batch ships, diff the pack's file list against the previous release** (`unzip -l`), not
+  just the tests: that diff is what caught the stray files, and no test can see the whole artifact.
 - **Big lists**: keep 3 agents and run a second batch — never 6 agents "just for this one".
 - A batch is not a match: importing details never ranks, clones or deploys anything.

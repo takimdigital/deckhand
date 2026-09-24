@@ -98,7 +98,9 @@ repos and output files (write each file the moment its repo is done, not at the 
 {listing}
 
 context: You are ONE of {total} agents sharing this batch — do not spawn further agents, and do not
-touch a repo outside your slice. Measure REMOTELY only: `gh api` (or `curl` with a browser UA) and
+touch a repo outside your slice. Write ONLY the files listed above: no scratch, cache or working
+files anywhere inside the skill directory (use your OS temp directory for anything else) — the skill
+tree ships as a package and stray files are caught by a gate. Measure REMOTELY only: `gh api` (or `curl` with a browser UA) and
 raw.githubusercontent — never clone, never install, never execute anything from these repos. Read the
 contract file above first; it defines the exact JSON keys. Hard rules: environment variables by NAME
 only, never values (a credential-shaped value means the file is rejected); every non-obvious fact
@@ -157,6 +159,9 @@ def cmd_plan(args: argparse.Namespace) -> int:
         "skipped": [{"repo": r, "why": f"pool refuses it ({row.get('license') or 'no MIT/Apache-2.0'} license)"}
                     for r, row in skipped],
         "slices": [{"agent": f"a{i + 1}", "repos": s} for i, s in enumerate(slices)],
+        # snapshot of the skill root: children have dropped scratch files into the shipped tree
+        # before (triply-repo.json, triply-langs.json), and a diff is the only thing that catches it.
+        "root_before": sorted(p.name for p in SKILL_DIR.iterdir()),
     }
     (bdir / "batch.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -216,6 +221,9 @@ def cmd_check(args: argparse.Namespace) -> int:
     manifest = json.loads(mpath.read_text(encoding="utf-8"))
     index = _index_files(bdir / "files")
     known = _known_repos(Path(args.db))
+    before = manifest.get("root_before")
+    stray = (sorted(p.name for p in SKILL_DIR.iterdir() if p.name not in set(before))
+             if before is not None else [])
     rows, bad = [], 0
     for r in manifest["repos"]:
         if not r.get("measurable", True):
@@ -241,8 +249,11 @@ def cmd_check(args: argparse.Namespace) -> int:
             bad += 1
         rows.append({"repo": r["repo"], "agent": r["agent"], "state": state, "detail": detail,
                      "warnings": warns})
+    if stray:
+        bad += 1
     if args.json:
-        print(json.dumps({"batch": args.batch, "rows": rows}, ensure_ascii=False, indent=2))
+        print(json.dumps({"batch": args.batch, "rows": rows, "stray_root_files": stray},
+                         ensure_ascii=False, indent=2))
     else:
         for x in rows:
             print(f"  {x['state']:8} {x['repo']:44} {x['agent']}  {x['detail']}")
@@ -252,6 +263,10 @@ def cmd_check(args: argparse.Namespace) -> int:
         for x in rows:
             for w in x["warnings"]:
                 print(f"  warn   {x['repo']}: {w}")
+        if stray:
+            shown = ", ".join(stray[:6]) + (f" (+{len(stray) - 6} more)" if len(stray) > 6 else "")
+            print(f"  STRAY    {len(stray)} file(s) dropped into the skill root since plan: {shown}")
+            print("           delete them — they would ship inside the pack; children write only to files/")
         print(f"check: {n_ok}/{len(rows) - n_ref} measurable repo(s) ready{ref_note} · "
               f"{'ALL READY — import it' if not bad else 'NOT ready — fix the rows above'}")
     return 0 if not bad else 3

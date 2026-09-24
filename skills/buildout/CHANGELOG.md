@@ -24,8 +24,13 @@
   all; `composer.json` and the mobile deps are already fetched, so the detector now reads them:
   `framework=laravel, lang=php` and `framework=expo` — a mobile template can no longer pass as a web
   one. Both re-measured live after the fix.
-- `tests/` — 64 tests (was 59): the licence-skip plan, the refused-row gate, and both detector
-  regressions.
+- **`check` now catches files dropped into the skill root.** A measuring agent left scratch JSONs in
+  the tree (`calcs.json` shipped unnoticed since 0.8.1; two more in the last batch) — children were
+  told what to write, but nothing verified it. `plan` snapshots the skill root, `check` diffs it and
+  fails with `STRAY` naming the files, so nothing ships without a human deciding to keep it. The
+  delegation text now also says: write only the listed files, scratch goes to the OS temp dir.
+- `tests/` — 65 tests (was 59): the licence-skip plan, the refused-row gate, the stray-file gate, and
+  both detector regressions.
 
 ## 0.9.0 — 2026-09-23
 

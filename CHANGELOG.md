@@ -6,7 +6,7 @@ The pool's first real owner batch. Six repos went in through the new batch tool 
 
 The batch immediately paid for itself in fixes. `plan` no longer spends an agent on an already-refused repo; `check` no longer counts a refused repo as `MISSING` (which would have kept a batch from ever going green); and the registry stopped calling whole families of repos "react-vite" — a PHP/Laravel platform that ships `package.json` + `vite.config` for its asset build, and Expo/React-Native apps that are not web SPAs at all. Both now measure truthfully, so a mobile template can never pass as a web one.
 
-buildout: **0.9.1 · 64 offline tests · 115 for the pack.**
+buildout: **0.9.1 · 65 offline tests · 116 for the pack.**
 
 ## 2026-09-23 — pool batches: the owner sends repos, the pool learns (pack v0.17.0): the owner sends repos, the pool learns (pack v0.17.0)
 
