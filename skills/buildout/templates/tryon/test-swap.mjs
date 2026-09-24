@@ -387,8 +387,10 @@ try {
       && fs.readFileSync(outside, "utf8") === outBefore, "containment: apply refuses a ../ file and leaves it untouched");
     ok(code(() => swap.applySwap({ root: C, file: outside, local: "Button", to: i3.specifier, entry: "KOne" })) === "PATH_OUTSIDE_PROJECT",
       "containment: apply refuses an absolute path outside the root");
-    ok(code(() => swap.installVariant({ root: C, from: srcOf(C, "KOne"), slot: "../../../evil", entry: "KOne" })) === "BAD_SLOT"
-      && !fs.existsSync(path.join(path.dirname(C), "evil")), "containment: install refuses a traversal slot");
+    // a per-run name: a leftover from an earlier (pre-fix) run must never decide this assertion
+    const evil = "evil-" + path.basename(C);
+    ok(code(() => swap.installVariant({ root: C, from: srcOf(C, "KOne"), slot: "../../../" + evil, entry: "KOne" })) === "BAD_SLOT"
+      && !fs.existsSync(path.join(path.dirname(C), evil)), "containment: install refuses a traversal slot");
     ok(code(() => swap.installVariant({ root: C, from: srcOf(C, "KOne"), slot: "button", entry: "KOne", as: "../../x.tsx" })) === "BAD_FILE_NAME",
       "containment: install refuses a path in --as");
     ok(code(() => swap.revertSwap({ root: C, file: "../" + path.basename(outside) })) === "PATH_OUTSIDE_PROJECT",

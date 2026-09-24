@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-24 — try-on grows up: upgrade a live site with real, licensed components (pack v0.19.0)
+
+Try-on lets an owner point at a component on the site they already run, try real licensed alternatives in place, and keep, undo or save the one they like — dev-only, reversible down to the byte. This release makes every answer it gives a checked one.
+
+- **One command per click.** `tryon_agent.py handle` runs guard → scoped lookup → fetch → stage → prop check → apply and writes the panel's reply itself; an "ok" is only reachable when every step passed, and each run leaves a step-by-step record.
+- **Honest checks.** A swap that would drop the owner's button text or click handler is refused; `apply` refuses a target that doesn't export the component; a prop check that cannot judge says "cannot tell", never "fit"; a TypeScript version without a compiler API gets a clear refusal.
+- **Demos are out of the picker.** Registry usage samples no longer pose as components; the real component they wrap is offered instead.
+- **Keep, Save and Undo are real verbs.** Keep graduates a try into project code, Save stores it with its licence in the owner's personal library (ranked first next time, kept out of the shipped catalog), and uninstall refuses rather than strand a swapped page.
+- **Safer by construction.** Request paths are contained to the project, item fetches are https-only and size-capped, dependency names are validated before any install, and the helper stays loopback-only, token- and origin-pinned.
+- **Proof anyone can rerun.** A tracked headless-browser end-to-end smoke, pack-wide size budgets, a leak sweep that reads databases too, and CI on Linux and Windows.
+
+buildout **0.14.0** · component-library **0.1.4**.
+
 ## 2026-09-24 — two modes, a plan phase, and the rebuild path (pack v0.18.0)
 
 The owner now chooses how the build runs, once, at intake. **autonomous**: answer the questions and it goes straight to deployed. **phased (default)**: four hard stops waiting for the owner's go — the plan, the pick + clone + local handover, the rebrand, the deploy. In phased mode the run deliberately *ends* at a local URL the owner can click before anything else happens.
