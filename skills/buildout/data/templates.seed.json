@@ -10,6 +10,12 @@
     { "rank": 5, "name": "Next-Elite", "url": "https://github.com/salmanshahriar/Next-Elite", "status": "unverified", "user_note": "Next + Better Auth + Docker standalone + next-intl (LTR/RTL) — closest to canonical stack" },
     { "rank": 6, "name": "epic-stack", "url": "https://github.com/epicweb-dev/epic-stack", "status": "unverified", "user_note": "Remix — non-canonical stack" },
     { "rank": 7, "name": "nextjs-saas-starter", "url": "https://github.com/Shaisolaris/nextjs-saas-starter", "status": "unverified", "user_note": "README not retrievable at review time" },
-    { "rank": 8, "name": "next-saas-stripe-starter", "url": "https://github.com/mickasmt/next-saas-stripe-starter", "status": "unverified", "user_note": "Neon + Auth.js + Resend + Stripe — real swap surface" }
+    { "rank": 8, "name": "next-saas-stripe-starter", "url": "https://github.com/mickasmt/next-saas-stripe-starter", "status": "unverified", "user_note": "Neon + Auth.js + Resend + Stripe — real swap surface" },
+    { "rank": 9, "name": "full-stack-ai-agent-template", "url": "https://github.com/vstorm-co/full-stack-ai-agent-template", "status": "unverified", "user_note": "owner batch 1 — FastAPI + Next.js generator, 5 AI frameworks; backend is Python" },
+    { "rank": 10, "name": "grocify-expo", "url": "https://github.com/burakorkmez/grocify-expo", "status": "unverified", "user_note": "owner batch 1 — React Native/Expo mobile app (Clerk, Neon, Sentry); mobile, not web" },
+    { "rank": 11, "name": "triply-ai", "url": "https://github.com/burakorkmez/triply-ai", "status": "unverified", "user_note": "owner batch 1 — no README captured at send time; measure only" },
+    { "rank": 12, "name": "cal-ai-tutorial", "url": "https://github.com/burakorkmez/cal-ai-tutorial", "status": "unverified", "user_note": "owner batch 1 — no README captured at send time; measure only" },
+    { "rank": 13, "name": "northwind-store", "url": "https://github.com/burakorkmez/northwind-store", "status": "unverified", "user_note": "owner batch 1 — PERN stack e-commerce (Express/React), Clerk + Neon + Polar payments, has a Dockerfile" },
+    { "rank": 14, "name": "bagisto", "url": "https://github.com/bagisto/bagisto", "status": "unverified", "user_note": "owner batch 1 — Laravel/Vue e-commerce + multi-vendor marketplace; PHP, non-canonical stack" }
   ]
 }

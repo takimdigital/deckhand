@@ -67,6 +67,27 @@ def test_plan_refuses_anything_that_is_not_a_github_repo(tmp_path):
     assert [x["repo"] for x in _manifest(tmp_path / "mixed")["repos"]] == ["acme/good"]
 
 
+def test_plan_skips_repos_the_pool_already_refused(tmp_path, registry):
+    """A repo with no MIT/Apache licence is never worth an agent: it can never be matched or cloned.
+
+    gamma in the fixture carries license_ok=0 — it must be dropped from the slices and named.
+    """
+    db, _ = registry
+    r = _plan(tmp_path, "acme/alpha\nacme/gamma\nacme/beta", db=db)
+    assert r.returncode == 0, r.stderr
+    m = _manifest(tmp_path)
+    assert [s["repos"] for s in m["slices"]] == [["acme/alpha"], ["acme/beta"]]
+    assert [x["repo"] for x in m["skipped"]] == ["acme/gamma"] and "license" in m["skipped"][0]["why"]
+    assert "REFUSED" in r.stdout and "no agent spent on it" in r.stdout
+    assert m["agents"] == 2
+
+
+def test_plan_refuses_a_list_that_is_entirely_unlicensed(tmp_path, registry):
+    db, _ = registry
+    r = _plan(tmp_path, "acme/gamma", db=db)
+    assert r.returncode == 2 and "nothing measurable" in r.stderr
+
+
 def test_plan_refuses_a_missing_input_file(tmp_path):
     r = run("pool_batch.py", "--inbox", tmp_path / INBOX, "plan", "--file", tmp_path / "nope.txt")
     assert r.returncode == 2 and "no such file" in r.stderr and "Traceback" not in r.stderr
@@ -108,13 +129,25 @@ def test_check_reports_missing_invalid_and_unknown_rows(tmp_path, registry):
     assert "NOT ready" in r.stdout
 
 
+def test_check_does_not_count_a_refused_repo_as_missing(tmp_path, registry):
+    """A refused repo will never get a file — the gate must not wait for one forever."""
+    db, _ = registry
+    _plan(tmp_path, "acme/alpha\nacme/gamma", db=db)
+    files = tmp_path / INBOX / "b1" / "files"
+    _detail_file(files, "alpha")
+    r = run("pool_batch.py", "--db", db, "--inbox", tmp_path / INBOX, "check", "b1")
+    assert r.returncode == 0, r.stdout
+    assert "REFUSED" in r.stdout and "acme/gamma" in r.stdout
+    assert "1/1 measurable repo(s) ready" in r.stdout and "ALL READY" in r.stdout
+
+
 def test_check_is_green_when_every_file_validates(tmp_path, registry):
     db, _ = registry
     _plan(tmp_path, "acme/alpha", db=db)
     _detail_file(tmp_path / INBOX / "b1" / "files", "alpha")
     r = run("pool_batch.py", "--db", db, "--inbox", tmp_path / INBOX, "check", "b1")
     assert r.returncode == 0, r.stdout
-    assert "1/1 ready" in r.stdout and "ALL READY" in r.stdout
+    assert "1/1 measurable repo(s) ready" in r.stdout and "ALL READY" in r.stdout
 
 
 def test_import_refuses_a_batch_with_no_files(tmp_path, registry):

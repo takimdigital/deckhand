@@ -60,14 +60,22 @@ def slice_repos(repos: list[str], agents: int) -> list[list[str]]:
     return [repos[i::n] for i in range(n)]
 
 
-def _known_repos(db: Path) -> set[str]:
+def _registry(db: Path) -> dict[str, dict]:
+    """What the registry already knows per repo — so a batch never spends an agent on a repo the
+    pool has already refused (no license) or on re-deciding a row that is already measured."""
     if not db.exists():
-        return set()
+        return {}
     con = DB.connect(db)
     try:
-        return {(r["repo"] or "").lower() for r in con.execute("SELECT repo FROM templates")}
+        return {(r["repo"] or "").lower(): {"name": r["name"], "license_ok": r["license_ok"],
+                                            "status": r["status"], "license": r["license_spdx"]}
+                for r in con.execute("SELECT name, repo, license_ok, status, license_spdx FROM templates")}
     finally:
         con.close()
+
+
+def _known_repos(db: Path) -> set[str]:
+    return set(_registry(db))
 
 
 def _slug(repo: str) -> str:
@@ -118,30 +126,50 @@ def cmd_plan(args: argparse.Namespace) -> int:
         return 2
     if args.agents > MAX_AGENTS:
         print(f"  note: --agents {args.agents} clamped to the {MAX_AGENTS}-agent rule for one batch")
-    slices = slice_repos(repos, args.agents)
+    reg = _registry(Path(args.db))
+    measurable, skipped = [], []
+    for r in repos:
+        row = reg.get(r.lower())
+        if row and not row.get("license_ok"):
+            skipped.append((r, row))
+        else:
+            measurable.append(r)
+    if not measurable:
+        for r, row in skipped:
+            print(f"  skipped: {r} — the pool refuses it ({row.get('license') or 'no MIT/Apache-2.0'} "
+                  f"license) and details cannot change that", file=sys.stderr)
+        print("plan: nothing measurable in that list", file=sys.stderr)
+        return 2
+    slices = slice_repos(measurable, args.agents)
     batch_id = args.id or "b" + re.sub(r"[^0-9]", "", DB.now())[:14]
     bdir = Path(args.inbox) / batch_id
     files_dir = (bdir / "files")
     files_dir.mkdir(parents=True, exist_ok=True)
     (bdir / "repos.txt").write_text("\n".join(repos) + "\n", encoding="utf-8")
-    known = _known_repos(Path(args.db))
+    known = set(reg)
     agent_of = {r: f"a{i + 1}" for i, s in enumerate(slices) for r in s}
     manifest = {
         "batch_id": batch_id, "created": DB.now(), "file": str(args.file), "agents": len(slices),
         # `repos` keeps the owner's order (the agent field says who measures it); `slices` is the
         # per-agent work list. Same data, two readings.
         "repos": [{"repo": r, "slug": _slug(r), "in_registry": r.lower() in known,
-                   "agent": agent_of[r]} for r in repos],
+                   "measurable": r in measurable, "agent": agent_of.get(r)} for r in repos],
+        "skipped": [{"repo": r, "why": f"pool refuses it ({row.get('license') or 'no MIT/Apache-2.0'} license)"}
+                    for r, row in skipped],
         "slices": [{"agent": f"a{i + 1}", "repos": s} for i, s in enumerate(slices)],
     }
     (bdir / "batch.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    new = [r for r in repos if r.lower() not in known]
-    print(f"batch {batch_id} · {len(repos)} repo(s) · {len(slices)} agent(s) · "
-          f"files -> {files_dir}")
-    print(f"  already in the registry: {len(repos) - len(new)} (they will be refreshed) · new: {len(new)}")
+    new = [r for r in measurable if r.lower() not in known]
+    print(f"batch {batch_id} · {len(repos)} repo(s) sent · {len(measurable)} measurable · "
+          f"{len(slices)} agent(s) · files -> {files_dir}")
+    print(f"  already in the registry: {len(measurable) - len(new)} (they will be refreshed) · new: {len(new)}")
     for r in manifest["repos"]:
-        print(f"  {'known' if r['in_registry'] else 'NEW  '}  {r['repo']:44} agent {r['agent']}")
+        state = "known" if r["in_registry"] else "NEW  "
+        if not r["measurable"]:
+            print(f"  REFUSED  {r['repo']:44} pool licence rule — no agent spent on it")
+        else:
+            print(f"  {state}  {r['repo']:44} agent {r['agent']}")
     if new:
         print("\n  new repos must be measured into the registry BEFORE import refuses to attach their"
               " details:\n    " + "\n    ".join(f"py scripts/template_intake.py --repo {r}" for r in new))
@@ -190,6 +218,13 @@ def cmd_check(args: argparse.Namespace) -> int:
     known = _known_repos(Path(args.db))
     rows, bad = [], 0
     for r in manifest["repos"]:
+        if not r.get("measurable", True):
+            # The pool refused this repo (no MIT/Apache licence): no file will ever appear for it,
+            # so it must not block the batch's gate.
+            rows.append({"repo": r["repo"], "agent": "-", "state": "REFUSED",
+                         "detail": "pool licence rule — never measured, nothing to import",
+                         "warnings": []})
+            continue
         entry = index.get(r["repo"].lower()) or index.get(r["slug"].lower(), (None, None, [], []))
         f, rec, errs, warns = entry
         if f is None:
@@ -212,11 +247,13 @@ def cmd_check(args: argparse.Namespace) -> int:
         for x in rows:
             print(f"  {x['state']:8} {x['repo']:44} {x['agent']}  {x['detail']}")
         n_ok = sum(1 for x in rows if x["state"] == "ok")
+        n_ref = sum(1 for x in rows if x["state"] == "REFUSED")
+        ref_note = f" · {n_ref} refused by the pool licence rule" if n_ref else ""
         for x in rows:
             for w in x["warnings"]:
                 print(f"  warn   {x['repo']}: {w}")
-    print(f"check: {len(rows) - bad}/{len(rows)} ready · "
-          f"{'ALL READY — import it' if not bad else 'NOT ready — fix the rows above'}")
+        print(f"check: {n_ok}/{len(rows) - n_ref} measurable repo(s) ready{ref_note} · "
+              f"{'ALL READY — import it' if not bad else 'NOT ready — fix the rows above'}")
     return 0 if not bad else 3
 
 

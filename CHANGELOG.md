@@ -1,6 +1,14 @@
 # Changelog
 
-## 2026-09-23 — pool batches: the owner sends repos, the pool learns (pack v0.17.0)
+## 2026-09-23 — the pool doubles: 6 repos in, through the batch tool itself (pack v0.17.1)
+
+The pool's first real owner batch. Six repos went in through the new batch tool — three agents sharing the list, remote measurement only, one JSON per repo, gate-checked before import — and four came out measured: a FastAPI+Next AI-agent generator, two Expo mobile apps and a Laravel multi-vendor commerce platform. The pool now holds **14 templates, 12 with measured detail files**. Two of the six ship no MIT/Apache licence and are refused by the pool's rule, recorded with that reason and never ranked.
+
+The batch immediately paid for itself in fixes. `plan` no longer spends an agent on an already-refused repo; `check` no longer counts a refused repo as `MISSING` (which would have kept a batch from ever going green); and the registry stopped calling whole families of repos "react-vite" — a PHP/Laravel platform that ships `package.json` + `vite.config` for its asset build, and Expo/React-Native apps that are not web SPAs at all. Both now measure truthfully, so a mobile template can never pass as a web one.
+
+buildout: **0.9.1 · 64 offline tests · 115 for the pack.**
+
+## 2026-09-23 — pool batches: the owner sends repos, the pool learns (pack v0.17.0): the owner sends repos, the pool learns (pack v0.17.0)
 
 Anyone can now hand the pool a list of GitHub repos and have them measured into it — remotely, and by **at most three agents carrying slices of the list**, never one agent per repo. `pool_batch.py plan` validates the pasted list (URLs, `owner/name`, `git@` remotes; notes ignored; duplicates collapsed), marks what the registry already knows, slices the work across three agents and prints the delegations ready to paste — each carrying its repos, its output paths and the measuring rules. `check` then gates the batch per repo (`MISSING` / `INVALID` / `NO ROW`, exit 3 while anything is off) and `import` folds it in through the same validating importer as everything else, so a repo outside the registry can never receive details.
 
@@ -44,7 +52,7 @@ buildout no longer *generates* applications: it **matches, clones, swaps and reb
 
 The defects that run surfaced are fixed in this release: package-manager shims not resolving on Windows, an install running outside the project folder, a swap map written in the wrong shape, and a commit that is now cut before any install can land in it.
 
-Skill versions: buildout 0.9.0 · vps-ops 0.9.9 · deckhand-profile 0.3.3 · component-library 0.1.3. **110 stdlib tests green.**
+Skill versions: buildout 0.9.1 · vps-ops 0.9.9 · deckhand-profile 0.3.3 · component-library 0.1.3. **115 stdlib tests green.**
 
 ## 2026-09-22 — map before build, two directions compete, and the freeze gate that refuses (pack v0.15.0)
 

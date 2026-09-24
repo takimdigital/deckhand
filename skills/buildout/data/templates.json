@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-23T22:23:48Z",
+  "generated_at": "2026-09-24T03:12:20Z",
   "source": "data/templates.db",
-  "count": 8,
-  "with_details": 8,
+  "count": 14,
+  "with_details": 12,
   "templates": [
     {
       "id": 1,
@@ -2281,6 +2281,1664 @@
           "db_models": 4,
           "migrations": 1,
           "loc_estimate": 12534
+        }
+      }
+    },
+    {
+      "id": 14,
+      "name": "bagisto",
+      "url": "https://github.com/bagisto/bagisto",
+      "repo": "bagisto/bagisto",
+      "rank": null,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": "MIT",
+      "license_file": "LICENSE",
+      "license_ok": 1,
+      "stars": 28163,
+      "forks": 3297,
+      "open_issues": 24,
+      "pushed_at": "2026-09-23",
+      "archived": 0,
+      "default_branch": "2.4",
+      "size_kb": 416696,
+      "shape": "catalogue",
+      "shape_source": "heuristic:ecommerce,e-commerce,storefront,products",
+      "stack": {
+        "framework": "laravel",
+        "db": "unknown",
+        "orm": "none",
+        "auth": "custom",
+        "ui": [],
+        "i18n": "dirs",
+        "rtl": true,
+        "locales": [],
+        "jobs": [],
+        "tests": [
+          "@playwright/test"
+        ],
+        "docker": true,
+        "admin": true,
+        "package_manager": "unknown",
+        "lang": "php"
+      },
+      "canonical": 0,
+      "canonical_notes": "framework=laravel (canonical: next); db=unknown (canonical: postgres)",
+      "deps_vendor": [
+        "aws-s3",
+        "openai",
+        "stripe"
+      ],
+      "deps_selfhost": [
+        "docker",
+        "redis"
+      ],
+      "deps_unclassified": [
+        "@playwright/test",
+        "axios",
+        "laravel-vite-plugin",
+        "vite"
+      ],
+      "swap_map": {
+        "stripe": {
+          "vendor": "stripe",
+          "category": "payments",
+          "target": "keep",
+          "patterns": [
+            "stripe"
+          ],
+          "target_patterns": [],
+          "removal_ok": false,
+          "status": "keep",
+          "note": "a processor is a service, not a code lock-in: keep it, or replace with the client's local method",
+          "verified": false
+        },
+        "aws-s3": {
+          "vendor": "aws-s3",
+          "category": "storage",
+          "target": "minio",
+          "patterns": [
+            "@aws-sdk/",
+            "aws-sdk",
+            "AWS_ACCESS_KEY"
+          ],
+          "target_patterns": [
+            "minio",
+            "@aws-sdk/client-s3"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "openai": {
+          "vendor": "openai",
+          "category": "ai",
+          "target": "ollama",
+          "patterns": [
+            "openai"
+          ],
+          "target_patterns": [
+            "ollama",
+            "11434"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [
+        "public/favicon.ico",
+        "public/themes/admin/default/build/assets/address-DH7M3lNY.svg",
+        "public/themes/admin/default/build/assets/app-CaTJYsX9.css",
+        "public/themes/admin/default/build/assets/app-D3NYIzzD.css",
+        "public/themes/admin/default/build/assets/average-orders-UpY6pgyW.svg",
+        "public/themes/admin/default/build/assets/captcha-CcuSNj-t.svg",
+        "public/themes/admin/default/build/assets/checkout-BvqH__Gi.svg",
+        "public/themes/admin/default/build/assets/customers-BfcJGhnh.svg",
+        "public/themes/admin/default/build/assets/customers-BksiMJdH.svg",
+        "public/themes/admin/default/build/assets/dark-logo-P5H7MBtx.svg",
+        "public/themes/admin/default/build/assets/default-Bq1iZ-nk.jpg",
+        "public/themes/admin/default/build/assets/default-Bzl-phiD.svg",
+        "public/themes/admin/default/build/assets/default-menu-Dj-Oltdo.svg",
+        "public/themes/admin/default/build/assets/email-5AJwT575.svg",
+        "public/themes/admin/default/build/assets/error-ClRu8L1K.svg",
+        "public/themes/admin/default/build/assets/eu-withdrawal-CqXbw0Nz.svg",
+        "public/themes/admin/default/build/assets/exchange-rate-nueYe-Ml.svg",
+        "public/themes/admin/default/build/assets/favicon--PZ4cBiP.ico",
+        "public/themes/admin/default/build/assets/front-CFI3VfdH.svg",
+        "public/themes/admin/default/build/assets/full-page-cache-DOxvZ_cy.svg",
+        "public/themes/admin/default/build/assets/gdpr-DrhhDXQJ.svg",
+        "public/themes/admin/default/build/assets/icon-add-product-nFt8sucb.svg",
+        "public/themes/admin/default/build/assets/icon-discount-muGQmsXC.svg",
+        "public/themes/admin/default/build/assets/icon-options-B9pp5RQf.svg",
+        "public/themes/admin/default/build/assets/inventory-D1uKZcKj.svg",
+        "public/themes/admin/default/build/assets/invoice-qNYgi9ea.svg",
+        "public/themes/admin/default/build/assets/logo-CXf-crI0.svg",
+        "public/themes/admin/default/build/assets/magic-ai-C0gXN1sk.svg",
+        "public/themes/admin/default/build/assets/magic-ai-admin-features-CnyzKTx_.svg",
+        "public/themes/admin/default/build/assets/magic-ai-providers-zelM7TmT.svg",
+        "public/themes/admin/default/build/assets/magic-ai-storefront-features-CMRXtkmz.svg",
+        "public/themes/admin/default/build/assets/next-1-C2hl59rC.svg",
+        "public/themes/admin/default/build/assets/next-2-wWoAa-nH.svg",
+        "public/themes/admin/default/build/assets/order-Bj8Kur9c.svg",
+        "public/themes/admin/default/build/assets/orders-BL3uXoui.svg",
+        "public/themes/admin/default/build/assets/payment-method-Bu6ybGKX.svg",
+        "public/themes/admin/default/build/assets/product-CoE-Gk7v.svg",
+        "public/themes/admin/default/build/assets/report-empty-B0NsGHhI.svg",
+        "public/themes/admin/default/build/assets/reviews-UDFC2zlO.svg",
+        "public/themes/admin/default/build/assets/settings-DhKa03Cc.svg"
+      ],
+      "risk_flags": [],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-24T03:06:09Z",
+        "branch": "2.4",
+        "files_read": [
+          "package.json",
+          "composer.json",
+          "docker-compose.yml",
+          "docker/production/apache/Dockerfile",
+          "README.md",
+          ".env.example"
+        ],
+        "tree_entries": 3856,
+        "locales": [],
+        "license_path": "LICENSE",
+        "vendor_name_in_readme_only": []
+      },
+      "updated_at": "2026-09-24T03:06:09Z",
+      "details_at": "2026-09-24T03:11:28Z",
+      "details_file": "data/details/bagisto.json",
+      "features": [
+        "accounts",
+        "admin",
+        "dashboard",
+        "catalog-eav",
+        "product-types(simple/configurable/virtual/downloadable/bundled/booking/grouped)",
+        "categories",
+        "cart",
+        "onepage-checkout",
+        "orders",
+        "invoices",
+        "shipments",
+        "refunds",
+        "rma-returns",
+        "tax",
+        "cart-rules-coupons",
+        "catalog-rules",
+        "customer-groups",
+        "wishlist",
+        "compare",
+        "reviews",
+        "cms-pages",
+        "marketing-campaigns",
+        "newsletter-subscribers",
+        "url-rewrites",
+        "sitemap",
+        "multi-currency",
+        "multi-locale(22)",
+        "acl-roles",
+        "2fa",
+        "social-login",
+        "social-share",
+        "elasticsearch-search",
+        "full-page-cache",
+        "image-cache",
+        "theme-appearance-editor",
+        "magic-ai-content-generation",
+        "rest-api(shop)",
+        "rest-api(admin)",
+        "webmcp-endpoints",
+        "data-transfer-import-export",
+        "notifications",
+        "reporting",
+        "gdpr",
+        "eu-withdrawal",
+        "inventory-sources",
+        "installer-wizard",
+        "api-keys"
+      ],
+      "locales": [
+        "ar",
+        "bn",
+        "ca",
+        "de",
+        "en",
+        "es",
+        "fa",
+        "fr",
+        "he",
+        "hi_IN",
+        "id",
+        "it",
+        "ja",
+        "nl",
+        "pl",
+        "pt_BR",
+        "ro",
+        "ru",
+        "sin",
+        "tr",
+        "uk",
+        "zh_CN"
+      ],
+      "swap_burden": "heavy",
+      "details_digest": {
+        "details_file": "data/details/bagisto.json",
+        "details_at": "2026-09-24T03:11:28Z",
+        "features": [
+          "accounts",
+          "admin",
+          "dashboard",
+          "catalog-eav",
+          "product-types(simple/configurable/virtual/downloadable/bundled/booking/grouped)",
+          "categories",
+          "cart",
+          "onepage-checkout",
+          "orders",
+          "invoices",
+          "shipments",
+          "refunds",
+          "rma-returns",
+          "tax",
+          "cart-rules-coupons",
+          "catalog-rules",
+          "customer-groups",
+          "wishlist",
+          "compare",
+          "reviews",
+          "cms-pages",
+          "marketing-campaigns",
+          "newsletter-subscribers",
+          "url-rewrites",
+          "sitemap",
+          "multi-currency",
+          "multi-locale(22)",
+          "acl-roles",
+          "2fa",
+          "social-login",
+          "social-share",
+          "elasticsearch-search",
+          "full-page-cache",
+          "image-cache",
+          "theme-appearance-editor",
+          "magic-ai-content-generation",
+          "rest-api(shop)",
+          "rest-api(admin)",
+          "webmcp-endpoints",
+          "data-transfer-import-export",
+          "notifications",
+          "reporting",
+          "gdpr",
+          "eu-withdrawal",
+          "inventory-sources",
+          "installer-wizard",
+          "api-keys"
+        ],
+        "locales": [
+          "ar",
+          "bn",
+          "ca",
+          "de",
+          "en",
+          "es",
+          "fa",
+          "fr",
+          "he",
+          "hi_IN",
+          "id",
+          "it",
+          "ja",
+          "nl",
+          "pl",
+          "pt_BR",
+          "ro",
+          "ru",
+          "sin",
+          "tr",
+          "uk",
+          "zh_CN"
+        ],
+        "swap_burden": "heavy",
+        "verdict": {
+          "best_for": "A business that needs a full self-hosted Laravel storefront fast - catalog/EAV, cart, one-page checkout, invoices/shipments/refunds, RMA, tax, 22 locales incl. RTL, multi-currency, 6 payment gateways, an admin with ACL and 2FA, Docker production images and a real Pest+Playwright suite - and is willing to work inside its 41-package conventions.",
+          "weak_for": "Anyone assuming this repo is a multi-vendor marketplace (that is a separate paid extension), a JS/React app (it is Blade + Vue islands with 0 .vue files), or a small codebase they can read end-to-end - 2,621 package PHP files across 41 modules with a mandatory repository-pattern convention make deep changes a real onboarding project.",
+          "swap_burden": "heavy - every theme, branding and business-rule change happens inside Bagisto's own package/Concord/repository conventions (no comments inside method bodies, all DB access through repositories, every user-facing string through trans() in 22 locales, and AGENTS.md forbids adding or removing Composer/npm dependencies without approval), and stripping features means removing whole modules plus their migrations."
+        },
+        "routes_count": 511,
+        "tests": {
+          "frameworks": [
+            "pest",
+            "phpunit",
+            "playwright",
+            "pint(lint)"
+          ],
+          "unit_files": 153,
+          "e2e_files": 307,
+          "ci_workflows": [
+            ".github/workflows/pest-tests.yml",
+            ".github/workflows/playwright-tests.yml",
+            ".github/workflows/pint-tests.yml",
+            ".github/workflows/translation-tests.yml",
+            ".github/workflows/docker-publish.yml"
+          ],
+          "notes": "153 *Test.php files across 13 packages (Admin, Shop, Core, Customer, DataGrid, EUWithdrawal, FPC, Installer, Payment, PayGlocal, PayU, Razorpay, Stripe); phpunit.xml defines 20+ named testsuites and sets APP_ENV=testing / CACHE_STORE=array / MAIL_MAILER=array. 307 Playwright e2e files (packages/Webkul/*/tests/e2e-pw/, page-object pattern) - that is where the TypeScript language share comes from. pest-tests.yml is a real matrix over MySQL 8.0 AND MariaDB 10.11. Repo AGENTS.md names four gates (Pint, Pest, Playwright, translations) and says 'a gate you did not run is a gate that failed'."
+        },
+        "deploy": {
+          "docker": true,
+          "standalone_output": false,
+          "paas_coupling": [
+            "docker-hub(webkul/bagisto)",
+            "laravel-sail",
+            "kubernetes-agnostic",
+            "forge(public/forge dir present)"
+          ],
+          "build_cmd": "composer install (repo itself is a Laravel project; the alternative is `composer create-project bagisto/bagisto`); frontend assets optional: cd packages/Webkul/{Admin,Shop,Installer} && npm install && npm run build",
+          "start_cmd": "php artisan serve (dev) or php artisan bagisto:install on a fresh DB; production image: one `docker run` boots nginx|apache|litespeed + php-fpm + bundled mysql|mariadb under supervisor"
+        },
+        "pitfalls": [
+          "docs-lie",
+          "docs-lie",
+          "build-needs-env",
+          "native-deps",
+          "postinstall",
+          "peer-conflicts",
+          "dead-demo",
+          "docs-lie",
+          "build-needs-env",
+          "peer-conflicts"
+        ],
+        "health": {
+          "stars": 28163,
+          "forks": 3297,
+          "open_issues": 24,
+          "contributors": 320,
+          "top_contributor_share": 0.279,
+          "last_commit": "2026-09-22",
+          "last_release": "v2.4.12",
+          "commits_last_90d": 269,
+          "issues_closed_last_90d": 59,
+          "notes": "open_issues 24 total but only 20 are real issues (4 are PRs). contributors 320 taken from the Link rel=last page count of repos/bagisto/bagisto/contributors (per_page=1 -> page 320). top_contributor_share = jitendra-webkul 6,394 contributions / 22,900 commits on branch 2.4 (Link rel=last on the commits endpoint) = 0.279. Very much alive: 269 commits and 53 merged PRs in the last 90 days, last release v2.4.12 on 2026-09-22, and a v2.5.0-beta4 line in flight. Branch layout is version-per-branch (1.x, 2.1, 2.2, 2.3, 2.4, master) - 2.4 is the maintained stable line and the default branch."
+        },
+        "complexity": {
+          "pages": 553,
+          "components": 41,
+          "db_models": 243,
+          "migrations": 192,
+          "loc_estimate": 620000
+        }
+      }
+    },
+    {
+      "id": 12,
+      "name": "cal-ai-tutorial",
+      "url": "https://github.com/burakorkmez/cal-ai-tutorial",
+      "repo": "burakorkmez/cal-ai-tutorial",
+      "rank": null,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": "MIT",
+      "license_file": "LICENSE",
+      "license_ok": 1,
+      "stars": 68,
+      "forks": 29,
+      "open_issues": 0,
+      "pushed_at": "2026-08-04",
+      "archived": 0,
+      "default_branch": "master",
+      "size_kb": 12866,
+      "shape": "unknown",
+      "shape_source": "heuristic:no signal",
+      "stack": {
+        "framework": "expo",
+        "db": "postgres",
+        "orm": "drizzle",
+        "auth": "clerk",
+        "ui": [
+          "tailwind"
+        ],
+        "i18n": null,
+        "rtl": false,
+        "locales": [],
+        "jobs": [
+          "@trigger.dev/sdk"
+        ],
+        "tests": [],
+        "docker": false,
+        "admin": false,
+        "package_manager": "npm",
+        "lang": "typescript"
+      },
+      "canonical": 0,
+      "canonical_notes": "framework=expo (canonical: next); auth=clerk -> swap to better-auth; no docker/compose (Coolify prefers a Dockerfile or nixpacks)",
+      "deps_vendor": [
+        "clerk",
+        "neon",
+        "openai",
+        "sentry"
+      ],
+      "deps_selfhost": [
+        "postgres"
+      ],
+      "deps_unclassified": [
+        "@expo/ui",
+        "@tanstack/react-query",
+        "@trigger.dev/build",
+        "@trigger.dev/react-hooks",
+        "@trigger.dev/sdk",
+        "drizzle-kit",
+        "drizzle-orm",
+        "expo",
+        "expo-auth-session",
+        "expo-camera",
+        "expo-constants",
+        "expo-dev-client",
+        "expo-device",
+        "expo-font",
+        "expo-glass-effect",
+        "expo-image",
+        "expo-image-picker",
+        "expo-linking",
+        "expo-router",
+        "expo-secure-store",
+        "expo-splash-screen",
+        "expo-status-bar",
+        "expo-symbols",
+        "expo-system-ui",
+        "expo-web-browser",
+        "nativewind",
+        "react",
+        "react-dom",
+        "react-native",
+        "react-native-gesture-handler",
+        "react-native-reanimated",
+        "react-native-safe-area-context",
+        "react-native-screens",
+        "react-native-svg",
+        "react-native-web",
+        "react-native-worklets",
+        "tailwindcss",
+        "zod"
+      ],
+      "swap_map": {
+        "clerk": {
+          "vendor": "clerk",
+          "category": "auth",
+          "target": "better-auth",
+          "patterns": [
+            "@clerk/",
+            "clerkClient",
+            "CLERK_SECRET",
+            "CLERK_PUBLISHABLE"
+          ],
+          "target_patterns": [
+            "better-auth",
+            "betterauth"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "neon": {
+          "vendor": "neon",
+          "category": "db",
+          "target": "docker-postgres",
+          "patterns": [
+            "@neondatabase",
+            "neon.tech",
+            "neon("
+          ],
+          "target_patterns": [
+            "postgres",
+            "drizzle-orm",
+            "@prisma/client",
+            "pg",
+            "psycopg"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "sentry": {
+          "vendor": "sentry",
+          "category": "observability",
+          "target": "glitchtip or none",
+          "patterns": [
+            "@sentry/",
+            "sentry"
+          ],
+          "target_patterns": [
+            "glitchtip"
+          ],
+          "removal_ok": true,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "openai": {
+          "vendor": "openai",
+          "category": "ai",
+          "target": "ollama",
+          "patterns": [
+            "openai"
+          ],
+          "target_patterns": [
+            "ollama",
+            "11434"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [],
+      "risk_flags": [
+        {
+          "kind": "no-tests",
+          "detail": "no test runner detected"
+        },
+        {
+          "kind": "no-docker",
+          "detail": "no Dockerfile/compose"
+        }
+      ],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-24T03:12:20Z",
+        "branch": "master",
+        "files_read": [
+          "package.json",
+          "README.md"
+        ],
+        "tree_entries": 113,
+        "locales": [],
+        "license_path": "LICENSE",
+        "vendor_name_in_readme_only": []
+      },
+      "updated_at": "2026-09-24T03:12:20Z",
+      "details_at": "2026-09-24T03:11:28Z",
+      "details_file": "data/details/cal-ai-tutorial.json",
+      "features": [
+        "accounts",
+        "onboarding",
+        "dashboard",
+        "uploads",
+        "ai-meal-analysis",
+        "background-jobs",
+        "realtime-updates",
+        "account-deletion",
+        "streaks",
+        "meal-history"
+      ],
+      "locales": [
+        "en"
+      ],
+      "swap_burden": "heavy",
+      "details_digest": {
+        "details_file": "data/details/cal-ai-tutorial.json",
+        "details_at": "2026-09-24T03:11:28Z",
+        "features": [
+          "accounts",
+          "onboarding",
+          "dashboard",
+          "uploads",
+          "ai-meal-analysis",
+          "background-jobs",
+          "realtime-updates",
+          "account-deletion",
+          "streaks",
+          "meal-history"
+        ],
+        "locales": [
+          "en"
+        ],
+        "swap_burden": "heavy",
+        "verdict": {
+          "best_for": "A mobile-first AI photo logger: it is a genuinely functional product skeleton (anonymous onboarding -> AI-generated calorie/macro targets -> camera scan -> daily log with streaks and account deletion) for a consumer health, fitness or any-photo-logged app on iOS/Android.",
+          "weak_for": "Anything web-first, self-hosted or needing maintenance: the API exists only as Expo Router server routes aimed at EAS Hosting, it cannot run until four paid vendor accounts (Clerk, Neon, Trigger.dev, ImageKit) exist, and it is explicitly a course build — PLAN.md says 'This is a tutorial/course build', one author wrote all 10 commits over 10 days (2026-07-25 to 2026-08-04), there is no CI, no issue history and a single self-check file instead of a test suite.",
+          "swap_burden": "heavy — four coupled vendors (Clerk auth, Neon Postgres + Drizzle, Trigger.dev jobs + Realtime, ImageKit storage) are wired through routes, tasks and screens, and with no CI or tests nothing will catch a botched swap."
+        },
+        "routes_count": 14,
+        "tests": {
+          "frameworks": [],
+          "unit_files": 1,
+          "e2e_files": 0,
+          "ci_workflows": [],
+          "notes": "The only test-like artifact is src/lib/plan.check.ts — a self-check script run with `node --experimental-strip-types src/lib/plan.check.ts` (node:assert/strict, asserts the Mifflin-St Jeor math, the AI-plan validator and the zod trust boundary); tsconfig explicitly excludes '**/*.check.ts'. No jest/vitest/playwright/testing-library in dependencies, no .github directory, and PLAN.md A8 states the project intentionally has 'no staging, no CI/CD'."
+        },
+        "deploy": {
+          "docker": false,
+          "standalone_output": null,
+          "paas_coupling": [
+            "expo-eas-hosting",
+            "trigger.dev-cloud",
+            "clerk-hosted",
+            "neon-managed"
+          ],
+          "build_cmd": null,
+          "start_cmd": "npm start (expo start)"
+        },
+        "pitfalls": [
+          "native-deps",
+          "build-needs-env",
+          "docs-lie",
+          "docs-lie",
+          "dead-demo",
+          "native-deps",
+          "peer-conflicts",
+          "postinstall"
+        ],
+        "health": {
+          "stars": 68,
+          "forks": 29,
+          "open_issues": 0,
+          "contributors": 1,
+          "top_contributor_share": 1.0,
+          "last_commit": "2026-08-04",
+          "last_release": null,
+          "commits_last_90d": 10,
+          "issues_closed_last_90d": 0
+        },
+        "complexity": {
+          "pages": 14,
+          "components": 24,
+          "db_models": 2,
+          "migrations": 2,
+          "loc_estimate": 3900
+        }
+      }
+    },
+    {
+      "id": 9,
+      "name": "full-stack-ai-agent-template",
+      "url": "https://github.com/vstorm-co/full-stack-ai-agent-template",
+      "repo": "vstorm-co/full-stack-ai-agent-template",
+      "rank": null,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": "MIT",
+      "license_file": "LICENSE",
+      "license_ok": 1,
+      "stars": 1912,
+      "forks": 379,
+      "open_issues": 16,
+      "pushed_at": "2026-09-21",
+      "archived": 0,
+      "default_branch": "main",
+      "size_kb": 254768,
+      "shape": "saas",
+      "shape_source": "heuristic:subscription,pricing,plans,credits",
+      "stack": {
+        "framework": "next",
+        "db": "postgres",
+        "orm": "sqlmodel",
+        "auth": "custom",
+        "ui": [],
+        "i18n": "dirs",
+        "rtl": false,
+        "locales": [],
+        "jobs": [],
+        "tests": [
+          "pytest"
+        ],
+        "docker": true,
+        "admin": true,
+        "package_manager": "unknown",
+        "lang": "typescript"
+      },
+      "canonical": 1,
+      "canonical_notes": "",
+      "deps_vendor": [
+        "openai",
+        "resend",
+        "sentry",
+        "stripe",
+        "vercel"
+      ],
+      "deps_selfhost": [
+        "docker",
+        "minio",
+        "postgres",
+        "redis"
+      ],
+      "deps_unclassified": [
+        "addopts",
+        "authors",
+        "build-backend",
+        "classifiers",
+        "dependencies",
+        "description",
+        "dev",
+        "docs",
+        "documentation",
+        "exclude",
+        "exclude_lines",
+        "fastapi-fullstack",
+        "homepage",
+        "ignore",
+        "include",
+        "indent-style",
+        "keywords",
+        "known-first-party",
+        "license",
+        "line-ending",
+        "line-length",
+        "markers",
+        "name",
+        "omit",
+        "packages",
+        "python-version",
+        "python_files",
+        "python_functions",
+        "quote-style",
+        "readme",
+        "repository",
+        "requires",
+        "requires-python",
+        "select",
+        "skip-magic-trailing-comma",
+        "source",
+        "target-version",
+        "testpaths",
+        "version"
+      ],
+      "swap_map": {
+        "stripe": {
+          "vendor": "stripe",
+          "category": "payments",
+          "target": "keep",
+          "patterns": [
+            "stripe"
+          ],
+          "target_patterns": [],
+          "removal_ok": false,
+          "status": "keep",
+          "note": "a processor is a service, not a code lock-in: keep it, or replace with the client's local method",
+          "verified": false
+        },
+        "resend": {
+          "vendor": "resend",
+          "category": "email",
+          "target": "smtp",
+          "patterns": [
+            "resend"
+          ],
+          "target_patterns": [
+            "nodemailer",
+            "smtp",
+            "mailgun",
+            "brevo"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "vercel": {
+          "vendor": "vercel",
+          "category": "hosting",
+          "target": "coolify (Docker)",
+          "patterns": [
+            "@vercel/",
+            "vercel.json",
+            "VERCEL_"
+          ],
+          "target_patterns": [
+            "dockerfile",
+            "compose"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "sentry": {
+          "vendor": "sentry",
+          "category": "observability",
+          "target": "glitchtip or none",
+          "patterns": [
+            "@sentry/",
+            "sentry"
+          ],
+          "target_patterns": [
+            "glitchtip"
+          ],
+          "removal_ok": true,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "openai": {
+          "vendor": "openai",
+          "category": "ai",
+          "target": "ollama",
+          "patterns": [
+            "openai"
+          ],
+          "target_patterns": [
+            "ollama",
+            "11434"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [],
+      "risk_flags": [
+        {
+          "kind": "readme-placeholders",
+          "detail": "example.com, your-repo"
+        }
+      ],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-24T03:03:48Z",
+        "branch": "main",
+        "files_read": [
+          "template/{{cookiecutter.project_slug}}/frontend/package.json",
+          "pyproject.toml",
+          "template/{{cookiecutter.project_slug}}/docker-compose.yml",
+          "template/{{cookiecutter.project_slug}}/backend/Dockerfile",
+          "README.md",
+          "template/{{cookiecutter.project_slug}}/backend/.env.example",
+          "template/{{cookiecutter.project_slug}}/frontend/next.config.ts",
+          "template/{{cookiecutter.project_slug}}/frontend/vercel.json"
+        ],
+        "tree_entries": 1111,
+        "locales": [],
+        "license_path": "LICENSE",
+        "vendor_name_in_readme_only": []
+      },
+      "updated_at": "2026-09-24T03:03:48Z",
+      "details_at": "2026-09-24T03:11:28Z",
+      "details_file": "data/details/full-stack-ai-agent-template.json",
+      "features": [
+        "accounts",
+        "admin",
+        "dashboard",
+        "organizations",
+        "billing",
+        "i18n",
+        "uploads",
+        "search",
+        "jobs",
+        "notifications",
+        "chat-streaming",
+        "rag-knowledge-bases",
+        "api-keys",
+        "audit-log",
+        "conversation-sharing",
+        "magic-link",
+        "onboarding",
+        "contacts-marketing-site",
+        "mcp-client",
+        "usage-credits"
+      ],
+      "locales": [
+        "en",
+        "pl"
+      ],
+      "swap_burden": "medium",
+      "details_digest": {
+        "details_file": "data/details/full-stack-ai-agent-template.json",
+        "details_at": "2026-09-24T03:11:28Z",
+        "features": [
+          "accounts",
+          "admin",
+          "dashboard",
+          "organizations",
+          "billing",
+          "i18n",
+          "uploads",
+          "search",
+          "jobs",
+          "notifications",
+          "chat-streaming",
+          "rag-knowledge-bases",
+          "api-keys",
+          "audit-log",
+          "conversation-sharing",
+          "magic-link",
+          "onboarding",
+          "contacts-marketing-site",
+          "mcp-client",
+          "usage-credits"
+        ],
+        "locales": [
+          "en",
+          "pl"
+        ],
+        "swap_burden": "medium",
+        "verdict": {
+          "best_for": "A business that needs a production-grade AI-agent web app (RAG chat, subscriptions, multi-tenant orgs, admin panel) as GENERATED SOURCE they own - pick your flags, get a real FastAPI+Next.js codebase with 28 migrations, Docker/k8s, Stripe billing and i18n already wired.",
+          "weak_for": "Anyone wanting a repo to clone-and-run or a non-AI SaaS: this is a generator (you must install the CLI or use the web configurator to get an app at all), and every generated project carries the AI-agent assumption (Pydantic AI/LangChain) plus a 55-page, 190-component frontend you will spend real time deleting.",
+          "swap_burden": "medium - vendors are all feature-flagged with code branches already written (Stripe->Paddle/LS/Polar, OpenAI->Anthropic/Google, Milvus->pgvector, LangSmith/Sentry off by default), but the generated app is 95k LOC across two languages and the frontend's 190 components + 2-locale copy are hand-rewriting, not a config flip."
+        },
+        "routes_count": 147,
+        "tests": {
+          "frameworks": [
+            "pytest",
+            "vitest",
+            "playwright",
+            "testing-library"
+          ],
+          "unit_files": 55,
+          "e2e_files": 4,
+          "ci_workflows": [
+            ".github/workflows/ci.yml",
+            ".github/workflows/release.yml",
+            ".github/workflows/docs.yml",
+            ".github/workflows/rename-guard.yml",
+            ".gitlab-ci.yml (generated project)"
+          ],
+          "notes": "Two layers. REPO (generator): tests/ with 21 test_*.py (test_generator, test_template_integration, test_upgrade_*, test_cli). GENERATED project: 34 backend tests (backend/tests/ incl. test_tenant_isolation, test_rbac_teams, test_ssrf, test_stripe_seats) and frontend vitest (only 1 unit test file found: components/ui/button.test.tsx) + 3 playwright e2e specs + auth.setup.ts. Generated jinja CI runs ruff + ty + pytest (with postgres service) + pip-audit + Trivy, frontend lint/type-check/vitest/playwright. Repo README claims `coverage-100%` badge and pyproject sets fail_under=100 for the generated app."
+        },
+        "deploy": {
+          "docker": true,
+          "standalone_output": true,
+          "paas_coupling": [
+            "vercel",
+            "docker-compose",
+            "kubernetes",
+            "traefik",
+            "nginx",
+            "gitlab-ci",
+            "github-actions"
+          ],
+          "build_cmd": "generator: `uv tool install fastapi-fullstack` then `fastapi-fullstack create <name>`; generated frontend: `bun install && bun run build`; generated backend runs from image (`make bootstrap` = build + up + migrate + seed)",
+          "start_cmd": "`make dev` / `make prod` (docker compose) - frontend container CMD [\"bun\",\"server.js\"]; backend uvicorn on 8000"
+        },
+        "pitfalls": [
+          "docs-lie",
+          "build-needs-env",
+          "postinstall",
+          "native-deps",
+          "peer-conflicts",
+          "dead-demo",
+          "docs-lie",
+          "build-needs-env"
+        ],
+        "health": {
+          "stars": 1912,
+          "forks": 379,
+          "open_issues": 16,
+          "contributors": 7,
+          "top_contributor_share": 0.8,
+          "last_commit": "2026-08-01",
+          "last_release": "0.2.19",
+          "commits_last_90d": 25,
+          "issues_closed_last_90d": 6,
+          "notes": "top_contributor_share computed from contributors API: DEENUU1 323 of (323+41+16+11+6+1)=398 commits = 0.81 (7 contributors incl. anon). Last commit to the default branch is 2026-08-01 (repo `pushed_at` is 2026-09-21 but that is a non-default ref / bot activity - the HEAD commit 3428d9a is dated 2026-08-01). 16 open issues total; only 1 of those is a real issue (the rest are PRs). Bus factor is 1, effectively."
+        },
+        "complexity": {
+          "pages": 55,
+          "components": 190,
+          "db_models": 25,
+          "migrations": 28,
+          "loc_estimate": 95000
+        }
+      }
+    },
+    {
+      "id": 10,
+      "name": "grocify-expo",
+      "url": "https://github.com/burakorkmez/grocify-expo",
+      "repo": "burakorkmez/grocify-expo",
+      "rank": null,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": null,
+      "license_file": null,
+      "license_ok": 0,
+      "stars": 185,
+      "forks": 44,
+      "open_issues": 0,
+      "pushed_at": "2026-03-15",
+      "archived": 0,
+      "default_branch": "master",
+      "size_kb": 8901,
+      "shape": "unknown",
+      "shape_source": "heuristic:no signal",
+      "stack": {
+        "framework": "expo",
+        "db": "postgres",
+        "orm": "drizzle",
+        "auth": "clerk",
+        "ui": [
+          "tailwind"
+        ],
+        "i18n": null,
+        "rtl": false,
+        "locales": [],
+        "jobs": [],
+        "tests": [],
+        "docker": false,
+        "admin": false,
+        "package_manager": "npm",
+        "lang": "typescript"
+      },
+      "canonical": 0,
+      "canonical_notes": "framework=expo (canonical: next); auth=clerk -> swap to better-auth; no docker/compose (Coolify prefers a Dockerfile or nixpacks)",
+      "deps_vendor": [
+        "clerk",
+        "neon",
+        "sentry"
+      ],
+      "deps_selfhost": [
+        "postgres"
+      ],
+      "deps_unclassified": [
+        "@react-navigation/bottom-tabs",
+        "@react-navigation/elements",
+        "@react-navigation/native",
+        "babel-preset-expo",
+        "drizzle-kit",
+        "drizzle-orm",
+        "expo",
+        "expo-auth-session",
+        "expo-constants",
+        "expo-crypto",
+        "expo-dev-client",
+        "expo-device",
+        "expo-font",
+        "expo-glass-effect",
+        "expo-image",
+        "expo-linear-gradient",
+        "expo-linking",
+        "expo-router",
+        "expo-secure-store",
+        "expo-splash-screen",
+        "expo-status-bar",
+        "expo-symbols",
+        "expo-system-ui",
+        "expo-web-browser",
+        "nativewind",
+        "react",
+        "react-dom",
+        "react-native",
+        "react-native-gesture-handler",
+        "react-native-keyboard-controller",
+        "react-native-reanimated",
+        "react-native-safe-area-context",
+        "react-native-screens",
+        "react-native-web",
+        "react-native-worklets",
+        "tailwindcss",
+        "zustand"
+      ],
+      "swap_map": {
+        "clerk": {
+          "vendor": "clerk",
+          "category": "auth",
+          "target": "better-auth",
+          "patterns": [
+            "@clerk/",
+            "clerkClient",
+            "CLERK_SECRET",
+            "CLERK_PUBLISHABLE"
+          ],
+          "target_patterns": [
+            "better-auth",
+            "betterauth"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "neon": {
+          "vendor": "neon",
+          "category": "db",
+          "target": "docker-postgres",
+          "patterns": [
+            "@neondatabase",
+            "neon.tech",
+            "neon("
+          ],
+          "target_patterns": [
+            "postgres",
+            "drizzle-orm",
+            "@prisma/client",
+            "pg",
+            "psycopg"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "sentry": {
+          "vendor": "sentry",
+          "category": "observability",
+          "target": "glitchtip or none",
+          "patterns": [
+            "@sentry/",
+            "sentry"
+          ],
+          "target_patterns": [
+            "glitchtip"
+          ],
+          "removal_ok": true,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [],
+      "risk_flags": [
+        {
+          "kind": "license",
+          "detail": "no MIT/Apache-2.0 license found"
+        },
+        {
+          "kind": "no-tests",
+          "detail": "no test runner detected"
+        },
+        {
+          "kind": "no-docker",
+          "detail": "no Dockerfile/compose"
+        }
+      ],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-24T03:12:15Z",
+        "branch": "master",
+        "files_read": [
+          "package.json",
+          "README.md",
+          ".env.example"
+        ],
+        "tree_entries": 71,
+        "locales": [],
+        "license_path": null,
+        "vendor_name_in_readme_only": []
+      },
+      "updated_at": "2026-09-24T03:12:15Z",
+      "details_at": null,
+      "details_file": null,
+      "features": null,
+      "locales": null,
+      "swap_burden": null,
+      "details_digest": {
+        "details_file": null,
+        "details_at": null,
+        "features": [],
+        "locales": [],
+        "swap_burden": null,
+        "verdict": {},
+        "routes_count": null,
+        "tests": {},
+        "deploy": {
+          "docker": null,
+          "standalone_output": null,
+          "paas_coupling": null,
+          "build_cmd": null,
+          "start_cmd": null
+        },
+        "pitfalls": [],
+        "health": {},
+        "complexity": {}
+      }
+    },
+    {
+      "id": 13,
+      "name": "northwind-store",
+      "url": "https://github.com/burakorkmez/northwind-store",
+      "repo": "burakorkmez/northwind-store",
+      "rank": null,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": null,
+      "license_file": null,
+      "license_ok": 0,
+      "stars": 168,
+      "forks": 40,
+      "open_issues": 1,
+      "pushed_at": "2026-05-01",
+      "archived": 0,
+      "default_branch": "master",
+      "size_kb": 1611,
+      "shape": "catalogue",
+      "shape_source": "heuristic:e-commerce,products,cart,checkout",
+      "stack": {
+        "framework": "react-vite",
+        "db": "postgres",
+        "orm": "drizzle",
+        "auth": "clerk",
+        "ui": [],
+        "i18n": null,
+        "rtl": false,
+        "locales": [],
+        "jobs": [],
+        "tests": [],
+        "docker": true,
+        "admin": false,
+        "package_manager": "npm",
+        "lang": "typescript"
+      },
+      "canonical": 0,
+      "canonical_notes": "framework=react-vite (canonical: next); auth=clerk -> swap to better-auth",
+      "deps_vendor": [
+        "clerk",
+        "sentry"
+      ],
+      "deps_selfhost": [
+        "docker",
+        "postgres"
+      ],
+      "deps_unclassified": [
+        "@imagekit/nodejs",
+        "cors",
+        "cron",
+        "dotenv",
+        "drizzle-kit",
+        "drizzle-orm",
+        "express",
+        "pg",
+        "standardwebhooks",
+        "stream-chat",
+        "tsx",
+        "zod"
+      ],
+      "swap_map": {
+        "clerk": {
+          "vendor": "clerk",
+          "category": "auth",
+          "target": "better-auth",
+          "patterns": [
+            "@clerk/",
+            "clerkClient",
+            "CLERK_SECRET",
+            "CLERK_PUBLISHABLE"
+          ],
+          "target_patterns": [
+            "better-auth",
+            "betterauth"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "sentry": {
+          "vendor": "sentry",
+          "category": "observability",
+          "target": "glitchtip or none",
+          "patterns": [
+            "@sentry/",
+            "sentry"
+          ],
+          "target_patterns": [
+            "glitchtip"
+          ],
+          "removal_ok": true,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [],
+      "risk_flags": [
+        {
+          "kind": "license",
+          "detail": "no MIT/Apache-2.0 license found"
+        },
+        {
+          "kind": "no-tests",
+          "detail": "no test runner detected"
+        }
+      ],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-24T03:03:59Z",
+        "branch": "master",
+        "files_read": [
+          "backend/package.json",
+          "Dockerfile",
+          "README.md",
+          "backend/.env.example"
+        ],
+        "tree_entries": 86,
+        "locales": [],
+        "license_path": null,
+        "vendor_name_in_readme_only": []
+      },
+      "updated_at": "2026-09-24T03:03:59Z",
+      "details_at": null,
+      "details_file": null,
+      "features": null,
+      "locales": null,
+      "swap_burden": null,
+      "details_digest": {
+        "details_file": null,
+        "details_at": null,
+        "features": [],
+        "locales": [],
+        "swap_burden": null,
+        "verdict": {},
+        "routes_count": null,
+        "tests": {},
+        "deploy": {
+          "docker": null,
+          "standalone_output": null,
+          "paas_coupling": null,
+          "build_cmd": null,
+          "start_cmd": null
+        },
+        "pitfalls": [],
+        "health": {},
+        "complexity": {}
+      }
+    },
+    {
+      "id": 11,
+      "name": "triply-ai",
+      "url": "https://github.com/burakorkmez/triply-ai",
+      "repo": "burakorkmez/triply-ai",
+      "rank": null,
+      "status": "unverified",
+      "reject_reason": null,
+      "license_spdx": "MIT",
+      "license_file": "LICENSE",
+      "license_ok": 1,
+      "stars": 51,
+      "forks": 19,
+      "open_issues": 0,
+      "pushed_at": "2026-07-04",
+      "archived": 0,
+      "default_branch": "master",
+      "size_kb": 29264,
+      "shape": "unknown",
+      "shape_source": "heuristic:no signal",
+      "stack": {
+        "framework": "expo",
+        "db": "postgres",
+        "orm": "drizzle",
+        "auth": "clerk",
+        "ui": [
+          "tailwind"
+        ],
+        "i18n": null,
+        "rtl": false,
+        "locales": [],
+        "jobs": [
+          "inngest"
+        ],
+        "tests": [],
+        "docker": false,
+        "admin": false,
+        "package_manager": "npm",
+        "lang": "typescript"
+      },
+      "canonical": 0,
+      "canonical_notes": "framework=expo (canonical: next); auth=clerk -> swap to better-auth; no docker/compose (Coolify prefers a Dockerfile or nixpacks)",
+      "deps_vendor": [
+        "clerk",
+        "neon",
+        "openai",
+        "sentry"
+      ],
+      "deps_selfhost": [
+        "postgres"
+      ],
+      "deps_unclassified": [
+        "@expo/ui",
+        "dotenv",
+        "drizzle-kit",
+        "drizzle-orm",
+        "expo",
+        "expo-apple-authentication",
+        "expo-auth-session",
+        "expo-constants",
+        "expo-crypto",
+        "expo-dev-client",
+        "expo-device",
+        "expo-font",
+        "expo-glass-effect",
+        "expo-image",
+        "expo-image-picker",
+        "expo-linear-gradient",
+        "expo-linking",
+        "expo-router",
+        "expo-secure-store",
+        "expo-splash-screen",
+        "expo-status-bar",
+        "expo-symbols",
+        "expo-system-ui",
+        "expo-web-browser",
+        "imagekit",
+        "inngest",
+        "nativewind",
+        "react",
+        "react-dom",
+        "react-native",
+        "react-native-gesture-handler",
+        "react-native-maps",
+        "react-native-reanimated",
+        "react-native-safe-area-context",
+        "react-native-screens",
+        "react-native-svg",
+        "react-native-web",
+        "react-native-worklets",
+        "svix",
+        "tailwindcss"
+      ],
+      "swap_map": {
+        "clerk": {
+          "vendor": "clerk",
+          "category": "auth",
+          "target": "better-auth",
+          "patterns": [
+            "@clerk/",
+            "clerkClient",
+            "CLERK_SECRET",
+            "CLERK_PUBLISHABLE"
+          ],
+          "target_patterns": [
+            "better-auth",
+            "betterauth"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "neon": {
+          "vendor": "neon",
+          "category": "db",
+          "target": "docker-postgres",
+          "patterns": [
+            "@neondatabase",
+            "neon.tech",
+            "neon("
+          ],
+          "target_patterns": [
+            "postgres",
+            "drizzle-orm",
+            "@prisma/client",
+            "pg",
+            "psycopg"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "sentry": {
+          "vendor": "sentry",
+          "category": "observability",
+          "target": "glitchtip or none",
+          "patterns": [
+            "@sentry/",
+            "sentry"
+          ],
+          "target_patterns": [
+            "glitchtip"
+          ],
+          "removal_ok": true,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        },
+        "openai": {
+          "vendor": "openai",
+          "category": "ai",
+          "target": "ollama",
+          "patterns": [
+            "openai"
+          ],
+          "target_patterns": [
+            "ollama",
+            "11434"
+          ],
+          "removal_ok": false,
+          "status": "pending",
+          "note": "",
+          "verified": false
+        }
+      },
+      "boot_install_ok": null,
+      "boot_build_ok": null,
+      "boot_start_ok": null,
+      "boot_tests": null,
+      "boot_ms": null,
+      "boot_port": null,
+      "rebrand_surface": [],
+      "risk_flags": [
+        {
+          "kind": "no-tests",
+          "detail": "no test runner detected"
+        },
+        {
+          "kind": "no-docker",
+          "detail": "no Dockerfile/compose"
+        }
+      ],
+      "evidence": {
+        "source": "github-api (no clone)",
+        "checked_at": "2026-09-24T03:12:18Z",
+        "branch": "master",
+        "files_read": [
+          "package.json",
+          "README.md",
+          ".env.example"
+        ],
+        "tree_entries": 134,
+        "locales": [],
+        "license_path": "LICENSE",
+        "vendor_name_in_readme_only": []
+      },
+      "updated_at": "2026-09-24T03:12:18Z",
+      "details_at": "2026-09-24T03:11:28Z",
+      "details_file": "data/details/triply-ai.json",
+      "features": [
+        "accounts",
+        "dashboard",
+        "uploads",
+        "jobs",
+        "map"
+      ],
+      "locales": [],
+      "swap_burden": "medium",
+      "details_digest": {
+        "details_file": "data/details/triply-ai.json",
+        "details_at": "2026-09-24T03:11:28Z",
+        "features": [
+          "accounts",
+          "dashboard",
+          "uploads",
+          "jobs",
+          "map"
+        ],
+        "locales": [],
+        "swap_burden": "medium",
+        "verdict": {
+          "best_for": "A tutorial-grade but genuinely complete Expo/React Native reference for an AI trip-planner or similar AI-generation mobile product — real auth, real Postgres schema, a durable Inngest generation pipeline, streaming chat assistant and image pipeline — best used as a working starting point to rebuild the same feature set rather than as maintained infrastructure.",
+          "weak_for": "Anything expecting production maturity: it is a 6-day, single-author, 16-commit tutorial build with no tests, no CI, no Docker/migrations, hardcoded dev-mode Inngest, client-side-only route gating, no admin/roles, no i18n, no payments and no email — and it cannot run in Expo Go or a container, so a native toolchain (or a new EAS setup) is a prerequisite for even the first screen.",
+          "swap_burden": "medium — Clerk, Neon, Inngest, ImageKit, Unsplash and Sentry are all isolated behind thin single-purpose modules (src/lib/auth.ts, src/db/index.ts + drizzle, src/inngest/*, src/lib/images.ts, src/lib/env.ts), so each swap is small, but the mobile-only toolchain, hardcoded isDev Inngest and client-side route protection must be fixed before anything is deployable."
+        },
+        "routes_count": 16,
+        "tests": {
+          "frameworks": [],
+          "unit_files": 0,
+          "e2e_files": 0,
+          "ci_workflows": [],
+          "notes": "Zero test files at any depth (tree grep for test/spec/__tests__/vitest/jest/playwright returns nothing) and no .github directory at all — gh api repos/.../contents/.github returns 404, so the repo has no CI, no issue templates, no CodeRabbit config despite the README advertising 'AI Code Review with CodeRabbit'. The only JSON under .claude/skills/*/evals/ are Claude Code skill evaluation specs, not application tests."
+        },
+        "deploy": {
+          "docker": false,
+          "standalone_output": false,
+          "paas_coupling": [
+            "cloudflare-workers"
+          ],
+          "build_cmd": null,
+          "start_cmd": "npm run start"
+        },
+        "pitfalls": [
+          "build-needs-env",
+          "dead-demo",
+          "docs-lie",
+          "native-deps",
+          "dead-demo",
+          "docs-lie",
+          "peer-conflicts",
+          "docs-lie",
+          "native-deps"
+        ],
+        "health": {
+          "stars": 51,
+          "forks": 19,
+          "open_issues": 0,
+          "contributors": 1,
+          "top_contributor_share": 1.0,
+          "last_commit": "2026-07-04",
+          "last_release": null,
+          "commits_last_90d": 16,
+          "issues_closed_last_90d": 0
+        },
+        "complexity": {
+          "pages": 8,
+          "components": 1,
+          "db_models": 5,
+          "migrations": 0,
+          "loc_estimate": 6300
         }
       }
     }

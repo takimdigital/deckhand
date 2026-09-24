@@ -250,6 +250,14 @@ def detect_stack(tree: list[str], pkg: dict, extra_texts: dict[str, str] | None 
         fw = "fastapi"
     elif has("django") or path_has("manage.py"):
         fw = "django"
+    elif has("laravel/framework") or path_has("artisan") or "laravel/framework" in texts:
+        # A PHP/Laravel repo often ships package.json + vite.config for its asset build, which is
+        # exactly what made bagisto read as "react-vite" — the truth is in composer.json.
+        fw = "laravel"
+    elif has("expo") or has("react-native"):
+        # Mobile apps: react-native/expo repos were being labelled "react-vite" too, and a mobile
+        # template can never serve a web business — the registry must not blur that.
+        fw = "expo"
     elif has("react") or path_has("vite.config"):
         fw = "react-vite"
 
@@ -332,7 +340,7 @@ def detect_stack(tree: list[str], pkg: dict, extra_texts: dict[str, str] | None 
         "docker": bool(path_has("dockerfile", "docker-compose.yml", "compose.yml", "compose.yaml")),
         "admin": bool(path_has("admin/", "dashboard/")),
         "package_manager": pkg_manager,
-        "lang": ("python" if fw in ("fastapi", "django") else "typescript" if fw in ("next", "remix", "wasp", "nuxt", "astro", "react-vite") else "unknown"),
+        "lang": ("python" if fw in ("fastapi", "django") else "php" if fw == "laravel" else "typescript" if fw in ("next", "remix", "wasp", "nuxt", "astro", "react-vite", "expo") else "unknown"),
     }
 
 

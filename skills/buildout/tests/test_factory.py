@@ -215,6 +215,37 @@ def test_run_resolves_windows_cmd_shims():
     assert rc == 0 and out.strip(), f"npm --version failed: rc={rc} err={err[:200]}"
 
 
+def test_laravel_repos_are_not_labelled_react_vite():
+    """A PHP/Laravel repo ships package.json + vite.config for its asset build.
+
+    Bagisto (Laravel + Blade + Vue) was measured as "react-vite" — a lie in the registry that the
+    owner's batch exposed. composer.json is fetched, so the truth is available: use it.
+    """
+    import _tpl_lib as L
+    php = L.detect_stack(["artisan", "composer.json", "vite.config.js", "package.json"], {},
+                         {"composer.json": '{"require": {"laravel/framework": "^10.0", "php": "^8.1"}}',
+                          "package.json": '{"devDependencies": {"vite": "^5.0.0"}}'})
+    assert php["framework"] == "laravel" and php["lang"] == "php", php
+    # control: no composer/laravel → the vite fallback still applies (deps or config, both count)
+    vite = L.detect_stack(["vite.config.js", "package.json"],
+                          {"dependencies": {"react": "^18.0.0", "vite": "^5.0.0"}},
+                          {"package.json": '{"dependencies": {"react": "^18.0.0"}}'})
+    assert vite["framework"] == "react-vite" and vite["lang"] == "typescript", vite
+
+
+def test_mobile_apps_are_not_labelled_react_vite():
+    """Same lie, second family: Expo/React-Native repos were read as web "react-vite" apps.
+
+    A mobile template can never serve a web business, so the registry must say so.
+    """
+    import _tpl_lib as L
+    expo = L.detect_stack(["app.json", "package.json", "tsconfig.json"],
+                          {"dependencies": {"expo": "~56.0.12", "react-native": "0.85.0",
+                                            "expo-router": "~6.0.0"}},
+                          {"package.json": '{"dependencies": {"expo": "~56.0.12"}}'})
+    assert expo["framework"] == "expo" and expo["lang"] == "typescript", expo
+
+
 def test_install_runs_in_the_project_dir(tmp_path):
     """Regression: npm install must run with cwd = the cloned project, never the skill dir."""
     import shutil as _sh

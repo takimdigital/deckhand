@@ -1,5 +1,32 @@
 # Changelog - Buildout
 
+## 0.9.1 — 2026-09-23
+
+### Added
+- **The pool grew from 8 templates to 14, through the batch tool itself** (the owner's first real
+  send: 6 repos). Four were measured in — `full-stack-ai-agent-template`, `triply-ai`,
+  `cal-ai-tutorial`, `bagisto` — each with a full detail file (features, routes, env names, deploy
+  story, pitfalls, blockers) written by one of three sharing agents, gate-checked, then imported.
+  Two (`grocify-expo`, `northwind-store`) carry **no MIT/Apache licence** and are refused by the pool
+  rule, recorded with that reason and never ranked.
+
+### Fixed
+- **`plan` no longer spends an agent on a repo the pool has already refused.** It reads the registry
+  first: a row without a licence is named as REFUSED and left out of the slices, and a list that is
+  entirely unlicensed stops with a reason instead of spinning agents at nothing.
+- **`check` no longer waits forever for those refused repos.** They were counted as `MISSING`, so a
+  batch containing one could never go green; they now report as a separate `REFUSED` row and the
+  summary counts only measurable repos (`4/4 measurable repo(s) ready · 2 refused by the pool licence
+  rule`).
+- **The registry stopped mislabelling whole families of repos as "react-vite"** — the owner's batch
+  exposed both cases. A PHP/Laravel repo (Bagisto) ships `package.json` + `vite.config` for its asset
+  build, and an Expo/React-Native app (triply-ai, cal-ai-tutorial, grocify-expo) is not a web SPA at
+  all; `composer.json` and the mobile deps are already fetched, so the detector now reads them:
+  `framework=laravel, lang=php` and `framework=expo` — a mobile template can no longer pass as a web
+  one. Both re-measured live after the fix.
+- `tests/` — 64 tests (was 59): the licence-skip plan, the refused-row gate, and both detector
+  regressions.
+
 ## 0.9.0 — 2026-09-23
 
 ### Added
