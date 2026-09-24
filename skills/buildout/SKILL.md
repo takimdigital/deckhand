@@ -1,7 +1,7 @@
 ---
 name: buildout
 description: "Use when building/shipping an online business: match a vetted open-source template, clone it, swap the proprietary services, rebrand, verify, deploy."
-version: 0.9.1
+version: 0.10.0
 author: Takim, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -20,6 +20,18 @@ services for open-source ones, rebrands it, verifies, and deploys.
 
 **No code generation. No component assembly. No design systems.** One idea per phase.
 
+## Two modes — ask once, at intake (step 0 of the interview)
+
+| mode | what the owner gets | stops |
+|---|---|---|
+| **autonomous** | after the intake it runs straight to deployed: match → pick → clone → swap → rebrand → verify → deploy, reporting as it goes | none — only genuine forks, owner-only facts (`PENDING.md`) and failures stop it; the owner can interrupt at any time |
+| **phased** (default) | four hard stops, each waiting for the owner's go — the safe shape for a first business | **G1** the plan (`05-plan.md`) · **G2** pick the base → clone → **run locally → hand over for testing** · **G3** rebrand/extra work · **G4** deploy |
+
+The gates are hard: in phased mode nothing is cloned before G2's pick, no rebrand work starts before
+G3, and nothing is deployed before G4 — even when the work looks obviously right. "Almost instant at
+the clone stage" is deliberate: in phased mode the run **ends** at a local URL the owner can click.
+Pointing at an existing site or code the owner wants rebuilt → `references/rebuild.md` first.
+
 ## The pipeline
 
 | # | phase | artifact | gate |
@@ -31,8 +43,10 @@ services for open-source ones, rebrands it, verifies, and deploys.
 | 4 | **Rebrand** — brand in, template leftovers out | `.factory/brand.json` | leak check clean + 6-row visual sanity |
 | 5 | **Verify & ship** — 6 rows, then Coolify | verify report + `PENDING.md` | every row carries a pasteable artifact |
 
-Refs (load by phase): `references/factory/00-intake.md` · `10-match.md` · `20-clone.md` ·
-`30-swap.md` · `40-rebrand.md` · `50-verify-deploy.md`. Never load all six at once.
+Refs (load by phase): `references/factory/00-intake.md` · `05-plan.md` (phased G1: research + the one-page
+plan) · `10-match.md` · `20-clone.md` · `30-swap.md` · `40-rebrand.md` · `50-verify-deploy.md`; plus
+`references/rebuild.md` (the owner wants an existing site/app rebuilt, design kept). Never load many at
+once — the phase names one file.
 
 Pool data (load when the pool itself is the question): `references/pool-details.md` — the measured
 detail file per template (routes, features, env names, deploy story, pitfalls) and how it enters the
@@ -103,6 +117,8 @@ Script commands (`py scripts/…`) run **from this skill's own directory** (`py`
 | Rank the pool / explain a match | `references/factory/10-match.md` |
 | Clone a match onto disk D | `references/factory/20-clone.md` |
 | Add repos the owner found to the pool (batch, ≤3 agents) | `references/pool-batch.md` |
+| Plan phase 1 / run research for the owner | `references/factory/05-plan.md` |
+| The owner wants an existing project rebuilt (design kept) | `references/rebuild.md` |
 | Replace Clerk/Neon/Resend/… | `references/factory/30-swap.md` |
 | Put the owner's brand in, take the template's out | `references/factory/40-rebrand.md` |
 | Verify + deploy + the report | `references/factory/50-verify-deploy.md` |
@@ -137,8 +153,30 @@ Fresh context windows for workers/verifiers. One writer per artifact. Details + 
 - Mixing in design work the template didn't ask for: the design already exists; the job is the
   owner's brand, not a new art direction.
 - Letting `PENDING.md` grow past the mandatory list, or adding a fake fact to avoid a PENDING item.
+- **A `'use client'` design-system primitive cannot be called from a server component.** Porting a
+  shadcn-style `buttonVariants()` into server-rendered pages fails at runtime
+  ("Attempted to call buttonVariants() from the server but it is on the client") — drop `'use client'`
+  from the primitive file when it holds no hooks. Related, on Base UI: `<Button render={<Link/>}>`
+  with `nativeButton={false}` renders the anchor as `role="button"` (wrong semantics for navigation,
+  and it breaks link-role assertions) — style a real `<Link className={cn(buttonVariants({...}))}>`
+  instead. Verify with a console-error sweep: Base UI warns loudly about the mismatch.
 - Silently half-swapping a vendor SDK (shims that still call it) — `swap_check` exists to catch
   exactly this.
+- **A Windows host breaks the template's own scripts in three ways** (all measured on rahla-v2):
+  npm scripts written with single quotes are passed raw by cmd.exe (`--run 'npm run x'` arrives as
+  `'npm`, `run`, `x'`) — use escaped double quotes; a local DB/service port may sit inside a
+  Hyper-V/WSL **excluded range** (`netsh interface ipv4 show excludedportrange protocol=tcp` — 5432
+  was EACCES here, so pin 5770 in the script + `DATABASE_URL` + the test config together); and
+  `pglite-server --run` spawns **without a shell**, so a bare `npm`/`run-s` command dies `ENOENT` —
+  point it at a real executable (`node node_modules/drizzle-kit/bin.cjs migrate`,
+  `node node_modules/npm-run-all/bin/run-s/index.js …`).
+- **Lint gates fight vendored design-system files.** A 500-rule preset (ultracite/lefthook on the
+  ixartz template) fails on 60+ pedantic violations in the ported `components/ui/*`, and adding an
+  `eslint.config.mjs` with `ignores` silently switches ultracite into bring-your-own-toolchain mode
+  (it then demands `eslint`/`prettier`/`stylelint` binaries). Correct fix: run the linter once,
+  parse the `file:line: error plugin(rule)` output, and write **one explicit per-file
+  `/* eslint-disable a, b/c */`** listing the real rule names — never a blanket `/* eslint-disable */`
+  (its own `no-abusive-eslint-disable` rule rejects that).
 
 ## Verification — did the pack do its job?
 

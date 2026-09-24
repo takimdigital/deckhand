@@ -21,6 +21,15 @@ Load when: setting branch/commit conventions, opening PRs, cutting releases, or 
 7. Hotfix path: smallest possible branch off the release tag, fast-track review, backport to main.
 8. **Parallel agents:** one worktree + one writer per branch; never two writers on one branch; partition by file ownership.
 
+## Template hooks can block the factory's own commits
+
+A cloned template often ships hooks (husky / lint-staged / commitlint) that were never installed for
+this project. Two failure shapes seen in real runs: a commit that dies inside a hook
+(`failed to run the hook: conflict while merging unstaged changes`) and a half-installed hook folder
+that breaks every later git call. Decide once, out loud: either satisfy the hook, or disable it for
+scripted commits (`--no-verify`) and say so in the report — never leave the repo in a state where the
+next commit depends on a hook nobody remembers installing.
+
 ## Anti-patterns
 
 - Long-lived feature branches (merge pain + stale state).

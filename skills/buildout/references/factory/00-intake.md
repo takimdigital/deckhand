@@ -13,6 +13,21 @@ re-ask what the profile answers. No profile yet → create it first with the `de
 
 ## Questions (ask in this order, all in one message)
 
+**Q0 — mode, always the first question** (it changes the whole run): *"Do you want me to run it
+end-to-end for you — you just answer these questions and I take it to deployed — or step by step,
+where I stop at four points and wait for your go? Most owners pick step by step the first time."*
+→ `flow: "autonomous" | "phased"` (**default `phased`** when the owner has no opinion).
+
+**Q0b — research (offer it, it is free):** *"Want me to research this before planning — your
+competitors, who your customers are, and what makes this kind of site win today?"* → `research: true`.
+Two agents, one page of findings, URLs not opinions (`05-plan.md`).
+
+**Q0c — existing project:** if the owner points at a site, a repo or a folder they already have, stop
+and read `references/rebuild.md` **before** asking — it answers part of the interview and the rest
+shrinks. Everything read from their code is marked `from: existing-project` and shown back to them.
+
+Then the business questions:
+
 1. **What the business does** — one line, in the owner's words.
 2. **Shape** (the matchmaker's key). Read the options aloud; the owner picks, you may suggest one:
    - `saas` — accounts + a subscription or paid plan; the software *is* the product

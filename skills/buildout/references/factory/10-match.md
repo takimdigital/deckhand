@@ -72,6 +72,12 @@ Then the owner picks. If nothing ranks **> 0**: stop. That is a pool gap, not a 
 record it (`pool_gap` note with the shape/features asked) and either measure more repos or
 tell the owner the pool can't serve this business yet. **Do not fall back to generating an app.**
 
+## Phased mode — this is gate G2 (first half)
+
+Present the top 3, then **stop and wait**. The owner's pick is the gate; do not clone, do not
+"prepare while they decide", do not start the next phase in the same turn. One message, one question:
+*"which one do I use as the base?"* Their answer starts `20-clone.md`.
+
 ## Shape taxonomy
 
 | shape | what it means | example businesses |

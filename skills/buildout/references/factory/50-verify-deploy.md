@@ -3,6 +3,29 @@
 The verify tail is small on purpose: the template's own community tests the code; we verify
 **our changes** (clone, swap, rebrand) and the owner's must-haves.
 
+## Coolify, measured (from a real Next.js + Postgres deploy)
+
+- The image must install devDependencies even for a production build: Coolify builds with
+  `NODE_ENV=production` in the environment, so a plain `npm ci` drops the PostCSS/Tailwind plugin and
+  drizzle-kit, and the build dies with `Cannot find module '@tailwindcss/postcss'`. Use
+  `NODE_ENV=development npm ci --include=dev` in the deps stage.
+- **No database reads during `next build`.** Migrations run at container start, so the first build of
+  a fresh deployment sees an empty schema and any prerendered page that queries it fails with
+  `Failed query: select ...` / `parserOpenTable` — not with a connection error. Mark live-data
+  segments `export const dynamic = 'force-dynamic'`.
+- A bare-IP FQDN gives 502 from the proxy; a published port mapping (`3080:3000`) is the reliable
+  temporary address until DNS exists.
+- The Coolify token file (`export KEY = value`, spaces) is not sourceable — parse it. Its dashboard is
+  loopback-only: tunnel with a local port outside the host's excluded ranges.
+- Private repo: generate a deploy key on the VPS, add it as a read-only repo key, register it with
+  `POST /api/v1/security/keys`, then create the app with `POST /api/v1/applications/private-deploy-key`.
+
+## Phased mode — gate G4
+
+Deploy runs only on the owner's explicit go, in its own turn. The verify rows may all be green before
+that; green is not permission. When the go arrives, deploy, smoke-test the deployed container, and
+report — then the run is done.
+
 ## The 6 rows
 
 | # | check | evidence (pasteable) |

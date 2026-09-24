@@ -246,6 +246,24 @@ def test_mobile_apps_are_not_labelled_react_vite():
     assert expo["framework"] == "expo" and expo["lang"] == "typescript", expo
 
 
+def test_modes_and_gates_are_wired_into_the_instructions():
+    """Two modes + four hard stops are the owner's decision — a rewrite must not quietly drop them."""
+    skill = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+    for token in ("autonomous", "phased", "G1", "G2", "G3", "G4"):
+        assert token in skill, f"{token} missing from SKILL.md"
+    plan = (SKILL / "references" / "factory" / "05-plan.md").read_text(encoding="utf-8")
+    assert "two agents" in plan.lower() and "approve" in plan.lower()
+    rebuild = (SKILL / "references" / "rebuild.md").read_text(encoding="utf-8")
+    for token in ("existing", "design port", "G2"):
+        assert token in rebuild, token
+    intake = (SKILL / "references" / "factory" / "00-intake.md").read_text(encoding="utf-8")
+    assert "Q0" in intake and "autonomous" in intake and "rebuild.md" in intake
+    for phase, gate in (("10-match.md", "G2"), ("20-clone.md", "G2"),
+                        ("40-rebrand.md", "G3"), ("50-verify-deploy.md", "G4")):
+        body = (SKILL / "references" / "factory" / phase).read_text(encoding="utf-8")
+        assert gate in body, f"gate {gate} missing from {phase}"
+
+
 def test_install_runs_in_the_project_dir(tmp_path):
     """Regression: npm install must run with cwd = the cloned project, never the skill dir."""
     import shutil as _sh

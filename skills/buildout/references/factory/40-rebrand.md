@@ -3,6 +3,12 @@
 Fill `.factory/brand.json`, inject at the **measured** points, prove nothing of the template is left
 visible. Design comes from the template; this phase never redesigns.
 
+## Phased mode — gate G3
+
+Rebrand and any extra work start only on the owner's go, after they have tested the running base. When
+the go arrives: brand in, leftovers out, then stop again — deploy is G4, a separate step. Do not fold
+"one small feature" into this phase: a new feature is new work with its own build and verify.
+
 ## brand.json
 
 ```json

@@ -69,6 +69,24 @@ Evidence rules:
   show it came from **this** build;
 - install failure → the row is `rejected` with the reason; report it to the owner in one line.
 
+## Phased mode — end the run here (gate G2, second half)
+
+A clone is the fast, quiet part: install, build, start, prove it answers — then **hand it over**. The
+message is a local URL and one line on what the owner is looking at ("this is the base, in its own
+skin — your design and brand land in the next phase"). Then stop. No rebrand, no extra features, no
+deploy in the same turn: that is G3/G4, and the owner tests first.
+
+Running it locally, the parts that bite:
+
+- **Start the server as a background process**, then poll a health check until it answers — a
+  foreground `npm run dev` is refused/blocked by the harness, and a browser pointed at a
+  not-yet-listening port just proves the port is closed.
+- **Read the port from the project**, never assume 3000; a second app (or the previous phase's server)
+  is often still holding it — `EADDRINUSE … 127.0.0.1:5770` is a stale process, not a bug. Kill it
+  before rebinding (on Windows from git-bash: `taskkill //F //PID <pid>` — double slashes; single
+  slashes get mangled into paths).
+- **Prove the page served is the build you made** (chunk hashes / BUILD_ID), not a cached one.
+
 ## Env scaffold
 
 Copy `.env.example` → `.env` and fill only what boot needs (DB URL, auth secret, SMTP).

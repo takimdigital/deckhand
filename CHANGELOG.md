@@ -1,6 +1,16 @@
 # Changelog
 
-## 2026-09-23 — the pool doubles: 6 repos in, through the batch tool itself (pack v0.17.1)
+## 2026-09-24 — two modes, a plan phase, and the rebuild path (pack v0.18.0)
+
+The owner now chooses how the build runs, once, at intake. **autonomous**: answer the questions and it goes straight to deployed. **phased (default)**: four hard stops waiting for the owner's go — the plan, the pick + clone + local handover, the rebrand, the deploy. In phased mode the run deliberately *ends* at a local URL the owner can click before anything else happens.
+
+Phase 1 became a plan instead of a leap: the owner can order research from exactly two agents (competitors and their visible features, pricing, positioning, and the moves the top 10% make; then audience, search terms, first-screen and conversion psychology) which lands as a one-page plan in their own language — ≤7 must-haves, the conversion play, what we won't build — with one question at the end: approve, or change what?
+
+"Rebuild my site, keep the design" — the most common second job — is now a first-class path with its own reference, written from a real end-to-end rebuild: bounded recon, a keep/port/rebuild verdict, the design-port rules that actually break (client boundaries, accessibility, schema column conventions), snapshot and name-swap only at the end, and a hand-over that is a running local URL. The same rebuild was autopsied (71 failure events) and produced four instruction fixes: local server start and health-check, `EADDRINUSE` as a stale process, `taskkill //F //PID` under git-bash, template git hooks blocking scripted commits, and vendor-coupled test tooling as a swap target.
+
+buildout: **0.10.0 · 66 offline tests · 117 for the pack.**
+
+## 2026-09-23 — the pool doubles: 6 repos in, through the batch tool itself (pack v0.17.1): 6 repos in, through the batch tool itself (pack v0.17.1)
 
 The pool's first real owner batch. Six repos went in through the new batch tool — three agents sharing the list, remote measurement only, one JSON per repo, gate-checked before import — and four came out measured: a FastAPI+Next AI-agent generator, two Expo mobile apps and a Laravel multi-vendor commerce platform. The pool now holds **14 templates, 12 with measured detail files**. Two of the six ship no MIT/Apache licence and are refused by the pool's rule, recorded with that reason and never ranked.
 

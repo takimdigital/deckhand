@@ -37,6 +37,14 @@ One dep at a time. The map is data (`.factory/swap-map.json`), the proof is a sc
    `url` and dies with `NOT NULL constraint failed: templates.url` without them. No gate reads
    `verified: true`; the evidence in the scorecard is what a later reader trusts.
 
+## Vendor-coupled tooling hides in devDependencies
+
+The swap map must include the test/QA tooling, not only runtime services: a template's e2e suite can
+depend on a paid cloud (measured: a Playwright suite importing `@chromatic-com/playwright`, plus
+Checkly/Crowdin CI coupling) and then a typecheck or a test run fails for reasons that have nothing to
+do with the owner's business. Either swap it for the open equivalent or remove the dependency *and*
+its config in the same pass — leaving a half-removed reference is what breaks `tsc` later.
+
 ## Rules
 
 - **Targets that are your own code.** `glitchtip or none`, `middleware or none`, `db-backed flags`

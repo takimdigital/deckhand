@@ -1,5 +1,42 @@
 # Changelog - Buildout
 
+## 0.10.0 — 2026-09-24
+
+### Added
+- **Two modes, chosen once at intake (Q0).** `autonomous` — intake → deployed in one run, reporting as
+  it goes; `phased` (**default**) — four hard stop-gates, each waiting for the owner's go: **G1** the
+  plan · **G2** pick the base → clone → **run it locally and hand it over for testing** · **G3**
+  rebrand/extra work · **G4** deploy. The gates are wired into the phase refs (not just described), the
+  clone stage is deliberately the fast one, and a test fails if a rewrite drops any of it.
+- **Phase 1 is a plan, not a leap** — `references/factory/05-plan.md`: optional owner-ordered research
+  by **exactly two agents** (A: 5–8 real competitors, their visible features, pricing, positioning and
+  the moves the top 10% make that the rest don't; B: audience, search terms, first-screen,
+  conversion psychology for the trade), then a **one-page plan in the owner's language** — ≤7
+  must-haves, the conversion play, discovery basics, what we deliberately won't build. G1 = "approve,
+  or what do you want changed?" Two feedback rounds max, then it is a parked item.
+- **`references/rebuild.md` — "rebuild my existing site, keep the design", first-class.** The most
+  common second job, and the one a real owner just ran end-to-end: bounded recon (never `du -sh` a
+  whole tree — a real run sat 1.7 GB until the command timed out), a keep/port/rebuild verdict per
+  bucket, the interview shrinks to what the code cannot answer, design-port rules (tokens in/values
+  out; `'use client'` boundaries; Base UI a11y errors; keep the template's column convention or meet
+  `column "createdAt" does not exist`), snapshot + name-swap only at the end, and a hand-over that is
+  a running local URL, not a report.
+
+### Fixed — from the RAHLA rebuild autopsy (evidence: 71 failure events in that session)
+- Template hooks (husky/lint-staged) can block the factory's own commits — rule added to
+  `references/lifecycle/40-git.md`.
+- Vendor-coupled **test** tooling (Chromatic/Checkly/Crowdin) is a swap target, not a footnote —
+  `references/factory/30-swap.md`.
+- Local-run retries, now instructions in `references/factory/20-clone.md`: start the server in the
+  background and health-check before pointing a browser at it; read the port from the project
+  (`EADDRINUSE … 5770` is a stale process, not a bug); kill stale listeners with `taskkill //F //PID`
+  under git-bash (single slashes get mangled into paths).
+- The Coolify lessons from the same session (devDependencies dropped under `NODE_ENV=production`,
+  no DB reads during `next build`, bare-IP FQDN 502, unsourceable token file) were already recorded in
+  `50-verify-deploy.md` by that session; kept.
+- `tests/` — 66 tests: a wiring test asserts the two modes and all four gates exist in the
+  instructions.
+
 ## 0.9.1 — 2026-09-23
 
 ### Added
