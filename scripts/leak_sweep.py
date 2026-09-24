@@ -4,6 +4,9 @@
 Scans for private-project terms before anything is pushed or released:
 
 - the repo working tree (default: this script's repo root),
+- every ``*.db`` tracked by git, opened read-only: ``registry='mine'`` rows and
+  the TEXT columns of ``registry_items`` / ``templates`` (library_import.py writes the
+  owner's free-text ``--source`` into a git-tracked .db, which the text tree walk skips),
 - the commit messages of the repo's branches and tags,
 - every harness copy of the pack skills (hermes install + the .claude/.agents/.codex mirrors),
 - any extra files passed with --file (a release-notes draft — that is the exact moment
@@ -20,9 +23,11 @@ Exit: 0 clean · 1 hits · 2 setup problem (missing terms list, bad path).
 """
 import argparse
 import os
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 PACK_SKILLS = ["buildout", "component-library", "vps-ops", "session-autopsy", "deckhand-profile"]
 SKIP_DIRS = {".git", "__pycache__", ".pytest_cache", "node_modules", ".next", ".turbo"}
@@ -31,7 +36,7 @@ SKIP_EXT = {".zip", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".woff", "
             ".lock", ".snap"}
 
 
-def fail(msg):
+def fail(msg) -> NoReturn:
     print(f"leak_sweep: {msg}", file=sys.stderr)
     sys.exit(2)
 
@@ -58,6 +63,11 @@ def is_text(path):
         return False
 
 
+def terms_in(text, terms):
+    low = text.lower()
+    return [t for t in terms if t.lower() in low]
+
+
 def scan_tree(root, terms, label):
     files = hits = 0
     root = Path(root)
@@ -71,14 +81,87 @@ def scan_tree(root, terms, label):
                 continue
             files += 1
             try:
-                low = p.read_text(encoding="utf-8", errors="replace").lower()
+                text = p.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
-            matches = [t for t in terms if t.lower() in low]
+            matches = terms_in(text, terms)
             if matches:
                 print(f"HIT  {p}  {matches}")
                 hits += len(matches)
     print(f"  {label}: {files} text files scanned, {hits} hit(s)")
+    return hits
+
+
+def sweep_sqlite(path, terms):
+    """Gate one SQLite db, opened read-only (``mode=ro`` — nothing is ever written).
+
+    The tree walk skips binaries, but ``library_import.py`` writes the owner's
+    free-text ``--source`` into ``registry_items.description`` inside the
+    git-tracked ``templates.db`` — so the db gets its own sweep:
+
+    - any ``registry='mine'`` row fails the release (owner-private rows);
+    - every TEXT column of ``registry_items`` and ``templates`` is matched with
+      the same matcher and message style as the text tree.
+
+    A db without those tables is skipped, not an error. Returns the hit count.
+    """
+    hits = cells = 0
+    path = Path(path)
+    if not path.is_file():
+        fail(f"tracked db is listed by git but missing from the tree: {path}")
+    try:
+        con = sqlite3.connect(f"file:{path.resolve().as_posix()}?mode=ro", uri=True)
+    except sqlite3.Error as e:
+        fail(f"cannot open tracked db {path} read-only: {e}")
+    try:
+        tables = {r[0] for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'")}
+        for table in ("registry_items", "templates"):
+            if table not in tables:
+                print(f"  tracked db {path}: no {table} table — skipped")
+                continue
+            info = list(con.execute(f"PRAGMA table_info({table})"))
+            if table == "registry_items" and "registry" in [c[1] for c in info]:
+                rows = con.execute(
+                    "SELECT item FROM registry_items WHERE registry = 'mine'").fetchall()
+                if rows:
+                    print(f"HIT  {path}  mine rows in tracked db: {len(rows)} row(s) "
+                          f"registry='mine' {sorted(r[0] for r in rows)[:10]}")
+                    hits += len(rows)
+            cols = [c[1] for c in info if (c[2] or "").upper().startswith("TEXT")]
+            if not cols:
+                continue
+            for row in con.execute(f"SELECT rowid, {', '.join(cols)} FROM {table}"):
+                cells += len(cols)
+                for col, val in zip(cols, row[1:]):
+                    if not isinstance(val, str) or not val:
+                        continue
+                    matches = terms_in(val, terms)
+                    if matches:
+                        print(f"HIT  {path}  [{table}.{col} rowid={row[0]}]  {matches}")
+                        hits += len(matches)
+    except sqlite3.Error as e:
+        fail(f"tracked db {path} cannot be swept ({e}) — a db the gate cannot read is not a pass")
+    finally:
+        con.close()
+    print(f"  tracked db {path}: {cells} text cell(s) scanned, {hits} hit(s)")
+    return hits
+
+
+def scan_tracked_dbs(repo, terms):
+    """Sweep every ``*.db`` in ``git ls-files`` (read-only, see sweep_sqlite)."""
+    if not (repo / ".git").exists():
+        print("  tracked dbs: no .git here — skipped")
+        return 0
+    try:
+        r = subprocess.run(["git", "-C", str(repo), "ls-files", "-z", "--", "*.db"],
+                           capture_output=True, text=True, timeout=60)
+    except OSError:
+        fail("git not found — the tracked-db scan needs it")
+        return 0  # unreachable; keeps static analyzers happy
+    dbs = [d for d in r.stdout.split("\0") if d.strip()]
+    hits = sum(sweep_sqlite(repo / d, terms) for d in dbs)
+    print(f"  tracked dbs: {len(dbs)} db(s) swept, {hits} hit(s)")
     return hits
 
 
@@ -119,6 +202,7 @@ def main(argv=None):
     repo = Path(a.repo).expanduser().resolve()
     print(f"leak_sweep: {len(terms)} term(s); repo={repo}")
     hits = scan_tree(repo, terms, "repo tree")
+    hits += scan_tracked_dbs(repo, terms)
     hits += scan_history(repo, terms)
 
     home = Path.home()

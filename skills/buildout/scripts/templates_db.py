@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -26,6 +27,31 @@ from pathlib import Path
 SKILL_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DB = SKILL_DIR / "data" / "templates.db"
 DEFAULT_EXPORT = SKILL_DIR / "data" / "templates.json"
+
+
+def store_root(explicit: str | None = None) -> Path:
+    """The component-library store root — same resolution order as component-library's library.py
+    (explicit > $DECKHAND_LIBRARY > $EXPERT_BUILD_LIBRARY > ~/expert-build-library > ~/deckhand-library)."""
+    if explicit:
+        return Path(explicit).expanduser()
+    for var in ("DECKHAND_LIBRARY", "EXPERT_BUILD_LIBRARY"):
+        val = os.environ.get(var)
+        if val:
+            return Path(val).expanduser()
+    legacy = Path.home() / "expert-build-library"
+    if legacy.is_dir():
+        return legacy
+    return Path.home() / "deckhand-library"
+
+
+def mine_db() -> Path:
+    """The owner's OWN catalog rows: beside the store, never inside the repo.
+
+    Personal rows used to be written into data/templates.db — a git-tracked binary that no text sweep
+    can see and that git keeps forever. They now live here and are joined read-only at query time
+    (`connect_catalog`)."""
+    return store_root() / "catalog-mine.db"
+
 
 SHAPES = ("saas", "marketplace", "booking", "catalogue", "leadgen", "internal", "unknown")
 STATUSES = ("unverified", "verified", "rejected")
@@ -174,6 +200,23 @@ def connect(db: Path) -> sqlite3.Connection:
     con.executescript(SCHEMA)
     _migrate(con)
     _migrate_registry_items(con)
+    return con
+
+
+def connect_catalog(db: Path) -> sqlite3.Connection:
+    """`connect(db)` plus the owner's personal rows, joined read-only.
+
+    When `mine_db()` exists the connection ATTACHes it and gets a TEMP VIEW `all_items` over
+    `main.registry_items UNION ALL mine.registry_items`, so every reader works on shipped + personal
+    rows without a second code path and nothing is copied into the git-tracked DB. No mine DB → a
+    plain connection, exactly as before.
+    """
+    con = connect(db)
+    mine = mine_db()
+    if mine.exists():
+        con.execute("ATTACH DATABASE ? AS mine", (str(mine),))
+        con.execute("CREATE TEMP VIEW IF NOT EXISTS all_items AS "
+                    "SELECT * FROM main.registry_items UNION ALL SELECT * FROM mine.registry_items")
     return con
 
 
@@ -691,9 +734,19 @@ def reg_upsert(con: sqlite3.Connection, rec: dict, not_before: str | None = None
     return "written"
 
 
+def _items_source(con: sqlite3.Connection) -> str:
+    """`all_items` when `connect_catalog` created the UNION view on this connection, else the table.
+
+    A plain `connect()` connection (writers, factory paths, tests) therefore behaves exactly as
+    before: personal rows only ever enter through the explicit catalog connection.
+    """
+    row = con.execute("SELECT 1 FROM sqlite_temp_master WHERE type = 'view' AND name = 'all_items'").fetchone()
+    return "all_items" if row else "registry_items"
+
+
 def reg_rows(con: sqlite3.Connection, slot: str | None = None, base: str | None = None,
              free_only: bool = False, registry: str | None = None) -> list[sqlite3.Row]:
-    q = "SELECT * FROM registry_items WHERE 1=1"
+    q = f"SELECT * FROM {_items_source(con)} WHERE 1=1"
     args: list = []
     if slot:
         q += " AND slot = ?"

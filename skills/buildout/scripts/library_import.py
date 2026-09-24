@@ -11,6 +11,10 @@ base filter. A row is only offered when the item carries what the catalog needs 
 
     py scripts/library_import.py [--store PATH] [--db PATH] [--dry-run] [--prune]
 
+By default the rows go to <store>/catalog-mine.db — the owner's own DB beside the store, joined to
+the shipped data/templates.db read-only at query time. `--db <path>` still writes wherever it is
+told (tests and migrations rely on it); nothing ever writes personal rows into the shipped DB.
+
 --prune removes 'mine' rows whose item is no longer in the store (remove() archives items, so a
 deleted component must stop being offered). Idempotent: re-run after any save; it never touches
 rows from the measured pool.
@@ -19,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -27,22 +30,9 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import templates_db as DB  # noqa: E402
+from templates_db import store_root  # noqa: E402  # moved to templates_db; re-exported for callers
 
 BASE_VALUES = {"radix", "base-ui", "aria", "none"}
-
-
-def store_root(explicit: str | None = None) -> Path:
-    """Same resolution order as component-library's library.py (env > legacy env > legacy dir > default)."""
-    if explicit:
-        return Path(explicit).expanduser()
-    for var in ("DECKHAND_LIBRARY", "EXPERT_BUILD_LIBRARY"):
-        val = os.environ.get(var)
-        if val:
-            return Path(val).expanduser()
-    legacy = Path.home() / "expert-build-library"
-    if legacy.is_dir():
-        return legacy
-    return Path.home() / "deckhand-library"
 
 
 def read_index(store: Path) -> list[dict]:
@@ -76,7 +66,8 @@ def offerable(row: dict) -> str | None:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="import the personal component store into the try-on catalog")
     ap.add_argument("--store", default="", help="store root (default: $DECKHAND_LIBRARY / ~/deckhand-library)")
-    ap.add_argument("--db", default=str(DB.DEFAULT_DB))
+    ap.add_argument("--db", default=str(DB.mine_db()),
+                    help="where the 'mine' rows are written (default: <store>/catalog-mine.db)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--prune", action="store_true", help="also remove 'mine' rows whose item left the store")
     args = ap.parse_args(argv)

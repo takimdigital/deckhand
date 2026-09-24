@@ -1,7 +1,7 @@
 ---
 name: buildout
 description: "Use when building/shipping an online business: match a vetted open-source template, clone it, swap the proprietary services, rebrand, verify, deploy."
-version: 0.12.0
+version: 0.14.0
 author: Takim, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -61,7 +61,9 @@ template): the owner opens their dev server, clicks a component, and picks a rea
 from a measured MIT registry; their own agent stages it and flips one import, so the app's HMR shows
 it instantly. Opt-in, dev-only, journaled. Command shape: `py scripts/tryon_catalog.py query --slot
 button` · `py scripts/tryon_install.py install --project D:/<slug>` · `py scripts/tryon_server.py
-serve|wait|reply` · `templates/tryon/swap.mjs apply|revert` (staging also appends the stage record to
+serve|wait|reply` · `py scripts/tryon_agent.py handle --project D:/<slug> --id N` (one command per
+picked component — guard → catalog → fetch → stage → props → apply, reply included) ·
+`templates/tryon/swap.mjs apply|revert` (staging also appends the stage record to
 `.tryon/manifest.json`). Full workflow: `references/tryon.md`. Saving a tried component into the
 owner's own library: `references/library.md`.
 
@@ -129,6 +131,7 @@ Script commands (`py scripts/…`) run **from this skill's own directory** (`py`
 | `scripts/tryon_server.py` | the try-on helper: `serve` · `wait` · `reply` · `status` (loopback + token, stdlib) |
 | `scripts/tryon_install.py` | puts the dev-only try-on plumbing into a project — journaled, byte-exact `uninstall`; also `gitignore`s `.tryon/` + the dev mount so a token never reaches git |
 | `scripts/tryon_guard.py` | the agent-side refusal before ANY write: like-for-like slots, base compatibility (a Radix project never gets a Base UI candidate), single components only, no silent no-ops (`check --project … --file … --line N --candidate-slot <s> [--candidate-base <b>] [--rescope]`) |
+| `scripts/tryon_agent.py` | one command per panel request, end to end: `handle --project … --id N` (guard → catalog → fetch → stage → props → apply), writes the reply itself, exits 1 with the failing check's message as the reply, 3 = unverifiable (`--yes-unverifiable` overrides, `--install-deps` adds npm deps) |
 | `scripts/library_import.py` | feeds the owner's own saved components into the try-on catalog (source `mine`, ranked first, base/licence-gated; `--prune` after `library.py remove`); the save loop is `references/library.md` |
 | `templates/tryon/` | `loader.cjs` · `overlay.js` (scoped candidates, Save/Keep/Back, id-correlated replies) · `swap.mjs` (the codemod; `apply`/`revert`/`props` — the prop-shape fit check; `install` writes the stage record to `.tryon/manifest.json`) · `test-swap.mjs` (battery) |
 | `tests/test_tryon.py` | offline suite for try-on (catalog gates, ranking, server protocol + P0 hardening, installer round-trip, save-loop gates) |

@@ -2,7 +2,7 @@
 """tryon_install — put the try-on plumbing into a project (dev-only, journaled, reversible).
 
     py scripts/tryon_install.py install   --project D:/app [--port 7799] [--force]
-    py scripts/tryon_install.py uninstall --project D:/app
+    py scripts/tryon_install.py uninstall --project D:/app [--force-leave-swaps]
     py scripts/tryon_install.py status    --project D:/app
 
 What install does (never touches components/ui, never edits anything else):
@@ -12,8 +12,13 @@ What install does (never touches components/ui, never edits anything else):
   4. patches app/layout.tsx          (imports + renders TryOnDev before </body>)
 
 Every patched file is backed up byte-for-byte in .tryon/backups/ and recorded in .tryon/journal.json;
-`uninstall` restores the patches byte-exact and deletes only the files this tool created.
-Exit codes: 0 ok · 2 usage · 4 manual step needed · 5 not a supported project.
+`uninstall` restores the patches byte-exact and deletes only the files this tool created. It refuses
+(exit 5, nothing touched) while swap.mjs still has live swap rows in that shared journal — they are
+the only record of the owner's original imports; revert them first, or pass --force-leave-swaps to
+take the plumbing out and keep them. Either way it reports (`staged_left`) the staged variants no
+remaining swap points at — never deletes them, the owner's code may import them.
+Exit codes: 0 ok · 2 usage · 4 manual step needed · 5 not a supported project (or a live swap
+refusing an uninstall).
 """
 from __future__ import annotations
 
@@ -383,9 +388,49 @@ def cmd_install(args) -> int:
     return 0 if not manual else 4
 
 
+def _variant_key(rel: str) -> str:
+    """A staged-variant reference, normalised for comparison and alias/extension agnostic:
+    `@/components/variants/button/x.tsx` and `components/variants/button/x` → the same string."""
+    p = str(rel).replace("\\", "/").strip()
+    p = re.sub(r"^[@~]/", "", p)
+    p = re.sub(r"^\.?/+", "", p)
+    return re.sub(r"\.(tsx|ts|jsx|js|mjs)$", "", p)
+
+
+def staged_variants_left(project: Path, live: list[dict]) -> list[str]:
+    """Staged variants no live swap points at any more.
+
+    Owner work may import them (a Keep, a copy, a hand-tweak), so they are reported, never deleted."""
+    try:
+        man = json.loads(read_raw(project / ".tryon" / "manifest.json"))
+    except Exception:
+        return []
+    wired = {_variant_key(e.get("to", "")) for e in live}
+    out = []
+    for m in man if isinstance(man, list) else []:
+        dest = str((m or {}).get("dest") or "").replace("\\", "/")
+        if "components/variants/" not in dest or not (project / dest).exists():
+            continue
+        if _variant_key(dest) not in wired:
+            out.append(dest)
+    return sorted(set(out))
+
+
 def cmd_uninstall(args) -> int:
     project = Path(args.project).resolve()
     j = load_journal(project)
+    swaps = [e for e in j if e.get("kind") is None and "local" in e]
+    if swaps and not getattr(args, "force_leave_swaps", False):
+        # The swap rows (swap.mjs: `local`/`from`/`to`, no `kind`) are the ONLY record of the owner's
+        # own imports; uninstall is the 'put it back' verb, so it must refuse rather than drop them.
+        print(json.dumps({
+            "ok": False,
+            "reason": "SWAPS_ACTIVE",
+            "files": sorted({e["file"] for e in swaps}),
+            "hint": f"node {(TPL / 'swap.mjs').as_posix()} revert --all --root {project.as_posix()}"
+                    "  (or keep them first)",
+        }))
+        return 5
     restored, kept, removed = [], [], []
     for entry in reversed(j):
         f = project / entry["file"]
@@ -395,8 +440,10 @@ def cmd_uninstall(args) -> int:
                 f.unlink()
                 removed.append(entry["file"])
             continue
+        if entry.get("kind") != "patch" or "backup" not in entry:
+            continue  # swap rows are not ours to revert here
         b = project / entry["backup"]
-        if entry.get("kind") != "patch" or not b.exists():
+        if not b.exists():
             continue
         cur = read_raw(f) if f.exists() else ""
         if sha(cur) == entry.get("shaAfter"):
@@ -412,8 +459,11 @@ def cmd_uninstall(args) -> int:
     for devdir in (project / "components" / "dev", project / "src" / "components" / "dev"):
         if devdir.exists() and not any(devdir.iterdir()):
             devdir.rmdir()
-    save_journal(project, [e for e in j if e.get("file") in kept])
+    remaining = [e for e in j if e.get("file") in kept or e in swaps]
+    save_journal(project, remaining)
     out = {"ok": True, "restored": restored, "removed": removed, "kept_modified_by_owner": kept,
+           "staged_left": staged_variants_left(
+               project, [e for e in remaining if e.get("kind") is None and "local" in e]),
            "note": "files you edited since install are never reverted silently"}
     print(json.dumps(out, indent=1))
     return 0
@@ -440,6 +490,8 @@ def main(argv=None) -> int:
     p.add_argument("--force", action="store_true")
     p = sub.add_parser("uninstall")
     p.add_argument("--project", required=True)
+    p.add_argument("--force-leave-swaps", action="store_true",
+                   help="uninstall the plumbing but keep live swaps journaled (revert later with swap.mjs revert)")
     p = sub.add_parser("status")
     p.add_argument("--project", required=True)
     args = ap.parse_args(argv)

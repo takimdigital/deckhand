@@ -96,6 +96,118 @@ def score(row: dict, slot: str, base: str | None) -> tuple[int, list[str]]:
     return s, why
 
 
+def _row_get(row, key, default=None):
+    """One field of a catalog row — callers pass both dicts and sqlite3.Rows."""
+    try:
+        val = row[key]
+    except (KeyError, IndexError, TypeError):
+        return default
+    return default if val is None else val
+
+
+def row_type(row) -> str:
+    return _row_get(row, "type", "") or ""
+
+
+def split_examples(rows):
+    """`(kept, hidden_examples)` — the demo split every picker runs (F4).
+
+    A `registry:example` row is a default-export, fixed-content wrapper: it passes every structural
+    check while destroying the owner's content, and 202/454 measured Radix offers were demos. A
+    picker keeps `kept` by default; `hidden_examples` is returned so the caller can COUNT it
+    (`scope.hidden_demos`) and offer the real component the demo names — hidden, never dropped.
+    """
+    kept, hidden = [], []
+    for r in rows:
+        (hidden if row_type(r) == "registry:example" else kept).append(r)
+    return kept, hidden
+
+
+def registry_deps(row) -> list[str]:
+    """The row's registryDependencies as item names (the column holds JSON text)."""
+    try:
+        deps = json.loads(_row_get(row, "registry_deps", "") or "[]")
+    except Exception:
+        return []
+    return [d for d in deps if isinstance(d, str)] if isinstance(deps, list) else []
+
+
+def promote_examples(hidden_examples, pool, taken=()):
+    """The real component behind each hidden demo (F4) — measured: 19/19 sampled demos name it.
+
+    For every hidden example take the FIRST `registry_deps` name that has a row of the SAME slot in
+    the SAME registry inside `pool` — the pool is already base-filtered, so a promoted row can never
+    break the hard base filter. A demo is never a promotion target (it would be hidden too), and any
+    key in `taken` (what the picker already shows) or already promoted is skipped, so a component
+    that is both offered and named by a demo appears exactly once.
+    """
+    offerable: dict[tuple[str, str], dict] = {}
+    for r in pool:
+        if row_type(r) == "registry:example":
+            continue
+        offerable.setdefault((_row_get(r, "registry", ""), _row_get(r, "item", "")), r)
+    out, seen = [], set(taken)
+    for ex in hidden_examples:
+        reg, slot = _row_get(ex, "registry", ""), _row_get(ex, "slot", "")
+        for dep in registry_deps(ex):
+            hit = offerable.get((reg, dep))
+            if hit is None or _row_get(hit, "slot", "") != slot:
+                continue
+            if (reg, dep) not in seen:
+                seen.add((reg, dep))
+                out.append(hit)
+            break                      # only the demo's FIRST offerable dep is promoted
+    return out
+
+
+PROMOTED_WHY = "promoted:demo-dep"     # provenance tag: this row is here because a hidden demo names it
+
+
+def rank_key(sc: int, row: dict, pref: str | None = None):
+    """The ONE ordering rule: the owner's own rows, then the project's registry lineage, then score,
+    then a stable registry/item order."""
+    return (0 if row["registry"] == "mine" else (1 if (pref and row["registry"] == pref) else 2),
+            -sc, row["registry"], row["item"])
+
+
+def _rank(rows_, slot: str, base: str | None, pref: str | None):
+    """Score (`score`) + sort (`rank_key`) — the only ranking path there is, for every picker row."""
+    out = []
+    for r in rows_:
+        sc, why = score(r, slot, base)
+        if sc > 0:
+            out.append((sc, why, r))
+    out.sort(key=lambda t: rank_key(t[0], t[2], pref))
+    return out
+
+
+def picker_rows(pool, slot: str, base: str | None, top: int,
+                include_examples: bool = False, pref: str | None = None):
+    """The rows a picker shows: `([(score, why, row)], hidden_demos)`.
+
+    Demos are out of the default list — counted as `hidden_demos`, never silently dropped — and the
+    real component each hidden demo names is promoted into their place (deduped, ranked through the
+    same score/sort path as every other row). With `include_examples` the demos themselves stay on
+    the list instead. The CLI and the helper's `/catalog` both call THIS, so they cannot drift.
+    """
+    kept, demos = split_examples(pool)
+    window = _rank(kept, slot, base, pref)[:top]
+    if include_examples:
+        # the demos the owner explicitly asked for: listed after the offers window, in rank order —
+        # a window that cut them off again would make the flag a no-op on exactly the slots this
+        # task fixes (measured: all 36 button/radix demos rank below 21 real components)
+        return window + _rank(demos, slot, base, pref), 0
+    shown = {(_row_get(r, "registry", ""), _row_get(r, "item", "")) for _sc, _why, r in window}
+    extra = []
+    for r in promote_examples(demos, pool, taken=shown):
+        # a row the window cut (or the sc>0 rule dropped) but a hidden demo names: it is not
+        # "already present", so it is promoted — scored by the same `score`, sorted by the same key
+        sc, why = score(r, slot, base)
+        extra.append((sc, why + [PROMOTED_WHY], r))
+    extra.sort(key=lambda t: rank_key(t[0], t[2], pref))
+    return window + extra, len(demos)
+
+
 def cmd_slots(con, args) -> int:
     rows = DB.reg_slots(con)
     if args.need:
@@ -124,22 +236,13 @@ def cmd_query(con, args) -> int:
     hidden = len(all_rows) - len(rows)
     hidden_bases = sorted({r["base"] for r in all_rows} - {r["base"] for r in rows})
     pref = "shadcn" if prof.get("lineage") == "shadcn-style" else None
-    ranked = []
-    for r in rows:
-        sc, why = score(r, args.slot, base)
-        if sc > 0:
-            ranked.append((sc, why, r))
-    # the project's own registry lineage comes FIRST (keyword scores here measure metadata
-    # completeness as much as fit — a sparse-title shadcn item must not lose to a chatty one),
-    # then score, then a stable registry/item order
-    # the owner's OWN saved components come first (pre-vetted by him; still under the same base
-    # filter), then the project's own registry lineage, then score, then a stable registry/item order
-    ranked.sort(key=lambda t: (0 if t[2]["registry"] == "mine" else
-                               (1 if (pref and t[2]["registry"] == pref) else 2),
-                               -t[0], t[2]["registry"], t[2]["item"]))
-    ranked = ranked[: args.top]
+    # demos (`registry:example`) are OUT of the default picker and COUNTED, never silently dropped
+    # (F4); the real component each hidden demo names is promoted in its place. One shared path with
+    # the helper's /catalog — `picker_rows` owns the split, the promotion and the ranking key.
+    shown_rows, hidden_demos = picker_rows(rows, args.slot, base, args.top,
+                                           include_examples=args.include_examples, pref=pref)
     if args.json:
-        print(json.dumps([{"score": sc, "why": why, **r} for sc, why, r in ranked], indent=1))
+        print(json.dumps([{"score": sc, "why": why, **r} for sc, why, r in shown_rows], indent=1))
     else:
         style = prof.get("shadcn_item_style", "base-nova")
         scope_bits = [f"base {base or 'unknown'}"]
@@ -147,14 +250,20 @@ def cmd_query(con, args) -> int:
             scope_bits.append(prof["lineage"])
         if args.registry:
             scope_bits.append(f"registry {args.registry}")
+        demos_shown = sum(1 for _sc, _why, r in shown_rows if row_type(r) == "registry:example")
+        demos_bit = f"; {hidden_demos} demos hidden" if hidden_demos else \
+            (f"; {demos_shown} demos shown (registry:example, not offers)" if demos_shown else "")
         print(f"slot: {args.slot}  (scope: {' · '.join(scope_bits)})"
-              f"  [#{len(ranked)} of {len(all_rows)} live items"
-              + (f"; {hidden} hidden (need {', '.join(b for b in hidden_bases if b)})" if hidden else "") + "]")
-        for sc, why, r in ranked:
+              f"  [#{len(shown_rows)} of {len(all_rows)} live items"
+              + (f"; {hidden} hidden (need {', '.join(b for b in hidden_bases if b)})" if hidden else "")
+              + demos_bit + "]")
+        for sc, why, r in shown_rows:
             url = r["item_url"]
             if r["registry"] == "shadcn":
                 url = url.replace("/{style}/", f"/{style}/" if "{style}" in url else "/")
             gate = "" if r["free"] else "  [gated]"
+            if PROMOTED_WHY in why:
+                gate += "  [promoted: the demo it stands in for is hidden]"
             print(f"  {sc:>4}  {r['registry']:<10} {r['item']:<28} {r['type']:<20} "
                   f"base={r['base']:<8}{gate}")
             print(f"        {r['item_url']}")
@@ -182,11 +291,14 @@ def main(argv=None) -> int:
     p.add_argument("--project")
     p.add_argument("--top", type=int, default=8)
     p.add_argument("--include-gated", action="store_true")
+    p.add_argument("--include-examples", action="store_true",
+                   help="also list registry:example demos (demos are never offers — they carry "
+                        "fixed demo content; listed after the offers, in the same rank order)")
     p.add_argument("--json", action="store_true")
     p = sub.add_parser("project")
     p.add_argument("--project", required=True)
     args = ap.parse_args(argv)
-    con = DB.connect(Path(args.db))
+    con = DB.connect_catalog(Path(args.db))
     return {"slots": cmd_slots, "query": cmd_query, "project": cmd_project}[args.cmd](con, args)
 
 

@@ -18,23 +18,23 @@ registry, staged beside the original and swapped by flipping one import — the 
 ## 1. Catalog (once, then refresh)
 
 ```bash
-py scripts/tryon_intake.py --registry shadcn --style new-york-v4   # Radix family py scripts/tryon_intake.py --registry shadcn --style base-nova     # Base UI family — crawl BOTH
-py scripts/tryon_intake.py                                         # all other usable registries py scripts/tryon_catalog.py slots                                  # every slot with free counts
+py scripts/tryon_intake.py --registry shadcn --style new-york-v4   # Radix family
+py scripts/tryon_intake.py --registry shadcn --style base-nova     # Base UI family — crawl BOTH
+py scripts/tryon_intake.py                                         # all other usable registries
+py scripts/tryon_catalog.py slots                                  # every slot with free counts
 py scripts/tryon_catalog.py query --slot button --project D:/<slug>
 ```
 
-Items are keyed `(registry, item, style)`: shadcn ships the **same names in several style families with different code** (`base-nova` = Base UI, `new-york-v4` = Radix) and `base` follows the style, so
-a project only ever sees its own family. What the intake guarantees: registry-level licence gate
-(`data/registries.json` — MIT/Apache only; AGPL, Commons-Clause, custom and marketplace ToS
-**refused**), base detection, slot classification (keyword floor, not a promise), collision guard (an
+Items are keyed `(registry, item, style)`: shadcn ships the **same names in several style families with different code** (`base-nova` = Base UI, `new-york-v4` = Radix) and `base` follows the style, so a project only ever sees its own family. What the intake guarantees: registry-level licence gate
+(`data/registries.json` — MIT/Apache only; AGPL, Commons-Clause, custom and marketplace ToS **refused**), base detection, slot classification (keyword floor, not a promise), collision guard (an
 item owning `lib/utils.ts` is never offered), and a **sampled installability probe** (per free type, up to 3 items fetched — the endpoint must embed `files[].content`, because the CLI silently drops
-content-less items; re-checked per item at try time). Evidence: `data/registry-snapshots/` +
-`registry-evidence.json`.
+content-less items; re-checked per item at try time). Evidence: `data/registry-snapshots/` + `registry-evidence.json`.
 
 ## 2. Install the plumbing into the project
 
 ```bash
-py scripts/tryon_install.py install   --project D:/<slug> [--port 7799]   # exit 4 = paste the snippet py scripts/tryon_install.py status    --project D:/<slug>
+py scripts/tryon_install.py install   --project D:/<slug> [--port 7799]   # exit 4 = paste the snippet
+py scripts/tryon_install.py status    --project D:/<slug>
 py scripts/tryon_install.py uninstall --project D:/<slug>                 # byte-exact restore
 ```
 
@@ -46,13 +46,16 @@ up and journaled, so `uninstall` restores byte-exact and refuses to revert a fil
 ## 3. Run the loop
 
 ```bash
-py scripts/tryon_server.py serve --project D:/<slug>          # background it; the owner opens the site py scripts/tryon_server.py wait  --project D:/<slug> --follow --timeout 3600   # one line per pick
-py scripts/tryon_server.py reply --project D:/<slug> --id N --status ok --message "…"
+py scripts/tryon_server.py serve --project D:/<slug>          # background it; the owner opens the site
+py scripts/tryon_server.py wait  --project D:/<slug> --follow --timeout 3600   # background too; one line per pick
+py scripts/tryon_agent.py handle --project D:/<slug> --id N   # one line in → one answered transaction out
+py scripts/tryon_server.py reply --project D:/<slug> --id N --status ok --message "…"   # manual path only
 ```
 
-`wait` **without** `--follow` exits on the first request — fatal live (every later click lands with
-nobody listening). Run `--follow` as a background job with a notify. The owner clicks **Try-On** in the corner of their own site, hovers (outline + `file:line` from `data-tryon-src`), picks a slot and a
-candidate. Per request the agent:
+`wait` **without** `--follow` exits on the first request — fatal live (run it as a background job with
+a notify). `serve` + `wait` + one `handle` per picked line IS the loop: `handle` runs the steps below
+in one pass, reply included (exit 1 = the failing check is the reply's message, nothing half-applied;
+exit 3 = unverifiable, `--yes-unverifiable` overrides). What `handle` does — or by hand, in order:
 
 1. resolves the element's file:line (walk up to the nearest `data-tryon-src`);
 2. **guards BEFORE anything is fetched or written** — `py scripts/tryon_guard.py check --project
@@ -69,14 +72,12 @@ candidate. Per request the agent:
 5. installs the item's npm `dependencies`, fetches `registryDependencies` the same way;
 6. **checks the prop shape against the real usage** — `node templates/tryon/swap.mjs props --root
    D:/<slug> --file <owner file> --line N --local <Local> --candidate components/variants/<slot>/<name>.tsx
-   [--entry <E>]`: `ok:false` (`missing_required`) = the candidate needs props the usage never passes →
-   refuse, `reply --status error` naming them; `dropped` = props the usage passes that the candidate
-   ignores (`variant`, `size`) → carry into the reply so the owner knows what stops meaning anything;
-   `unverifiable` (imported/generic props type, `{...spread}`) is said out loud, never a silent pass;
-7. flips the owning import: `node templates/tryon/swap.mjs apply --root D:/<slug> --file <owner file>
-   --local <Local> --to components/variants/<slot>/<name>.tsx` — HMR re-renders; the file is
-   re-parsed, the new binding verified, every other import byte-identical, `from → to` journaled;
-8. `reply … --status ok` (the overlay shows it).
+   [--entry <E>]`: `ok:false` = the candidate needs props the usage never passes → refuse, `reply
+   --status error` naming them; `dropped` = props the usage passes that the candidate ignores
+   (`variant`, `size`) → the reply carries them; `unverifiable` (spread/imported type) is said out loud;
+7. flips the owning import (`node templates/tryon/swap.mjs apply --root D:/<slug> --file <owner file>
+   --local <Local> --to components/variants/<slot>/<name>.tsx`): HMR re-renders — file re-parsed,
+   binding verified, other imports byte-identical, journaled — then `reply … --status ok`.
 
 **Keep** → leave it in, delete the slot's other staged variants, record the item + `item_url` for
 **Back** → `swap.mjs revert --root … --file <owner file>` (or `--all`) — restores bytes exactly, or re-derives the swap if the owner edited the file meanwhile.

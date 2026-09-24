@@ -15,11 +15,22 @@
  *              record: the exact evidence a later "save to my library" replays; without it the
  *              fetch origin and licence are unrecoverable once the staged file is all that is left)
  *   apply    --file <usage.tsx> [--line N --col N] --local <LocalName> --to <specifier|filePath> [--root R]
+ *              [--entry <ExportedName|default>]  → the target file's exports are checked FIRST: when
+ *              it does not export the name the import needs, the swap refuses (TARGET_EXPORT_MISSING)
+ *              instead of flipping the import into a guaranteed runtime error. --entry names the export
+ *              to import (aliased to the local name, `{ Entry as Local }`), or `default`
  *   revert   --file <usage.tsx> | --all [--local <LocalName>] [--root R]
+ *   verify-stage --request N [--root R]  → re-hash the staged file against its manifest record (the
+ *              drift check a save must run — never compare a sha by hand)
+ *   keep     --file <usage.tsx> --local <Local> [--root R]  → graduate a try: the journal entry is
+ *              removed, unimported sibling variants for the slot are deleted, the manifest marks it
+ *              kept. It is ordinary project code from here; Undo becomes a normal code edit
  *   inspect  --file <usage.tsx> [--root R]
  *   props    --file <usage.tsx> --line N --local <Name> --candidate <staged.tsx> [--entry Name] [--root R]
- *            → prop-shape fit: required props the usage never passes (the swap WILL break), and
- *              props the candidate drops (the usage's variant/size silently stops meaning anything)
+ *            → prop-shape fit: required props the usage never passes (the swap WILL break), children
+ *              or behaviour the candidate would drop (content, click handlers — refused, never ok),
+ *              and props the usage passes that the candidate ignores (variant/size — reported).
+ *              Exit 3 = unverifiable (imported/generic props type): say it out loud, never a pass
  *
  * Journal + backups live in <root>/.tryon/ — shared with the rest of the try-on tooling.
  * Proven on Next 16.3.6 + Turbopack: HMR applied a swap in ~114 ms with no server restart,
@@ -34,20 +45,34 @@ import { createRequire } from "node:module";
 let _ts = null;
 function loadTs(root) {
   if (_ts) return _ts;
+  // accept a module only if it actually carries the JS compiler API: typescript@7 (native) resolves
+  // as a module with version-only exports — a capability check, never a name check
+  const usable = (m) => !!(m && typeof m.createSourceFile === "function" && m.ScriptKind && m.SyntaxKind);
+  const resolveFrom = (dir) => {
+    try { return createRequire(path.join(dir, "package.json"))("typescript"); } catch { return null; }
+  };
+  const rejected = [];
   const candidates = [process.env.TRYON_TS_ROOT, root, process.cwd()].filter(Boolean);
   for (const c of candidates) {
-    try { _ts = createRequire(path.join(c, "package.json"))("typescript"); } catch { /* try next */ }
-    if (_ts) break;
+    const m = resolveFrom(c);
+    if (usable(m)) { _ts = m; return _ts; }
+    if (m) rejected.push({ root: String(c), version: m.version || "unknown" });
   }
-  if (!_ts) {
-    try { _ts = createRequire(import.meta.url)("typescript"); } catch { /* fall through */ }
+  try {
+    const m = createRequire(import.meta.url)("typescript");
+    if (usable(m)) { _ts = m; return _ts; }
+    if (m) rejected.push({ root: "(pack)", version: m.version || "unknown" });
+  } catch { /* fall through */ }
+  if (rejected.length) {
+    const versions = [...new Set(rejected.map((r) => r.version))].join(", ");
+    throw new Error("TS_API_UNSUPPORTED: typescript " + versions + " has no JS compiler API (TS 7 native). Set TRYON_TS_ROOT to a folder with typescript@5 in node_modules");
   }
-  if (!_ts) throw new Error("TYPESCRIPT_NOT_FOUND: install typescript in the project (a devDependency of any TS Next app)");
-  return _ts;
+  throw new Error("TYPESCRIPT_NOT_FOUND: install typescript in the project (a devDependency of any TS Next app)");
 }
 
 /* ------------------------------------------------------------------ helpers */
 const sha = (t) => crypto.createHash("sha256").update(t, "utf8").digest("hex").slice(0, 16);
+const fullSha = (b) => crypto.createHash("sha256").update(b).digest("hex");
 const now = () => new Date().toISOString();
 
 function parseArgs(argv) {
@@ -179,29 +204,112 @@ export function toSpecifier(input, root) {
   return s;
 }
 
+/** Resolve a module specifier back to a source file under root (the inverse of fileToSpecifier). */
+export function resolveSpecifierToFile(spec, root, fromAbsFile) {
+  const tryFiles = (base) => {
+    const cands = [base, base + ".tsx", base + ".ts", base + ".jsx", base + ".js",
+      path.join(base, "index.tsx"), path.join(base, "index.ts")];
+    for (const c of cands) { try { if (fs.existsSync(c) && fs.statSync(c).isFile()) return c; } catch { /* keep trying */ } }
+    return null;
+  };
+  const s = String(spec);
+  if (/^\.{1,2}\//.test(s)) return tryFiles(path.resolve(path.dirname(fromAbsFile), s));
+  if (path.isAbsolute(s)) return tryFiles(s);
+  const { baseUrl, paths } = readAliases(root);
+  for (const [key, targets] of Object.entries(paths)) {
+    const star = key.indexOf("*");
+    if (star === -1) continue;
+    const prefix = key.slice(0, star);
+    if (!s.startsWith(prefix)) continue;
+    const rest = s.slice(prefix.length);
+    const targetBase = String((targets || [])[0] ?? "").replace(/\\/g, "/");
+    const rel = path.posix.join(baseUrl === "." ? "" : baseUrl, targetBase.replace("*", rest));
+    const hit = tryFiles(path.resolve(root, rel));
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** What a source file exports: truly-named exports, the default export, and default-block names. */
+export function exportNamesOf(sf) {
+  const ts = _ts;
+  const named = [];
+  const defaults = [];
+  let hasDefault = false;
+  for (const st of sf.statements) {
+    const mods = ts.canHaveModifiers(st) ? (ts.getModifiers(st) || []).map((m) => m.kind) : [];
+    const isExport = mods.includes(ts.SyntaxKind.ExportKeyword);
+    const isDefault = mods.includes(ts.SyntaxKind.DefaultKeyword);
+    if (ts.isFunctionDeclaration(st) || ts.isClassDeclaration(st)) {
+      if (isDefault) { hasDefault = true; if (st.name) defaults.push(st.name.text); }
+      else if (isExport && st.name) named.push(st.name.text);
+    } else if (ts.isVariableStatement(st)) {
+      const innerDefault = st.declarationList.declarations.some((d) => d.initializer && ts.canHaveModifiers(d.initializer)
+        && (ts.getModifiers(d.initializer) || []).some((m) => m.kind === ts.SyntaxKind.DefaultKeyword));
+      if (isDefault || innerDefault) {
+        hasDefault = true;
+        for (const d of st.declarationList.declarations) if (ts.isIdentifier(d.name)) defaults.push(d.name.text);
+      } else if (isExport) {
+        for (const d of st.declarationList.declarations) if (ts.isIdentifier(d.name)) named.push(d.name.text);
+      }
+    } else if (ts.isExportDeclaration(st) && !st.moduleSpecifier && st.exportClause && ts.isNamedExports(st.exportClause)) {
+      for (const el of st.exportClause.elements) named.push(el.name.text);          // `export { Button, x }`
+    } else if (ts.isExportAssignment(st) && !st.isExportEquals) {
+      hasDefault = true;                                                            // `export default <expr>`
+      if (ts.isIdentifier(st.expression)) defaults.push(st.expression.text);
+    }
+  }
+  return { named: [...new Set(named)], defaults: [...new Set(defaults)], hasDefault };
+}
+
 /* --------------------------------------------------------------- the planner */
 /** Plan the edit. Pure function of the CURRENT text — call again right before writing. */
-export function planRepoint({ text, file, local, target, line, col, allowMerge = false }) {
+export function planRepoint({ text, file, local, target, line, col, allowMerge = false, binding = null }) {
   const sf = parseFile(file, text);
   const hit = findBinding(sf, local, line, col);
   if (!hit) return { changed: false, reason: "NO_IMPORT_FOR_LOCAL", local, file };
   const decl = hit.decl;
   const oldSpecifier = hit.spec;
-  if (oldSpecifier === target) return { changed: false, reason: "ALREADY_AT_TARGET", oldSpecifier, local, file };
   if (hit.kind === "namespace") return { changed: false, reason: "UNSUPPORTED_NAMESPACE", oldSpecifier, local, file };
+  // the binding the import must end up with: the caller's --entry, or the current one
+  const want = binding && binding.kind ? { kind: binding.kind, imported: binding.imported } : { kind: hit.kind, imported: hit.imported };
+  const sameSpec = oldSpecifier === target;
+  const sameShape = hit.kind === want.kind && hit.imported === want.imported;
+  if (sameSpec && sameShape) return { changed: false, reason: "ALREADY_AT_TARGET", oldSpecifier, local, file };
+  const kindFlip = hit.kind !== want.kind;
+  if (kindFlip && !((hit.kind === "named" && want.kind === "default") || (hit.kind === "default" && want.kind === "named"))) {
+    return { changed: false, reason: "UNSUPPORTED_BINDING", oldSpecifier, local, file };
+  }
 
   const inDecl = descriptors(sf).filter((d) => d.decl === decl);
+  if (kindFlip && inDecl.length > 1) {
+    return { changed: false, reason: "BINDING_CONVERSION_UNSUPPORTED", oldSpecifier, local, file };
+  }
   const edits = [];
-  let mode;
+  const wantText = `${want.kind === "named" && hit.typeOnly ? "type " : ""}${want.imported === local ? want.imported : `${want.imported} as ${local}`}`;
 
   const mkStatement = (t) =>
-    `${indentOf(text, decl.getStart(sf))}import ${hit.kind === "default" ? "" : "{ "}${elementText(hit)}${hit.kind === "default" ? "" : " }"} from ${quoteOf(text, decl)}${t}${quoteOf(text, decl)};\n`;
+    `${indentOf(text, decl.getStart(sf))}import ${want.kind === "default" ? "" : "{ "}${wantText}${want.kind === "default" ? "" : " }"} from ${quoteOf(text, decl)}${t}${quoteOf(text, decl)};\n`;
   const insertAfterDecl = () => ({ start: lineEndAfter(text, decl.getEnd()), end: lineEndAfter(text, decl.getEnd()), text: mkStatement(target) });
+  const specifierEdit = () => ({ start: decl.moduleSpecifier.getStart(sf) + 1, end: decl.moduleSpecifier.getEnd() - 1, text: target });
 
+  let mode;
   if (inDecl.length === 1) {
     mode = "specifier-replace";
-    edits.push({ start: decl.moduleSpecifier.getStart(sf) + 1, end: decl.moduleSpecifier.getEnd() - 1, text: target });
-  } else if (hit.kind === "named" && allowMerge) {
+    if (!sameSpec) edits.push(specifierEdit());
+    if (kindFlip) {
+      mode = `binding-to-${want.kind}`;
+      if (hit.kind === "named") {                        // `import { X } from`  →  `import Local from`
+        const nb = decl.importClause.namedBindings;
+        edits.push({ start: nb.getStart(sf), end: nb.getEnd(), text: local });
+      } else {                                           // `import Local from`  →  `import { X as Local } from`
+        edits.push({ start: decl.importClause.name.getStart(sf), end: decl.importClause.name.getEnd(), text: `{ ${wantText} }` });
+      }
+    } else if (!sameShape) {                             // same clause shape, a different imported name
+      mode = "rename-element";
+      edits.push({ start: hit.el.getStart(sf), end: hit.el.getEnd(), text: wantText });
+    }
+  } else if (hit.kind === "named" && allowMerge && !kindFlip) {
     const merge = descriptors(sf).find((d) => d.spec === target && d.decl !== decl && (d.kind === "named" || d.kind === "default" || d.kind === "namespace"));
     if (merge) {
       mode = "merge-into-existing-import";
@@ -210,10 +318,10 @@ export function planRepoint({ text, file, local, target, line, col, allowMerge =
       if (nb && _ts.isNamedImports(nb)) {
         const els = nb.elements;
         const braceStart = text.indexOf("{", nb.getStart(sf));
-        if (els.length === 0) edits.push({ start: braceStart + 1, end: braceStart + 1, text: ` ${elementText(hit)} ` });
-        else edits.push({ start: els[els.length - 1].getEnd(), end: els[els.length - 1].getEnd(), text: `, ${elementText(hit)}` });
+        if (els.length === 0) edits.push({ start: braceStart + 1, end: braceStart + 1, text: ` ${wantText} ` });
+        else edits.push({ start: els[els.length - 1].getEnd(), end: els[els.length - 1].getEnd(), text: `, ${wantText}` });
       } else if (merge.decl.importClause.name) {
-        edits.push({ start: merge.decl.importClause.name.getEnd(), end: merge.decl.importClause.name.getEnd(), text: `, { ${elementText(hit)} }` });
+        edits.push({ start: merge.decl.importClause.name.getEnd(), end: merge.decl.importClause.name.getEnd(), text: `, { ${wantText} }` });
       } else {
         return { changed: false, reason: "MERGE_TARGET_UNSUPPORTED", oldSpecifier, local, file };
       }
@@ -232,7 +340,8 @@ export function planRepoint({ text, file, local, target, line, col, allowMerge =
     edits.push(insertAfterDecl());
   }
 
-  return { changed: true, mode, edits, oldSpecifier, target, local, file, diagsBefore: sf.parseDiagnostics.length, sf };
+  return { changed: true, mode, edits, oldSpecifier, target, local, file, diagBefore: sf.parseDiagnostics.length, sf,
+           targetKind: want.kind, targetImported: want.imported, bindingBefore: { kind: hit.kind, imported: hit.imported } };
 }
 
 /** Verify the would-be text; throws with a code the caller can report. */
@@ -310,7 +419,7 @@ export function inspectProps({ root, file, line, local, candidate, entry }) {
   };
   walk(usageSf);
   if (!target) {
-    return { ok: true, verdict: "unverifiable", local, reason: "NO_USAGE_AT_LINE",
+    return { ok: null, verdict: "unverifiable", local, reason: "NO_USAGE_AT_LINE",
              detail: `no <${local}> found at/after line ${wantLine} in ${path.basename(abs)}` };
   }
   const usageProps = [];
@@ -319,6 +428,9 @@ export function inspectProps({ root, file, line, local, candidate, entry }) {
     if (ts.isJsxAttribute(a)) usageProps.push(a.name.getText(usageSf));
     else hasSpread = true;
   }
+  // children are content the owner wrote: replacing it with a static sample is a real loss even
+  // though it is not an attribute — count it as usage before any verdict is reached
+  const hasChildren = ts.isJsxElement(target.node) && target.node.children.some((c) => !(ts.isJsxText(c) && c.containsOnlyTriviaWhiteSpaces));
 
   // 2. the candidate's props: resolve the first parameter's type IN ITS OWN FILE
   const candAbs = path.resolve(root, candidate);
@@ -357,9 +469,11 @@ export function inspectProps({ root, file, line, local, candidate, entry }) {
     if (named.length) { comp = decls.get(named[0]); foundEntry = named[0]; }
   }
   if (!comp) {
-    return { ok: true, verdict: "unverifiable", local, reason: "NO_COMPONENT_FOUND",
+    return { ok: null, verdict: "unverifiable", local, reason: "NO_COMPONENT_FOUND",
              detail: `no exported component ${entry ? `"${entry}"` : ""} in ${path.basename(candAbs)}` };
   }
+  // cheap syntactic check (labelled as such): does the candidate's own body render `children`?
+  const candidateRendersChildren = /\bchildren\b/.test(comp.getText(candSf));
 
   const findTypeDecl = (sf, name) => {
     for (const st of sf.statements) {
@@ -466,28 +580,53 @@ export function inspectProps({ root, file, line, local, candidate, entry }) {
   const resolvable = !!propsInfo;
   const info = propsInfo || { req: [], acc: [], loose: true };
 
-  const missing = resolvable && !hasSpread ? info.req.filter((p) => !usageProps.includes(p)) : [];
+  const missing = resolvable && !hasSpread ? info.req.filter((p) => !usageProps.includes(p) && !(p === "children" && hasChildren)) : [];
   const dropped = resolvable && !info.loose ? usageProps.filter((p) => !info.acc.includes(p)) : [];
+  const acceptsChildren = !!info.loose || info.acc.includes("children") || candidateRendersChildren;
+  const behaviour = dropped.filter((p) => /^on[A-Z]/.test(p) || ["href", "type", "disabled", "name", "value", "checked", "asChild"].includes(p));
+  let verdict, ok;
+  if (!resolvable) { verdict = "unverifiable"; ok = null; }                    // neither pass nor fail
+  else if (missing.length) { verdict = "missing-required-props"; ok = false; }
+  else if (hasChildren && !acceptsChildren) { verdict = "drops-content"; ok = false; }
+  else if (behaviour.length) { verdict = "drops-behaviour"; ok = false; }
+  else { verdict = "fit"; ok = true; }
   return {
-    ok: missing.length === 0,
-    verdict: !resolvable ? "unverifiable" : (missing.length ? "missing-required-props" : "fit"),
+    ok, verdict,
     local, entry: foundEntry,
     usage: { file: abs, line: target.startLine, props: usageProps, hasSpread },
+    children: { passed: hasChildren, accepted: acceptsChildren },
     candidate: { file: candAbs, resolvable, required: info.req, accepts: info.acc, loose: !!info.loose },
-    missing_required: missing, dropped,
+    missing_required: missing, dropped, behaviour_dropped: behaviour,
   };
 }
 
 /* ---------------------------------------------------------------- operations */
-export function applySwap({ root, file, local, to, line, col }) {
+export function applySwap({ root, file, local, to, line, col, entry }) {
   loadTs(root);
   const abs = path.resolve(root, file);
   const target = toSpecifier(to, root);
   const text0 = fs.readFileSync(abs, "utf8");
-  const plan = planRepoint({ text: text0, file: abs, local, target, line, col });
+  const binding = entry == null ? null
+    : (String(entry) === "default" ? { kind: "default", imported: "default" } : { kind: "named", imported: String(entry) });
+  const plan = planRepoint({ text: text0, file: abs, local, target, line, col, binding });
   if (!plan.changed) {
     // an impossible request is NOT a success: only ALREADY_AT_TARGET is an honest no-op
     return { ok: plan.reason === "ALREADY_AT_TARGET", changed: false, reason: plan.reason, file: abs, local, target };
+  }
+
+  // the target must actually export what the import will reference — flipping the import into a
+  // guaranteed "Export X doesn't exist" is refused BEFORE the write, never reported ok
+  const targetAbs = resolveSpecifierToFile(target, root, abs);
+  if (!targetAbs) {
+    return { ok: false, changed: false, reason: "TARGET_UNRESOLVED", target, file: abs, local };
+  }
+  const tsf = parseFile(targetAbs, fs.readFileSync(targetAbs, "utf8"));
+  const exp = exportNamesOf(tsf);
+  const need = plan.targetKind === "default" ? "default" : plan.targetImported;
+  const have = need === "default" ? exp.hasDefault : exp.named.includes(need);
+  if (!have) {
+    return { ok: false, changed: false, reason: "TARGET_EXPORT_MISSING", need, target, file: abs, local,
+             exportsFound: [...exp.named, ...(exp.hasDefault ? ["default (export default)"] : [])] };
   }
 
   const othersBefore = sigOf(descriptors(plan.sf).filter((d) => d.local !== local));
@@ -503,7 +642,10 @@ export function applySwap({ root, file, local, to, line, col }) {
   const backupRel = path.join(".tryon", "backups", `${Date.now()}-${sha(text0)}-${path.basename(abs)}.bak`);
   fs.mkdirSync(path.dirname(path.join(root, backupRel)), { recursive: true });
   fs.writeFileSync(path.join(root, backupRel), text0, "utf8");
-  j.push({ id: j.length, ts: tWrite, file: path.relative(root, abs).split(path.sep).join("/"), local, from: plan.oldSpecifier, to: target, mode: plan.mode, shaBefore: sha(text0), shaAfter: sha(text1), backup: backupRel.split(path.sep).join("/") });
+  j.push({ id: j.length, ts: tWrite, file: path.relative(root, abs).split(path.sep).join("/"), local, from: plan.oldSpecifier, to: target, mode: plan.mode,
+           entry: entry == null ? null : String(entry),
+           importedBefore: plan.bindingBefore.imported, kindBefore: plan.bindingBefore.kind,
+           shaBefore: sha(text0), shaAfter: sha(text1), backup: backupRel.split(path.sep).join("/") });
   writeJournal(root, j);
 
   return { ok: true, changed: true, mode: plan.mode, file: abs, local, from: plan.oldSpecifier, to: target, tWrite, shaBefore: sha(text0), shaAfter: sha(text1) };
@@ -530,7 +672,8 @@ export function revertSwap({ root, file, local, all = false, restoreBackupIfUnto
       mode = "byte-exact-restore";
       verifyEdit({ text: text1, file: p, local: e.local, expectSpecifier: e.from, othersBefore });
     } else {
-      const plan = planRepoint({ text: cur, file: p, local: e.local, target: e.from, allowMerge: true });
+      const plan = planRepoint({ text: cur, file: p, local: e.local, target: e.from, allowMerge: true,
+        binding: e.kindBefore ? { kind: e.kindBefore, imported: e.importedBefore } : null });
       if (!plan.changed) {
         if (plan.reason === "ALREADY_AT_TARGET") { results.push({ ok: true, changed: false, reason: plan.reason, file: p, local: e.local }); drop.push(i); continue; }
         throw new Error(`REVERT_PLAN_FAILED:${plan.reason}`);
@@ -549,29 +692,92 @@ export function revertSwap({ root, file, local, all = false, restoreBackupIfUnto
   return { ok: true, results };
 }
 
+/** Re-hash the staged file for request N against its manifest record — the drift check a save runs. */
+export function verifyStage({ root, request }) {
+  const man = readManifest(root);
+  const matches = man.filter((e) => e && e.request != null && Number(e.request) === Number(request));
+  if (!matches.length) return { ok: false, reason: "NO_STAGE_RECORD", request };
+  const entry = matches[matches.length - 1];
+  const destAbs = path.resolve(root, entry.dest);
+  if (!fs.existsSync(destAbs)) return { ok: false, reason: "STAGE_MISSING", request, dest: entry.dest };
+  const bytes = fs.readFileSync(destAbs);
+  const full = fullSha(bytes);
+  const match = entry.sha256 ? full === entry.sha256 : full.slice(0, 16) === entry.sha;
+  if (!match) {
+    return { ok: false, reason: "STAGE_DRIFT", request, dest: entry.dest,
+             expected: entry.sha256 || entry.sha, got: entry.sha256 ? full : full.slice(0, 16) };
+  }
+  return { ok: true, request: Number(request), dest: entry.dest, entry, candidate: entry.candidate || null, sha256: full };
+}
+
+/** Graduate a try: it leaves the journal, unimported siblings go, the manifest marks it kept. */
+export function keepSwap({ root, file, local }) {
+  loadTs(root);
+  const rel = path.relative(root, path.resolve(root, file)).split(path.sep).join("/");
+  const j = readJournal(root);
+  let idx = -1;
+  for (let i = 0; i < j.length; i++) { const e = j[i]; if (e && e.file === rel && (!local || e.local === local)) idx = i; }
+  if (idx === -1) return { ok: false, reason: "NO_JOURNAL_ENTRY", file: rel, local };
+  const e = j[idx];
+  const abs = path.join(root, e.file);
+  const hit = findBinding(parseFile(abs, fs.readFileSync(abs, "utf8")), e.local);
+  if (!hit || hit.spec !== e.to) {
+    return { ok: false, reason: "SWAP_NOT_LIVE", file: rel, local: e.local, expected: e.to, found: hit ? hit.spec : null };
+  }
+
+  // siblings in the slot dir: only files NOTHING imports may go — a file another page uses stays
+  const keptAbs = resolveSpecifierToFile(e.to, root, abs);
+  const deleted = [], kept_imported = [];
+  if (keptAbs) {
+    const sources = new Set();
+    const walkSrc = (d) => {
+      let ents = [];
+      try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+      for (const ent of ents) {
+        const p = path.join(d, ent.name);
+        if (ent.isDirectory()) { if (!/^(node_modules|\.next|\.git|\.tryon)$/.test(ent.name)) walkSrc(p); }
+        else if (/\.(tsx?|jsx?)$/.test(ent.name)) sources.add(p);
+      }
+    };
+    for (const d of ["app", "src", "components", "pages"]) walkSrc(path.join(root, d));
+    for (const ent of fs.readdirSync(path.dirname(keptAbs), { withFileTypes: true })) {
+      const p = path.join(path.dirname(keptAbs), ent.name);
+      if (!ent.isFile() || p === keptAbs) continue;
+      const spec = fileToSpecifier(p, root);
+      let imported = false;
+      for (const sfp of sources) {
+        if (sfp === p) continue;
+        try { if (fs.readFileSync(sfp, "utf8").includes(spec)) { imported = true; break; } } catch { /* unreadable → not importing */ }
+      }
+      if (imported) kept_imported.push(path.relative(root, p).split(path.sep).join("/"));
+      else { fs.rmSync(p); deleted.push(path.relative(root, p).split(path.sep).join("/")); }
+    }
+  }
+
+  try { fs.rmSync(path.join(root, e.backup)); } catch { /* backup already gone */ }
+  writeJournal(root, j.filter((_, i) => i !== idx));
+  try {
+    const man = readManifest(root);
+    let touched = false;
+    for (const m of man) { if (m && m.specifier === e.to) { m.kept = now(); touched = true; } }
+    if (touched) writeManifest(root, man);
+  } catch { /* the manifest is evidence, not a gate */ }
+  return { ok: true, kept: e.to, file: e.file, local: e.local, deleted, kept_imported };
+}
+
 export function installVariant({ root, from, slot, entry, as, request, meta }) {
   loadTs(root);
-  const ts = _ts;
   const src = path.resolve(root, from);
   const slotDir = path.join(root, "components", "variants", slot);
   fs.mkdirSync(slotDir, { recursive: true });
-  const text = fs.readFileSync(src, "utf8");
+  const bytes = fs.readFileSync(src);
+  const text = bytes.toString("utf8");
   const sf = parseFile(src, text);
-  const exportNames = (() => {
-    const names = [];
-    const visit = (n) => {
-      const mods = ts.canHaveModifiers(n) ? ts.getModifiers(n) || [] : [];
-      const isExport = mods.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
-      if (isExport && ts.isFunctionDeclaration(n)) { if (n.name) names.push(n.name.text); }
-      else if (isExport && ts.isClassDeclaration(n)) { if (n.name) names.push(n.name.text); }
-      else if (isExport && ts.isVariableStatement(n)) { for (const d of n.declarationList.declarations) if (ts.isIdentifier(d.name)) names.push(d.name.text); }
-      else if (ts.isExportDeclaration(n) && n.exportClause && ts.isNamedExports(n.exportClause)) { for (const el of n.exportClause.elements) names.push(el.name.text); }
-      ts.forEachChild(n, visit);
-    };
-    visit(sf);
-    return names;
-  })();
-  if (!exportNames.includes(entry)) return { ok: false, reason: "ENTRY_EXPORT_NOT_FOUND", entry, from: src, exportsFound: exportNames };
+  const { named, defaults, hasDefault } = exportNamesOf(sf);
+  const exportsFound = [...named, ...defaults, ...(hasDefault ? ["default"] : [])];
+  if (!(named.includes(entry) || (entry === "default" && hasDefault) || defaults.includes(entry))) {
+    return { ok: false, reason: "ENTRY_EXPORT_NOT_FOUND", entry, from: src, exportsFound };
+  }
   const ext = path.extname(src) || ".tsx";
   const kebab = String(entry).replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
   const dest = path.join(slotDir, as ? String(as) : `${kebab}${ext}`);
@@ -587,6 +793,7 @@ export function installVariant({ root, from, slot, entry, as, request, meta }) {
     dest: path.relative(root, dest).split(path.sep).join("/"),
     specifier: fileToSpecifier(dest, root),
     sha: sha(text),
+    sha256: fullSha(bytes),
     source: (meta && meta.item_url) || null,
     candidate: meta ? {
       registry: meta.registry ?? null, item: meta.item ?? null, style: meta.style ?? null,
@@ -597,7 +804,7 @@ export function installVariant({ root, from, slot, entry, as, request, meta }) {
   });
   writeManifest(root, man);
   return { ok: true, dest, specifier: fileToSpecifier(dest, root), entry, sha: sha(text),
-           exportsFound: exportNames, manifest: ".tryon/manifest.json" };
+           exportsFound, manifest: ".tryon/manifest.json" };
 }
 
 /* ---------------------------------------------------------------------- CLI */
@@ -607,9 +814,11 @@ if (isMain) {
   const cmd = a._[0];
   const root = path.resolve(a.root || process.cwd());
   // a flag that this command does not use is an error, never silently ignored
-  const KNOWN = { apply: ["file", "line", "col", "local", "to", "root"],
+  const KNOWN = { apply: ["file", "line", "col", "local", "to", "entry", "root"],
                   revert: ["file", "all", "local", "root"],
                   install: ["from", "slot", "entry", "as", "root", "request", "meta-file"],
+                  "verify-stage": ["request", "root"],
+                  keep: ["file", "local", "root"],
                   inspect: ["file", "root"],
                   props: ["file", "line", "local", "candidate", "entry", "root"] };
   const bad = Object.keys(a).filter((k) => k !== "_" && (KNOWN[cmd] || []).indexOf(k) === -1);
@@ -620,8 +829,10 @@ if (isMain) {
   try {
     loadTs(root);
     let out;
-    if (cmd === "apply") out = applySwap({ root, file: a.file, local: a.local, to: a.to, line: a.line && Number(a.line), col: a.col && Number(a.col) });
+    if (cmd === "apply") out = applySwap({ root, file: a.file, local: a.local, to: a.to, line: a.line && Number(a.line), col: a.col && Number(a.col), entry: a.entry });
     else if (cmd === "revert") out = revertSwap({ root, file: a.all ? null : a.file, local: a.local, all: !!a.all });
+    else if (cmd === "keep") out = keepSwap({ root, file: a.file, local: a.local });
+    else if (cmd === "verify-stage") out = verifyStage({ root, request: a.request });
     else if (cmd === "install") {
       let meta = null, request = a.request;
       if (a["meta-file"]) {
@@ -641,9 +852,15 @@ if (isMain) {
       out = { ok: true, file: abs, bindings: descriptors(sf).map(({ kind, local, imported, spec, typeOnly }) => ({ kind, local, imported, spec, typeOnly })) };
     } else { console.log(JSON.stringify({ ok: false, reason: "USAGE" })); process.exit(2); }
     console.log(JSON.stringify(out));
-    process.exit(out.ok === false ? 1 : 0);
+    process.exit(out.ok === false ? 1 : out.ok === null ? 3 : 0);
   } catch (err) {
-    console.log(JSON.stringify({ ok: false, error: String(err.message || err), detail: err.detail ?? null }));
+    // a coded message ("CODE: detail") becomes the machine-readable reason the caller reports
+    const msg = String(err.message || err);
+    const m = /^([A-Z][A-Z0-9_]*)(?:: ([\s\S]*))?$/.exec(msg);
+    const out = m
+      ? { ok: false, reason: m[1], detail: m[2] || err.detail || null, error: msg }
+      : { ok: false, error: msg, detail: err.detail ?? null };
+    console.log(JSON.stringify(out));
     process.exit(1);
   }
 }

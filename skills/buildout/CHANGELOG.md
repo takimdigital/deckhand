@@ -1,5 +1,64 @@
 # Changelog - Buildout
 
+## 0.14.0 — 2026-09-24
+
+An outside review of the try-on tool (a separate frontier model, handed the repo and the raw goal —
+no defect list, no task instructions) returned 16 findings and a 14-task plan. Every task is in this
+release. The headline: the panel's checks fail honest — nothing is reported as applied that was not,
+and nothing is silently dropped.
+
+### Fixed
+- **`uninstall` can no longer strand a swapped site.** With swaps still applied it refuses
+  (`SWAPS_ACTIVE`) instead of deleting the only record of the owner's original imports;
+  `--force-leave-swaps` takes the plumbing out and keeps the journal, so `revert` still works.
+- **Apply re-verifies the candidate at write time.** The staged file is re-parsed and the import
+  rewritten only when the binding and the named export still hold (`apply --entry`); a changed
+  export is a coded refusal, not a broken import.
+- **`props` never fakes a pass.** A candidate the analyser cannot judge (imported/generic props
+  type, spread) is `ok: null` — exit 3, "cannot tell" — distinct from a pass; exit 1 is a real
+  mismatch. `missing`/`dropped` are children-aware.
+- **Revert/keep tell the truth in the panel.** The post-undo message no longer claims "nothing was
+  applied" after a swap that did land, and a late ok answer (the 2-minute window is not a verdict)
+  re-arms Keep/Undo/Save instead of being shown as dead history.
+- **Stage integrity before Save.** `swap.mjs verify-stage` re-hashes the staged bytes against the
+  manifest (full sha256 now recorded next to the short digest); drift refuses with `STAGE_DRIFT`.
+
+### Added
+- **`scripts/tryon_agent.py` — one command per panel request.** `handle --project … --id N` runs
+  guard → scoped catalog → fetch → stage → props → apply (or save/keep/revert by request type),
+  writes the reply itself, and appends one record to `.tryon/transactions.jsonl`: exit 1 = the
+  failing check is the reply's message, exit 3 = unverifiable (`--yes-unverifiable` overrides),
+  `--install-deps` installs npm deps (journaled for revert). The relay loop is now `wait --follow`
+  plus one `handle` per line. Found live during the real-run test it was built for: a bare `npm`
+  spawn is `[WinError 2]` on Windows — the launcher is resolved with `shutil.which` (the same rule
+  the template tools use for `gh`), with a test that would have caught it.
+- **Demos are out of the picker.** `registry:example` rows (202 of 454 measured Radix offers) are
+  hidden and counted — `hidden_demos`, shown in the scope line — and the real component each demo
+  names is promoted into the list, deduped and ranked through the same path as every other row;
+  `--include-examples` / `examples=1` lists the demos after the offers. The CLI and the helper's
+  `/catalog` share one function, so they cannot drift.
+- **A tracked browser e2e** (`templates/tryon/test-e2e.mjs`, 22 assertions, skips cleanly with no
+  Chrome): a generated project + the real helper, driven in headless Chrome over CDP through
+  Try → reply → Save → verify → library.
+- **CI** (`.github/workflows/ci.yml`): linux blocking, windows non-blocking for two weeks. The
+  README carries the CI badge instead of a hand-retyped test count — the count had lagged twice —
+  and `version_check.py` no longer checks a number it cannot own. The workflow hands the battery an
+  ABSOLUTE `--ts-root` (reproduced: a relative one fails TypeScript resolution).
+- **A pack-wide budget gate** (`tests/test_pack_budgets.py`): SKILL.md ≤ 500 lines and every
+  reference ≤ 150, with a shrink-only frozen list for files that were over before the law existed.
+  Every fenced command in a reference now sits on its own line (a glued `# comment command` was
+  uncopyable), enforced by a test.
+- **The leak sweep reads `.db` files as database, not binary** — read-only SQLite, text cells and
+  schema scanned, so an owner's free-text note in a tracked catalog db can never hide.
+
+### Changed
+- **The personal library is the catalog's first-class source.** `library_import.py` writes the
+  store's own `catalog-mine.db` by default; the helper reads it attached, and one ranking path
+  (`reg_rows` → score → rank key) serves both pickers.
+
+**Numbers.** codemod battery 31 → **55** assertions · pack suites 165 → **187** · ladder 18/18 ·
+loader 22/22 · browser e2e **22/22** · leak sweep **CLEAN** · `version_check.py` VERSIONS OK.
+
 ## 0.12.0 — 2026-09-24
 
 ### Added

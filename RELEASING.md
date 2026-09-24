@@ -7,16 +7,17 @@ names slip in.
 1. **Gate first (hard stop).** `py scripts/leak_sweep.py` → must exit 0. It scans the repo tree,
    the commit history and every harness copy for the private terms listed in
    `~/.deckhand/private-terms.txt` (that list itself is never stored here).
-2. **Tests.** `py -m pytest skills -q` → all green. Totals must match BOTH README locations —
-   the tests badge and the prose `**N unit tests**` line; step 3 cross-checks both mechanically.
+2. **Tests.** `py -m pytest skills -q` → all green. Nothing in the README is hand-counted any
+   more (T14): the tests badge is the CI run of `.github/workflows/ci.yml`, so there is no total
+   to retype here — the release no longer edits a test count, CI reports it. Push, then read the
+   run (`~/bin/gh.exe run list --limit 1`) before tagging.
 3. **Sync.** Working install (hermes: `%LOCALAPPDATA%/hermes/skills/software-development/`) is
    UPSTREAM → repo `skills/` (the product) → `~/.claude`, `~/.agents`, `~/.codex` (copies);
    diff each for parity; strip `__pycache__` / `.pytest_cache`; bump versions together
    (frontmatter, CHANGELOG top entry, README badge) — then PROVE it mechanically:
-   `py scripts/version_check.py` → must print `VERSIONS OK` (cross-checks the version badge, the
-   tests badge against the suites, and every skill frontmatter — hard stop, like the leak sweep.
-   The README badges are the locations nothing else touches; both have lagged silently, live-hit
-   2026-09-21; pytest must be installed — the gate runs the suites and FAILS when it cannot).
+   `py scripts/version_check.py` → must print `VERSIONS OK` (cross-checks the version badge and
+   every skill frontmatter — hard stop, like the leak sweep. The README version badge is the
+   location nothing else touches; it has lagged silently, live-hit 2026-09-21).
 4. **Zip == repo — byte-level.** Rebuild the distributable zip from the repo root (publishing
    skill's builder) and verify EVERY entry is byte-identical, not just present:
    `py scripts/zip_parity.py "C:/Users/Takim/deckhand.zip"` → must print `PARITY OK`.

@@ -8,6 +8,13 @@ and fails loudly on any difference, missing name, or extra name.
 Usage:
   py scripts/zip_parity.py <zip> [repo-root=.]
 
+`.github/` policy (T14): INCLUDED, always — the zip mirrors the repo tree, and SKIP_DIRS below is
+the whole exclusion list, shared by design with the release builder (make_pack_zip.py skips the
+same set). `.github/FUNDING.yml` and `.github/workflows/ci.yml` therefore ship in the zip like any
+other repo file, and this check enforces it: a repo file the zip lacks is a NOT-IN-ZIP failure.
+Excluding `.github/` would need the rule in BOTH the builder and here — a rule in only one of the
+two is exactly the silent drift this script exists to catch.
+
 Exit: 0 = PARITY OK · 1 = differences (each printed) · 2 = usage/IO error
 """
 import os

@@ -11,6 +11,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { spawnSync } from "node:child_process";
 
 const args = process.argv.slice(2);
 const tsRoot = (args.includes("--ts-root") ? args[args.indexOf("--ts-root") + 1] : process.env.TS_ROOT) || process.cwd();
@@ -37,6 +38,10 @@ function fixture(name, text) {
 }
 const read = (p) => fs.readFileSync(p, "utf8");
 const TARGET = "@/components/variants/button/button";
+// the apply-time export check (T02) needs a real target file on disk: every fixture below applies to it
+fs.mkdirSync(path.join(ROOT, "components", "variants", "button"), { recursive: true });
+fs.writeFileSync(path.join(ROOT, "components", "variants", "button", "button.tsx"),
+  "export function Button({ children, ...p }: React.ComponentProps<\"button\">) { return <button {...p}>{children}</button>; }\nexport default Button;\n");
 
 // typescript must resolve from the project root we were pointed at
 if (!fs.existsSync(path.join(tsRoot, "package.json"))) {
@@ -165,8 +170,8 @@ try {
     fs.writeFileSync(ext, 'import type { P } from "./p";\nexport default function X(p: P) { return null; }\n');
     const f3 = fixture("props-c", 'import { Button } from "@/components/ui/button";\n\nexport function C() {\n  return <Button>Go</Button>;\n}\n');
     const r3 = swap.inspectProps({ root: ROOT, file: f3.rel, line: 4, local: "Button", candidate: "components/variants/button/external.tsx" });
-    ok(r3.ok === true && r3.verdict === "unverifiable",
-      "props: an imported props type is honestly unverifiable (not a fake pass, not a fake refusal)", JSON.stringify(r3));
+    ok(r3.ok === null && r3.verdict === "unverifiable",
+      "props: an imported props type is honestly unverifiable (ok is null — not a pass, not a refusal)", JSON.stringify(r3));
 
     const f4 = fixture("props-d", 'import { Button } from "@/components/ui/button";\n\nexport function D() {\n  return <Button {...rest}>Go</Button>;\n}\n');
     const r4 = swap.inspectProps({ root: ROOT, file: f4.rel, line: 4, local: "Button", candidate: "components/variants/button/requires.tsx", entry: "Btn" });
@@ -219,6 +224,147 @@ try {
     ok(e.source === meta.item_url && e.candidate && e.candidate.license === "MIT" &&
        e.candidate.license_evidence === "registry claim" && e.candidate.base === "radix",
       "manifest: fetch origin + licence evidence survive the stage (a save replays THIS)", JSON.stringify(e.candidate));
+  }
+  // 13. verify-stage (T03): the machine drift check — a save never compares a sha by hand
+  {
+    const srcV = path.join(ROOT, "components", "variants-src", "pink3.tsx");
+    fs.mkdirSync(path.dirname(srcV), { recursive: true });
+    fs.writeFileSync(srcV, "export function Button3({ children }) { return <button>{children}</button>; }\n");
+    const inst = swap.installVariant({ root: ROOT, from: srcV, slot: "button", entry: "Button3", as: "pink3.tsx", request: 7 });
+    ok(inst.ok, "verify-stage fixture: staged", JSON.stringify(inst));
+    const v1 = swap.verifyStage({ root: ROOT, request: 7 });
+    ok(v1.ok && v1.sha256 && v1.sha256.length === 64, "verify-stage: matching bytes → ok with a full sha256",
+      JSON.stringify({ dest: v1 && v1.dest, len: v1 && v1.sha256 && v1.sha256.length }));
+    fs.appendFileSync(path.join(ROOT, v1.dest), "\n");
+    const v2 = swap.verifyStage({ root: ROOT, request: 7 });
+    ok(v2.ok === false && v2.reason === "STAGE_DRIFT", "verify-stage: one appended byte → STAGE_DRIFT", JSON.stringify(v2));
+    const cli = spawnSync(process.execPath, [path.join(here, "swap.mjs"), "verify-stage", "--root", ROOT, "--request", "7"],
+      { cwd: ROOT, env: { ...process.env }, encoding: "utf8" });
+    ok(cli.status === 1 && /STAGE_DRIFT/.test(String(cli.stdout)), "verify-stage CLI: exits 1 with STAGE_DRIFT",
+      String(cli.status) + " " + String(cli.stdout).trim());
+    const v3 = swap.verifyStage({ root: ROOT, request: 99 });
+    ok(v3.ok === false && v3.reason === "NO_STAGE_RECORD", "verify-stage: unknown request → NO_STAGE_RECORD");
+  }
+
+  // 14. apply refuses a target that cannot satisfy the import (T02) — the export check runs BEFORE any write
+  {
+    const demoP = path.join(ROOT, "components", "variants", "button", "demo.tsx");
+    fs.writeFileSync(demoP, "export function Demo() { return <button>Demo</button>; }\n");
+    const f = fixture("t02-missing", 'import { Button } from "@/components/ui/button";\n\nexport function P() {\n  return <Button>x</Button>;\n}\n');
+    const bad = swap.applySwap({ root: ROOT, file: f.rel, local: "Button", to: "components/variants/button/demo.tsx" });
+    ok(bad.ok === false && bad.reason === "TARGET_EXPORT_MISSING" && bad.need === "Button" && read(f.abs) === f.text,
+      "apply: target lacking the needed export refuses with TARGET_EXPORT_MISSING, no write", JSON.stringify(bad));
+    const good = swap.applySwap({ root: ROOT, file: f.rel, local: "Button", to: "components/variants/button/demo.tsx", entry: "Demo" });
+    ok(good.ok && good.changed && read(f.abs).split("\n")[0] === 'import { Demo as Button } from "@/components/variants/button/demo";',
+      "apply --entry Demo: the import reads { Demo as Button }", read(f.abs).split("\n")[0]);
+    const rev = swap.revertSwap({ root: ROOT, file: f.rel });
+    ok(rev.ok && read(f.abs) === f.text, "apply --entry revert is byte-exact");
+  }
+  {
+    const soleP = path.join(ROOT, "components", "variants", "button", "sole-default.tsx");
+    fs.writeFileSync(soleP, "export default function SoleDemo() { return <button>s</button>; }\n");
+    const f = fixture("t02-default", 'import { Button } from "@/components/ui/button";\n\nexport function P() {\n  return <Button>x</Button>;\n}\n');
+    const a = swap.applySwap({ root: ROOT, file: f.rel, local: "Button", to: "components/variants/button/sole-default.tsx", entry: "default" });
+    ok(a.ok && read(f.abs).split("\n")[0] === 'import Button from "@/components/variants/button/sole-default";',
+      "apply --entry default: named import converted to a default import", read(f.abs).split("\n")[0]);
+    const rev = swap.revertSwap({ root: ROOT, file: f.rel });
+    ok(rev.ok && read(f.abs) === f.text, "apply --entry default revert is byte-exact");
+  }
+
+  // 15. prop-fit counts children + behaviour (T10)
+  {
+    const demo2 = path.join(ROOT, "components", "variants", "button", "demo-destructive.tsx");
+    fs.writeFileSync(demo2, "export default function ButtonDemo() { return <Button>Button</Button>; }\n");
+    const f = fixture("t10-demo", 'import { Button } from "@/components/ui/button";\n\nexport function P() {\n  return <Button onClick={() => {}}>Book this trip</Button>;\n}\n');
+    const r = swap.inspectProps({ root: ROOT, file: f.rel, line: 4, local: "Button", candidate: "components/variants/button/demo-destructive.tsx" });
+    ok(r.ok === false && r.verdict === "drops-content" && r.behaviour_dropped.includes("onClick") && r.children.passed === true,
+      "props: a demo that drops content + onClick is refused (the old code said fit)", JSON.stringify(r));
+
+    const f2 = fixture("t10-usage", 'import { Button } from "@/components/ui/button";\n\nexport function P() {\n  return <Button onClick={() => {}}>Book this trip</Button>;\n}\n');
+    const r2 = swap.inspectProps({ root: ROOT, file: f2.rel, line: 4, local: "Button", candidate: "components/variants/button/native.tsx", entry: "Btn" });
+    ok(r2.ok === true && r2.verdict === "fit" && r2.children.accepted === true && r2.behaviour_dropped.length === 0,
+      "props: the real native-props component fits the same usage", JSON.stringify(r2));
+
+    fs.writeFileSync(path.join(ROOT, "components", "variants", "button", "kids.tsx"),
+      "export function Kids({ children }: { children?: React.ReactNode }) { return <div>{children}</div>; }\n");
+    // a children-only usage: no behaviour props to muddy the verdict
+    const f3 = fixture("t10-kids", 'import { Button } from "@/components/ui/button";\n\nexport function P() {\n  return <Button>Book this trip</Button>;\n}\n');
+    const r3 = swap.inspectProps({ root: ROOT, file: f3.rel, line: 4, local: "Button", candidate: "components/variants/button/kids.tsx", entry: "Kids" });
+    ok(r3.ok === true && r3.children.passed === true && r3.children.accepted === true,
+      "props: a candidate rendering children fits the usage's content", JSON.stringify(r3));
+
+    fs.writeFileSync(path.join(ROOT, "components", "variants", "button", "kids2.tsx"),
+      "export function Kids2({ children, label }: { children: React.ReactNode; label: string }) { return <div>{label}{children}</div>; }\n");
+    const r4 = swap.inspectProps({ root: ROOT, file: f3.rel, line: 4, local: "Button", candidate: "components/variants/button/kids2.tsx", entry: "Kids2" });
+    ok(r4.ok === false && r4.missing_required.includes("label") && r4.missing_required.includes("children") === false,
+      "props: required children satisfied by the JSX children — label still reported missing", JSON.stringify(r4));
+
+    fs.writeFileSync(path.join(ROOT, "components", "variants", "button", "inter.tsx"),
+      'import type { Extra } from "./extra";\nexport function BtnI(props: React.ComponentProps<"button"> & Extra) { return <button />; }\n');
+    const r5 = swap.inspectProps({ root: ROOT, file: f3.rel, line: 4, local: "Button", candidate: "components/variants/button/inter.tsx", entry: "BtnI" });
+    ok(r5.ok === null && r5.verdict === "unverifiable",
+      "props: an unresolvable intersection is ok:null (neither pass nor fail)", JSON.stringify(r5));
+    const cli3 = spawnSync(process.execPath, [path.join(here, "swap.mjs"), "props", "--root", ROOT, "--file", f3.rel, "--line", "4", "--local", "Button", "--candidate", "components/variants/button/inter.tsx", "--entry", "BtnI"],
+      { cwd: ROOT, env: { ...process.env }, encoding: "utf8" });
+    ok(cli3.status === 3, "props CLI exits 3 for unverifiable (documented: say it out loud)", String(cli3.status) + " " + String(cli3.stdout).trim());
+  }
+
+  // 16. TS7 native typescript → a coded refusal, never a raw TypeError (T04)
+  {
+    const fakeTs = path.join(ROOT, "fake-ts7");
+    fs.mkdirSync(path.join(fakeTs, "node_modules", "typescript"), { recursive: true });
+    fs.writeFileSync(path.join(fakeTs, "package.json"), "{}");
+    fs.writeFileSync(path.join(fakeTs, "node_modules", "typescript", "package.json"), JSON.stringify({ name: "typescript", main: "index.js" }));
+    fs.writeFileSync(path.join(fakeTs, "node_modules", "typescript", "index.js"),
+      "module.exports = { version: \"7.0.2\", versionMajorMinor: \"7.0\" };\n");
+    const cli = spawnSync(process.execPath, [path.join(here, "swap.mjs"), "props", "--root", fakeTs, "--file", "app/x.tsx", "--line", "1", "--local", "B", "--candidate", "y.tsx"],
+      { cwd: fakeTs, env: { ...process.env, TRYON_TS_ROOT: fakeTs, NODE_PATH: "" }, encoding: "utf8" });
+    let j = null;
+    try { j = JSON.parse(String(cli.stdout).trim().split("\n").pop()); } catch { /* keep null */ }
+    ok(cli.status === 1 && j && j.reason === "TS_API_UNSUPPORTED" && /no JS compiler API/.test(String(j.detail || "")),
+      "TS7 native typescript refuses with TS_API_UNSUPPORTED", String(cli.status) + " " + String(cli.stdout).trim());
+  }
+
+  // 17. keep (T08): graduate a try — journal entry leaves, unimported siblings go, manifest marks it
+  {
+    const mk = (name) => {
+      const K = fs.mkdtempSync(path.join(os.tmpdir(), "tryon-keep-" + name + "-"));
+      fs.writeFileSync(path.join(K, "tsconfig.json"), JSON.stringify({ compilerOptions: { baseUrl: ".", paths: { "@/*": ["./*"] } } }));
+      fs.mkdirSync(path.join(K, "app"), { recursive: true });
+      fs.writeFileSync(path.join(K, "app", "page.tsx"), 'import { Button } from "@/components/ui/button";\n\nexport function P() {\n  return <Button>k</Button>;\n}\n');
+      return K;
+    };
+    const srcOf = (K, n) => {
+      const s = path.join(K, "src-src", n + ".tsx");
+      fs.mkdirSync(path.dirname(s), { recursive: true });
+      fs.writeFileSync(s, "export function " + n + "({ children }) { return <button data-v=\"" + n + "\">{children}</button>; }\n");
+      return s;
+    };
+
+    const K = mk("a");
+    const i1 = swap.installVariant({ root: K, from: srcOf(K, "KOne"), slot: "button", entry: "KOne", as: "k1.tsx", request: 9 });
+    swap.installVariant({ root: K, from: srcOf(K, "KTwo"), slot: "button", entry: "KTwo", as: "k2.tsx" });
+    const ap = swap.applySwap({ root: K, file: "app/page.tsx", local: "Button", to: i1.specifier, entry: "KOne" });
+    ok(ap.ok && ap.changed, "keep fixture: variant applied with an aliased entry", JSON.stringify(ap));
+    const kp = swap.keepSwap({ root: K, file: "app/page.tsx", local: "Button" });
+    ok(kp.ok && kp.deleted.includes("components/variants/button/k2.tsx") && !fs.existsSync(path.join(K, "components", "variants", "button", "k2.tsx")),
+      "keep: unimported sibling variant deleted", JSON.stringify(kp));
+    ok(JSON.parse(fs.readFileSync(path.join(K, ".tryon", "journal.json"), "utf8")).length === 0, "keep: journal emptied");
+    const manA = JSON.parse(fs.readFileSync(path.join(K, ".tryon", "manifest.json"), "utf8"));
+    ok(manA.some((x) => x.specifier === i1.specifier && x.kept), "keep: manifest marks the staged entry kept");
+    const rv = swap.revertSwap({ root: K, file: "app/page.tsx" });
+    ok(rv.ok === false && rv.reason === "NO_JOURNAL_ENTRY", "keep: undo is a code edit now — revert refuses honestly");
+
+    const K2 = mk("b");
+    const j1 = swap.installVariant({ root: K2, from: srcOf(K2, "KOne"), slot: "button", entry: "KOne", as: "k1.tsx" });
+    swap.installVariant({ root: K2, from: srcOf(K2, "KTwo"), slot: "button", entry: "KTwo", as: "k2.tsx" });
+    fs.writeFileSync(path.join(K2, "app", "other.tsx"), 'import { KTwo } from "@/components/variants/button/k2";\n\nexport function O() {\n  return <KTwo>o</KTwo>;\n}\n');
+    const pre = swap.keepSwap({ root: K2, file: "app/page.tsx", local: "Button" });
+    ok(pre.ok === false && pre.reason === "NO_JOURNAL_ENTRY", "keep without apply refuses (nothing to graduate)");
+    swap.applySwap({ root: K2, file: "app/page.tsx", local: "Button", to: j1.specifier, entry: "KOne" });
+    const kp2 = swap.keepSwap({ root: K2, file: "app/page.tsx", local: "Button" });
+    ok(kp2.ok && kp2.kept_imported.includes("components/variants/button/k2.tsx") && fs.existsSync(path.join(K2, "components", "variants", "button", "k2.tsx")),
+      "keep: a sibling another file imports is kept and reported", JSON.stringify(kp2));
   }
 } catch (e) {
   fail++;

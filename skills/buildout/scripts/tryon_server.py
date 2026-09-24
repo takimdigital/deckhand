@@ -168,17 +168,20 @@ class Handler(BaseHTTPRequestHandler):
             prelude = "window.__TRYON__ = " + json.dumps(cfg) + ";\n"
             return self._send(200, (prelude + js).encode(), "application/javascript")
         if u.path == "/slots":
-            con = DB.connect(Path(self.db))
+            con = DB.connect_catalog(Path(self.db))
             return self._json(DB.reg_slots(con))
         if u.path == "/catalog":
             slot = (q.get("slot") or [""])[0]
             base_q = (q.get("base") or [None])[0]
             registry_q = (q.get("registry") or [None])[0]
+            # `examples=1` asks for the demos the picker hides by default — same switch as the CLI's
+            # `--include-examples`, and the same code path decides: CAT.picker_rows
+            include_examples = (q.get("examples") or [""])[0].lower() in ("1", "true", "yes")
             if not slot:
                 return self._json({"error": "slot required"}, 400)
             scope = project_scope(self.project)
             base = base_q or scope["base"]
-            con = DB.connect(Path(self.db))
+            con = DB.connect_catalog(Path(self.db))
             all_rows = [dict(r) for r in DB.reg_rows(con, slot=slot, registry=registry_q, free_only=True)]
             filt = base if base in ("radix", "base-ui", "aria", "none") else None
             rows = [dict(r) for r in DB.reg_rows(con, slot=slot, registry=registry_q,
@@ -186,29 +189,26 @@ class Handler(BaseHTTPRequestHandler):
             shown = {(r["registry"], r["item"]) for r in rows}
             hidden_rows = [r for r in all_rows if (r["registry"], r["item"]) not in shown]
             pref = scope.get("registry_pref")
+            # demos out of the default list, counted as `hidden_demos`, their real component promoted
+            # in their place — the CLI's own `picker_rows`, so both pickers answer identically
+            picked, hidden_demos = CAT.picker_rows(rows, slot, base if base != "unknown" else None,
+                                                   12, include_examples=include_examples, pref=pref)
             ranked = []
-            for r in rows:
-                sc, why = CAT.score(r, slot, base if base != "unknown" else None)
-                if sc > 0:
-                    ranked.append({"score": sc, "why": why, "registry": r["registry"], "item": r["item"],
-                                   "type": r["type"], "title": r["title"], "base": r["base"],
-                                   "style": r.get("style") or "", "item_url": r["item_url"],
-                                   "license": r.get("license") or "", "license_evidence": r.get("license_evidence") or "",
-                                   "deps": r.get("deps") or "[]", "registry_deps": r.get("registry_deps") or "[]",
-                                   "desc": (r["description"] or "")[:160],
-                                   "slot": r["slot"], "slot_kind": r["slot_kind"],
-                                   "compat": ("same setup" if r["base"] == base and base != "unknown" else
-                                              ("no shared base" if r["base"] in (None, "none") else "different base"))})
-            # Order: the owner's OWN saved components first (pre-vetted by him), then same lineage,
-            # then score. Personal items are still under the same base filter above.
-            ranked.sort(key=lambda r: (0 if r["registry"] == "mine" else 1,
-                                       0 if (pref and r["registry"] == pref) else 1,
-                                       -r["score"],
-                                       r["registry"], r["item"]))
+            for sc, why, r in picked:
+                ranked.append({"score": sc, "why": why, "registry": r["registry"], "item": r["item"],
+                               "type": r["type"], "title": r["title"], "base": r["base"],
+                               "style": r.get("style") or "", "item_url": r["item_url"],
+                               "license": r.get("license") or "", "license_evidence": r.get("license_evidence") or "",
+                               "deps": r.get("deps") or "[]", "registry_deps": r.get("registry_deps") or "[]",
+                               "desc": (r["description"] or "")[:160],
+                               "slot": r["slot"], "slot_kind": r["slot_kind"],
+                               "compat": ("same setup" if r["base"] == base and base != "unknown" else
+                                          ("no shared base" if r["base"] in (None, "none") else "different base"))})
             scope_out = dict(scope)
             scope_out["hidden"] = len(hidden_rows)
             scope_out["hidden_bases"] = sorted({r["base"] for r in hidden_rows if r["base"]})
-            return self._json({"scope": scope_out, "items": ranked[:12]})
+            scope_out["hidden_demos"] = hidden_demos
+            return self._json({"scope": scope_out, "items": ranked})
         if u.path == "/events":
             return self._sse()
         return self._json({"error": "not found"}, 404)

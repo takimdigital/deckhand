@@ -7,9 +7,12 @@ removed machinery may never quietly reappear.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 SKILL = Path(__file__).resolve().parents[1]
+# Pack root (skills/): the fence rule is pack law, not just buildout's.
+PACK = Path(__file__).resolve().parents[2]
 FACTORY_REFS = ["00-intake.md", "10-match.md", "20-clone.md", "30-swap.md",
                 "40-rebrand.md", "50-verify-deploy.md"]
 FACTORY_SCRIPTS = ["templates_db.py", "template_intake.py", "factory_clone.py", "swap_check.py", "_tpl_lib.py"]
@@ -80,15 +83,47 @@ def test_tryon_is_wired():
     routing = text.split("## What 0.8.0 removed")[0]
     for needle in ("references/tryon.md", "references/library.md", "tryon_intake.py", "tryon_catalog.py",
                    "tryon_server.py", "tryon_install.py", "tryon_guard.py", "library_import.py",
-                   "templates/tryon/swap.mjs"):
+                   "tryon_agent.py", "templates/tryon/swap.mjs"):
         assert needle in routing, f"SKILL.md no longer routes to {needle}"
     for f in ("loader.cjs", "overlay.js", "swap.mjs", "test-swap.mjs", "test-ladder.cjs", "tryon-dev.tsx"):
         assert (SKILL / "templates" / "tryon" / f).is_file(), f"missing templates/tryon/{f}"
     for s in ("tryon_intake.py", "tryon_catalog.py", "tryon_server.py", "tryon_install.py",
-              "tryon_guard.py", "library_import.py"):
+              "tryon_guard.py", "tryon_agent.py", "library_import.py"):
         assert (SKILL / "scripts" / s).is_file(), f"missing scripts/{s}"
     roster = json.loads((SKILL / "data" / "registries.json").read_text(encoding="utf-8"))
     usable = [r for r in roster["registries"] if r.get("status", "ok") == "ok"]
     assert usable, "the registry roster must carry usable registries"
     assert all(r["license"] in ("MIT", "Apache-2.0") for r in usable), "licence gate on usable registries"
     assert roster["refusals"], "the refused list is the licence gate's evidence"
+
+
+# A command glued after a trailing comment on the same fenced line: the shell
+# treats the second command as comment text, so a copy-paste silently runs only
+# the first one — the second never happens and nothing says so (F10).
+GLUED_CMD = re.compile(r"#[^\n]*\s(py|node|npx|pnpm|npm)\s+\S+\.(py|mjs|cjs)\b")
+
+
+def _fenced_lines(path: Path):
+    infence = False
+    for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if line.lstrip().startswith("```"):
+            infence = not infence
+            continue
+        if infence:
+            yield i, line
+
+
+def test_fenced_commands_are_not_glued():
+    """Every line inside a fence holds exactly ONE command (pack-wide)."""
+    # Feed the matcher the known-bad shape and a clean line: a gate that cannot
+    # fail is not a gate.
+    assert GLUED_CMD.search("py scripts/tryon_intake.py --style radix   # Radix family py scripts/tryon_intake.py --style base")
+    assert not GLUED_CMD.search("py scripts/tryon_intake.py --style radix   # Radix family")
+    files = sorted(PACK.glob("*/SKILL.md")) + sorted(PACK.glob("*/references/**/*.md"))
+    assert files, "no SKILL.md / reference files found under the pack root"
+    glued = []
+    for f in files:
+        for i, line in _fenced_lines(f):
+            if GLUED_CMD.search(line):
+                glued.append(f"{f.relative_to(PACK)}:{i}")
+    assert not glued, "command glued after a comment inside a fence: " + ", ".join(glued)

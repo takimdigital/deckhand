@@ -66,7 +66,7 @@
   /* ------------------------------------------------------------------ state */
   var on = false, frozen = null, outline = null, tagLabel = null, panel = null;
   var elementInfo = null, slots = [], candidates = [];
-  var lastRequest = null;      // {candidate, slot, elementSlot, rescope, element, id, answered, saved, reverted}
+  var lastRequest = null;      // {candidate, slot, elementSlot, rescope, element, id, saveId, answered, saved, reverted}
   var inFlight = false;        // a request is with the agent: no control may fire twice
   var pending = null;          // {id, kind, timer} — the ONE request this panel waits on a reply for
 
@@ -367,13 +367,16 @@
         // release the panel early). If none arrives, free the panel after 2 min and say what to check
         // (measured: an async agent's turn — polling loop wake, guard, fetch, stage, reply — can take
         // ~1 min, so the old 45s window expired before the first real answer landed)
-        // instead of sitting on “sending…” forever.
+        // instead of sitting on “sending…” forever. Past 2 min the request is still PENDING on the
+        // server, so the panel must not claim the swap failed: the timeout says only what is true, and
+        // a late answer (measured at 642s and 17767s) re-arms the buttons in the SSE handler below.
         pending = { id: r.id, kind: kind || type, timer: setTimeout(function () {
           if (pending && pending.id === r.id) {
             pending = null;
             busy(false);
-            status('no answer for request #' + r.id + ' after 2 min — the agent may be busy. Nothing was ' +
-              'applied; check: py scripts/tryon_server.py status --project .', true);
+            status('no answer for request #' + r.id + ' after 2 min — the agent may still be working on it. ' +
+              'If an answer arrives later it will show here and Undo will work. Check: ' +
+              'py scripts/tryon_server.py status --project .', true);
           }
         }, 120000) };
         return r.id;
@@ -406,6 +409,9 @@
         (scope.lineage ? ' · ' + scope.lineage : '') + ' — ' + n + ' ready to try';
       if (scope.hidden) s += ', ' + scope.hidden + ' hidden' +
         (scope.hidden_bases && scope.hidden_bases.length ? ' (they need ' + scope.hidden_bases.join('/') + ')' : '');
+      // demo rows the server's scope kept out of THIS list (T09): only a POSITIVE count renders —
+      // an absent or 0 hidden_demos must add nothing at all
+      if (scope.hidden_demos > 0) s += ' + ' + scope.hidden_demos + ' demos hidden';
       return s;
     }
     return 'We could not read your project setup — candidates are unscoped; the agent verifies before writing.';
@@ -438,7 +444,7 @@
           var right = el('div');
           var t = el('button', 'primary', 'Try');
           t.onclick = function () {
-            lastRequest = { candidate: c, slot: sel.value, elementSlot: sel.__g ? sel.__g.slot : null, rescope: !!sel.__rescope && sel.__rescope.checked, element: elementInfo, id: null, answered: false, saved: false, reverted: false };
+            lastRequest = { candidate: c, slot: sel.value, elementSlot: sel.__g ? sel.__g.slot : null, rescope: !!sel.__rescope && sel.__rescope.checked, element: elementInfo, id: null, saveId: null, answered: false, saved: false, reverted: false };
             postOr('preview', { candidate: c }, 'request #%N% sent — trying "' + c.item + '" in place of ' +
               (elementInfo.file ? elementInfo.file.split('/').pop() + ':' + elementInfo.line : elementInfo.tag) +
               '. Keep or Undo below when you see it.', 'preview').then(function (id) {
@@ -589,9 +595,15 @@
     save.setAttribute('disabled', '');
     save.onclick = function () {
       if (!lastRequest || inFlight || !lastRequest.answered || lastRequest.saved || lastRequest.reverted) return;
-      postOr('save', { request: lastRequest.id, element: lastRequest.element, candidate: lastRequest.candidate,
-                       slot: lastRequest.slot, elementSlot: lastRequest.elementSlot },
-        'saving request #%N% — the agent copies the exact staged files into your library and answers here.', 'save');
+      var forTry = lastRequest;      // identity guard: the panel may be closed/reopened mid-flight
+      postOr('save', { request: forTry.id, element: forTry.element, candidate: forTry.candidate,
+                       slot: forTry.slot, elementSlot: forTry.elementSlot },
+        'saving request #%N% — the agent copies the exact staged files into your library and answers here.', 'save')
+        .then(function (id) {
+          // the save's OWN request id (it is a new request, not the preview): an ok answer that lands
+          // after the 2-min timeout must still find this try — the SSE late-answer branch matches on it
+          if (id != null && lastRequest === forTry) forTry.saveId = id;
+        });
     };
     panel.__save = save;
     saveRow.appendChild(save);
@@ -661,8 +673,20 @@
         var msg = (m.status === 'error' ? 'error: ' : '') + (m.message || JSON.stringify(m));
         if (!(pending && m.id === pending.id)) {
           // a replayed or foreign reply (the stream re-sends history on every reconnect): shown as
-          // history with its #N prefix, but it never touches this panel's buttons or busy state
-          status('(request #' + m.id + ') ' + msg, m.status === 'error');
+          // history with its #N prefix, but it never touches this panel's buttons or busy state.
+          // The ONE exception: an ok answer to the panel's own last request that arrived after the
+          // 2-min timeout — the swap (or save) it reports may well have landed, so it sets the same
+          // flags the pending path sets and refreshes the buttons that act on them.
+          var lateKind = null;
+          if (lastRequest && m.status === 'ok' && m.id != null) {
+            if (m.id === lastRequest.id) lateKind = 'preview';
+            else if (lastRequest.saveId != null && m.id === lastRequest.saveId) lateKind = 'save';
+          }
+          if (lateKind) {
+            if (lateKind === 'save') lastRequest.saved = true; else lastRequest.answered = true;
+            refresh();
+          }
+          status((lateKind ? '(late answer for #' + m.id + ') ' : '(request #' + m.id + ') ') + msg, m.status === 'error');
           return;
         }
         if (pending.timer) clearTimeout(pending.timer);

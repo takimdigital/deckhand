@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Tests: 117 passing" src="https://img.shields.io/badge/tests-117%20passing-brightgreen.svg">
+  <a href="https://github.com/takimdigital/deckhand-skill/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/takimdigital/deckhand-skill/ci.yml?branch=main&label=CI"></a>
   <img alt="Version: 0.18.0" src="https://img.shields.io/badge/version-0.18.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
@@ -111,7 +111,7 @@ Deployed and validated end to end against a real Coolify instance:
 - [x] **Postgres** — provisioned via API → the app executes a real query over the internal network
 - [x] **Backups** — schedule → dump → **restore drill** (`pg_restore` into a scratch database, verified)
 - [x] **Build packs** — Nixpacks and Dockerfile · **ops** — logs, deployments, env vars, docker cleanup
-- [x] **117 unit tests** green (standard library only)
+- [x] **Unit suites green** — every skill's scripts are covered by pytest (standard library only), and CI runs the whole suite on every push
 - [x] **Template factory** — the registry, the clone, the swap gate and the leak check are covered by 66 offline tests and exercised end-to-end on a real MIT template: cloned, installed, built and served with a build-id freshness proof, with both gates red where they must be — leftover vendor references in the unswapped clone and the template's own name on the served page — because a gate that can't fail isn't a gate.
 - [x] **Paid track validated live** — a real Next.js + Postgres SaaS deployed end-to-end on a rented VPS: Coolify → Cloudflare DNS-only → Let's Encrypt, with migrations, seed data and a production-owner flow — every error it surfaced is now folded back into the runbooks.
 
@@ -183,7 +183,7 @@ skills/
 │   ├── data/              # templates.seed.json · templates.db (the registry) · templates.json
 │   ├── scripts/           # registry, remote intake (GitHub API), clone, swap check
 │   ├── templates/         # qa/ — probe, frame, cdp.mjs, form-drive.js
-│   └── tests/             # stdlib unit tests
+│   └── tests/             # stdlib test suite
 ├── component-library/     # save / load reusable components
 ├── vps-ops/               # Coolify deploy & ops — paid VPS or free preview (Oracle + .pp.ua)
 │   ├── references/        # bootstrap, domain/SSL, free preview, deploy, change pipeline, ops, migration, auth+email, MCP catalog

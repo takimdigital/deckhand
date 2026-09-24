@@ -104,6 +104,13 @@ def _seed_catalog(db: Path) -> None:
         {"registry": "tailark", "item": "gated-button", "type": "registry:block", "title": "Gated",
          "slot": "button", "slot_kind": "primitive", "base": "base-ui", "free": 0,
          "item_url": "https://tailark.com/r/gated-button.json", "license": "MIT"},
+        # a demo (T09): fixed-content example whose registry_deps name the real, offerable item of
+        # the same slot — it must never be offered, and `button` must never be offered twice because
+        # of it
+        {"registry": "shadcn", "item": "button-demo", "type": "registry:example", "title": "Button Demo",
+         "slot": "button", "slot_kind": "primitive", "base": "none", "free": 1,
+         "registry_deps": ["button"],
+         "item_url": "https://ui.shadcn.com/r/styles/base-nova/button-demo.json", "license": "MIT"},
     ]
     for r in rows:
         assert DB.reg_upsert(con, r) == "written"
@@ -114,11 +121,13 @@ def test_registry_db_roundtrip_and_stale_guard(tmp_path):
     db = tmp_path / "t.db"
     _seed_catalog(db)
     con = DB.connect(db)
-    assert len(DB.reg_rows(con, slot="button")) == 3
-    assert [r["item"] for r in DB.reg_rows(con, slot="button", free_only=True)] == ["button", "smooth-button"]
-    assert [r["item"] for r in DB.reg_rows(con, slot="button", base="base-ui")] == ["button", "gated-button"]
+    assert len(DB.reg_rows(con, slot="button")) == 4
+    assert [r["item"] for r in DB.reg_rows(con, slot="button", free_only=True)] == \
+        ["button", "button-demo", "smooth-button"]
+    assert [r["item"] for r in DB.reg_rows(con, slot="button", base="base-ui")] == \
+        ["button", "button-demo", "gated-button"]
     slots = {s["slot"]: s for s in DB.reg_slots(con)}
-    assert slots["button"]["n"] == 3 and slots["button"]["n_free"] == 2
+    assert slots["button"]["n"] == 4 and slots["button"]["n_free"] == 3
     # stale write must never roll a newer row back: run started in 2000 -> the 2026 row wins
     assert DB.reg_upsert(con, {"registry": "shadcn", "item": "button", "title": "old", "slot": "button"},
                          not_before="2000-01-01T00:00:00Z") == "skipped-newer"
@@ -164,6 +173,67 @@ def test_catalog_cli_query_offline(tmp_path):
     rows = json.loads(p.stdout)
     assert rows and rows[0]["item"] == "button"
     assert all(r["free"] for r in rows), "gated items are filtered out of a query"
+
+
+def _catalog_cli(db: Path, *extra: str) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, str(SCRIPTS / "tryon_catalog.py"), "--db", str(db),
+                           "query", "--slot", "button", *extra], capture_output=True, text=True)
+
+
+def test_catalog_hides_demos_counts_them_and_offers_the_real_component(tmp_path):
+    """T09/F4: a `registry:example` row is a default-only, fixed-content demo — out of the default
+    picker, COUNTED as hidden (never silently dropped), and the real component it names is offered
+    instead, exactly once. `--include-examples` / `examples=1` put the demos back."""
+    db = tmp_path / "t.db"
+    _seed_catalog(db)
+
+    # (a) absent from a default list, present with --include-examples
+    rows = json.loads(_catalog_cli(db, "--base", "base-ui", "--json").stdout)
+    assert all(r["type"] != "registry:example" for r in rows), rows
+    assert "button-demo" not in [r["item"] for r in rows], rows
+    flagged = json.loads(_catalog_cli(db, "--base", "base-ui", "--json", "--include-examples").stdout)
+    assert "button-demo" in [r["item"] for r in flagged], flagged
+
+    # (b) the demo's dep is offered exactly once — promotion never duplicates a row that is shown
+    for got in (rows, flagged):
+        keys = [(r["registry"], r["item"]) for r in got]
+        assert keys.count(("shadcn", "button")) == 1, got
+        assert len(keys) == len(set(keys)), keys
+
+    # the hidden count is in the scope line (counted, never silently dropped)
+    text = _catalog_cli(db, "--base", "base-ui").stdout
+    assert "; 1 demos hidden" in text, text
+
+    # promotion: even when the offers window has no room for the dep, the demo's real component is
+    # offered — scored and ordered by the same path, and the `why` says where it came from
+    con = DB.connect(db)
+    DB.reg_upsert(con, {"registry": "basecn", "item": "base-button", "type": "registry:ui",
+                        "title": "Base Button", "slot": "button", "slot_kind": "primitive",
+                        "base": "base-ui", "free": 1, "license": "MIT",
+                        "item_url": "https://basecn.dev/r/base-button.json"})
+    con.close()
+    rows = json.loads(_catalog_cli(db, "--base", "base-ui", "--top", "1", "--json").stdout)
+    assert [r["item"] for r in rows] == ["base-button", "button"], rows
+    assert TC.PROMOTED_WHY in rows[1]["why"], rows[1]
+
+    # the helper's /catalog makes the same decision: scope.hidden_demos + examples=1
+    import urllib.request
+    project = tmp_path / "app"
+    (project / ".tryon").mkdir(parents=True)
+    (project / "package.json").write_text(
+        json.dumps({"dependencies": {"@base-ui-components/react": "^1.0.0"}}), encoding="utf-8")
+    srv, port = _serve(project, db)
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/catalog?slot=button", timeout=5) as r:
+            data = json.loads(r.read().decode())
+        assert data["scope"]["hidden_demos"] == 1, data["scope"]
+        assert "button-demo" not in [i["item"] for i in data["items"]], data["items"]
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/catalog?slot=button&examples=1", timeout=5) as r:
+            with_ex = json.loads(r.read().decode())
+        assert "button-demo" in [i["item"] for i in with_ex["items"]], with_ex["items"]
+        assert with_ex["scope"]["hidden_demos"] == 0, with_ex["scope"]
+    finally:
+        srv.shutdown()
 
 
 # ---------------------------------------------------------------- server protocol
@@ -638,6 +708,93 @@ def test_install_appends_to_existing_gitignore_and_restores_it(tmp_path):
     ns = type("B", (), {"project": str(project)})()
     assert TIN.cmd_uninstall(ns) == 0
     assert (project / ".gitignore").read_bytes() == before, "byte-exact restore"
+
+
+# ------------------------------- uninstall vs. live swaps (one shared journal file)
+def _swap_journal_entry(**kw) -> dict:
+    """A journal row exactly as swap.mjs apply writes it: no `kind`, carries local/from/to."""
+    e = {"file": "app/page.tsx", "local": "Button", "from": "@/components/ui/button",
+         "to": "@/components/variants/x/y", "backup": ".tryon/backups/app__page.tsx.bak",
+         "shaBefore": "a" * 16, "shaAfter": "b" * 16}
+    e.update(kw)
+    return e
+
+
+def _write_journal(project: Path, entries: list[dict]) -> bytes:
+    (project / ".tryon").mkdir(parents=True, exist_ok=True)
+    raw = json.dumps(entries, indent=1).encode("utf-8")
+    (project / ".tryon" / "journal.json").write_bytes(raw)
+    return raw
+
+
+def _swapped_fixture(tmp_path: Path) -> tuple[Path, bytes]:
+    """Install on the Next fixture, then append the swap row swap.mjs would have written."""
+    project = _next_fixture(tmp_path)
+    (project / "tsconfig.json").write_text(json.dumps({"compilerOptions": {"paths": {"@/*": ["./*"]}}}),
+                                           encoding="utf-8")
+    (project / "components" / "ui").mkdir(parents=True)
+    (project / "components" / "ui" / "button.tsx").write_text("export function Button() { return null }\n",
+                                                              encoding="utf-8")
+    (project / "app" / "page.tsx").write_text(
+        'import { Button } from "@/components/ui/button";\n\n'
+        "export default function P() { return <Button>go</Button>; }\n", encoding="utf-8")
+    ns = type("A", (), {"project": str(project), "port": 7799, "force": False})()
+    assert TIN.cmd_install(ns) == 0
+    journal = json.loads((project / ".tryon" / "journal.json").read_text(encoding="utf-8"))
+    journal.append(_swap_journal_entry())
+    return project, _write_journal(project, journal)
+
+
+def test_uninstall_refuses_while_swaps_are_live(tmp_path, capsys):
+    """A live swap row is the only record of the owner's own imports: uninstall must refuse, not wipe it."""
+    project, before = _swapped_fixture(tmp_path)
+    capsys.readouterr()
+    cfg = (project / "next.config.mjs").read_bytes()
+    assert TIN.main(["uninstall", "--project", str(project)]) == 5
+    out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is False and out["reason"] == "SWAPS_ACTIVE"
+    assert out["files"] == ["app/page.tsx"], out
+    assert "swap.mjs revert --all" in out["hint"] and project.as_posix() in out["hint"], out
+    assert (project / ".tryon" / "journal.json").read_bytes() == before, \
+        "the swap journal must survive byte-for-byte — swap.mjs revert reads it back"
+    assert (project / "next.config.mjs").read_bytes() == cfg and (project / ".tryon" / "loader.cjs").exists(), \
+        "a refusal touches nothing — the plumbing is still installed"
+
+
+def test_uninstall_force_leave_swaps_keeps_the_journal_entry(tmp_path, capsys):
+    """--force-leave-swaps: take the plumbing out, keep the swap journaled so revert still works."""
+    project, _ = _swapped_fixture(tmp_path)
+    capsys.readouterr()
+    page = (project / "app" / "page.tsx").read_bytes()
+    assert TIN.main(["uninstall", "--project", str(project), "--force-leave-swaps"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is True, out
+    left = json.loads((project / ".tryon" / "journal.json").read_text(encoding="utf-8"))
+    assert [e for e in left if e.get("kind") is None and "local" in e] == [_swap_journal_entry()], left
+    assert not (project / ".tryon" / "loader.cjs").exists(), "the plumbing went away"
+    assert not (project / "components" / "dev" / "tryon-dev.tsx").exists()
+    assert (project / "app" / "page.tsx").read_bytes() == page, "the live swap itself is left in place"
+
+
+def test_uninstall_reports_staged_variants_it_leaves_on_disk(tmp_path, capsys):
+    """Variants no remaining swap points at are still owner-reachable work: reported, never deleted."""
+    project = _next_fixture(tmp_path)
+    stage = project / "components" / "variants" / "button"
+    stage.mkdir(parents=True)
+    (stage / "kept.tsx").write_text("export function Kept() { return null }\n", encoding="utf-8")
+    (stage / "orphan.tsx").write_text("export function Orphan() { return null }\n", encoding="utf-8")
+    (project / ".tryon").mkdir(parents=True)
+    (project / ".tryon" / "manifest.json").write_text(json.dumps([
+        {"at": "x", "slot": "button", "entry": "Kept", "dest": "components/variants/button/kept.tsx",
+         "specifier": "@/components/variants/button/kept"},
+        {"at": "x", "slot": "button", "entry": "Orphan", "dest": "components/variants/button/orphan.tsx",
+         "specifier": "@/components/variants/button/orphan"},
+    ]), encoding="utf-8")
+    _write_journal(project, [_swap_journal_entry(to="components/variants/button/kept.tsx")])
+    assert TIN.main(["uninstall", "--project", str(project), "--force-leave-swaps"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["staged_left"] == ["components/variants/button/orphan.tsx"], out
+    assert (stage / "kept.tsx").exists() and (stage / "orphan.tsx").exists(), "never deleted"
 
 
 # ------------------------------------------- personal source (library_import, 'mine')
