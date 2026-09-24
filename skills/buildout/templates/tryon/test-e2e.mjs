@@ -176,34 +176,39 @@ ok(siteUp, `static page served on ${HTTP_PORT} (out of the Windows excluded rang
 if (!siteUp) { console.log("cannot continue without the page"); process.exit(1); }
 
 /* ------------------------------------------------------------------ browser over CDP */
-const chromeArgs = ["--headless=new", `--remote-debugging-port=${CDP_PORT}`, "--no-first-run",
-  "--disable-gpu", `--user-data-dir=${path.join(W, "profile")}`, "about:blank"];
-// CI runners launch services without a desktop: the sandbox refuses and chrome dies before it ever
-// exposes a target. Local runs keep the sandbox; the flag is CI-only.
-if (process.env.CI) chromeArgs.unshift("--no-sandbox");
-const chrome = spawn(CHROME, chromeArgs, { stdio: ["ignore", "ignore", "pipe"] });
-let chromeErr = "";
-chrome.stderr.on("data", (d) => { chromeErr += d.toString(); });
-let ws;
-process.on("exit", () => { try { ws && ws.close(); } catch {} try { chrome.kill(); } catch {} });
-
-async function cdpUrl() {
-  for (let i = 0; i < 60; i++) {
+// Launch is ADAPTIVE: the historic flags first (they work on dev boxes and the linux runner), then
+// the runner-safe set (--no-sandbox in a service session + --disable-gpu) on its own port. Both
+// failure modes were hit live — no target at all on a GitHub windows runner, a flaky first boot on
+// the linux runner — so neither set can be the only one. The error carries chrome's stderr.
+async function bootChrome(port, extraArgs, tries) {
+  const proc = spawn(CHROME, ["--headless=new", `--remote-debugging-port=${port}`, "--no-first-run",
+    ...extraArgs, `--user-data-dir=${path.join(W, "profile-" + port)}`, "about:blank"],
+    { stdio: ["ignore", "ignore", "pipe"] });
+  let err = "";
+  proc.stderr.on("data", (d) => { err += d.toString(); });
+  for (let i = 0; i < tries; i++) {
     try {
-      const list = await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json();
+      const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
       const page = list.find((t) => t.type === "page");
-      if (page) return page.webSocketDebuggerUrl;
+      if (page) return { url: page.webSocketDebuggerUrl, proc, err };
       // some fresh environments come up with only a browser target — explicitly ask for a page
-      if (i === 8) {
-        try { await fetch(`http://127.0.0.1:${CDP_PORT}/json/new?about:blank`, { method: "PUT" }); } catch {}
+      if (i === 4) {
+        try { await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" }); } catch {}
       }
     } catch {}
     await sleep(250);
   }
-  throw new Error("chrome did not expose a page — chrome stderr tail: " + chromeErr.slice(-400));
+  try { proc.kill(); } catch {}
+  return { url: null, proc: null, err };
 }
+let ws = null, chrome = null;
+process.on("exit", () => { try { ws && ws.close(); } catch {} try { chrome && chrome.kill(); } catch {} });
+let boot = await bootChrome(CDP_PORT, [], 32);
+if (!boot.url) boot = await bootChrome(CDP_PORT + 1, ["--no-sandbox", "--disable-gpu"], 48);
+if (!boot.url) throw new Error("chrome did not expose a page — chrome stderr tail: " + boot.err.slice(-400));
+chrome = boot.proc;
 let id = 0;
-ws = new WebSocket(await cdpUrl());
+ws = new WebSocket(boot.url);
 await new Promise((r) => ws.addEventListener("open", r, { once: true }));
 const waiters = new Map();
 ws.addEventListener("message", (e) => {
