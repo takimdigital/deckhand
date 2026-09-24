@@ -112,7 +112,7 @@ Deployed and validated end to end against a real Coolify instance:
 - [x] **Backups** — schedule → dump → **restore drill** (`pg_restore` into a scratch database, verified)
 - [x] **Build packs** — Nixpacks and Dockerfile · **ops** — logs, deployments, env vars, docker cleanup
 - [x] **Unit suites green** — every skill's scripts are covered by pytest (standard library only), and CI runs the whole suite on every push
-- [x] **Template factory** — the registry, the clone, the swap gate and the leak check are covered by 66 offline tests and exercised end-to-end on a real MIT template: cloned, installed, built and served with a build-id freshness proof, with both gates red where they must be — leftover vendor references in the unswapped clone and the template's own name on the served page — because a gate that can't fail isn't a gate.
+- [x] **Template factory** — the registry, the clone, the swap gate and the leak check are covered by offline tests and exercised end-to-end on a real MIT template: cloned, installed, built and served with a build-id freshness proof, with both gates red where they must be — leftover vendor references in the unswapped clone and the template's own name on the served page — because a gate that can't fail isn't a gate.
 - [x] **Paid track validated live** — a real Next.js + Postgres SaaS deployed end-to-end on a rented VPS: Coolify → Cloudflare DNS-only → Let's Encrypt, with migrations, seed data and a production-owner flow — every error it surfaced is now folded back into the runbooks.
 
 ## ⚡ The skills
