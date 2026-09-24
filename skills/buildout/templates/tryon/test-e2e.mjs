@@ -176,21 +176,31 @@ ok(siteUp, `static page served on ${HTTP_PORT} (out of the Windows excluded rang
 if (!siteUp) { console.log("cannot continue without the page"); process.exit(1); }
 
 /* ------------------------------------------------------------------ browser over CDP */
-const chrome = spawn(CHROME, ["--headless=new", `--remote-debugging-port=${CDP_PORT}`, "--no-first-run",
-  `--user-data-dir=${path.join(W, "profile")}`, "about:blank"], { stdio: "ignore" });
+const chromeArgs = ["--headless=new", `--remote-debugging-port=${CDP_PORT}`, "--no-first-run",
+  "--disable-gpu", `--user-data-dir=${path.join(W, "profile")}`, "about:blank"];
+// CI runners launch services without a desktop: the sandbox refuses and chrome dies before it ever
+// exposes a target. Local runs keep the sandbox; the flag is CI-only.
+if (process.env.CI) chromeArgs.unshift("--no-sandbox");
+const chrome = spawn(CHROME, chromeArgs, { stdio: ["ignore", "ignore", "pipe"] });
+let chromeErr = "";
+chrome.stderr.on("data", (d) => { chromeErr += d.toString(); });
 let ws;
 process.on("exit", () => { try { ws && ws.close(); } catch {} try { chrome.kill(); } catch {} });
 
 async function cdpUrl() {
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 60; i++) {
     try {
       const list = await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json();
       const page = list.find((t) => t.type === "page");
       if (page) return page.webSocketDebuggerUrl;
+      // some fresh environments come up with only a browser target — explicitly ask for a page
+      if (i === 8) {
+        try { await fetch(`http://127.0.0.1:${CDP_PORT}/json/new?about:blank`, { method: "PUT" }); } catch {}
+      }
     } catch {}
     await sleep(250);
   }
-  throw new Error("chrome did not expose a page");
+  throw new Error("chrome did not expose a page — chrome stderr tail: " + chromeErr.slice(-400));
 }
 let id = 0;
 ws = new WebSocket(await cdpUrl());
