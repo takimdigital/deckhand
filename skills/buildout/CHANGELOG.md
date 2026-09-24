@@ -1,5 +1,25 @@
 # Changelog - Buildout
 
+## 0.9.0 — 2026-09-23
+
+### Added
+- **Pool batches — the owner sends repos, the pool learns.** `scripts/pool_batch.py` (`plan` · `check`
+  · `import`) + `references/pool-batch.md`. The owner's pasted list goes in; `plan` validates every
+  line (github.com URLs, `owner/name`, `git@` remotes; notes and comments ignored; duplicates
+  collapsed), marks what is already in the registry, and slices the list across **at most three**
+  measuring agents — printing the three delegations ready to paste, each carrying its repo list,
+  its output paths and the measuring rules. `check` then gates the batch (`MISSING` / `INVALID` /
+  `NO ROW` per repo, exit 3 while anything is off) and `import` folds it in through the same
+  validating importer as `import-details` — no second code path, and no repository outside the
+  registry can receive details.
+- Rule recorded where it belongs: **one batch = at most 3 agents, never one agent per repo**; a repo
+  already in the registry is refreshed, never duplicated; the inbox (`data/details-inbox/`) is
+  scratch, `data/details/` + the row are the durable copy.
+- `tests/test_pool_batch.py` — 11 offline tests: slicing (8 repos → 3/3/2), the 3-agent clamp, refusal
+  of non-GitHub lines, URL normalisation and dedupe, registry marking, the check gate (missing /
+  invalid / no row / green), an empty-batch import refusal, the full import round-trip, and a batch
+  file with a `blocking[]` claim becoming a real blocker. 59 tests total.
+
 ## 0.8.3 — 2026-09-23
 
 ### Fixed

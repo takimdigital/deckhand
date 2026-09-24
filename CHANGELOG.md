@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-23 — pool batches: the owner sends repos, the pool learns (pack v0.17.0)
+
+Anyone can now hand the pool a list of GitHub repos and have them measured into it — remotely, and by **at most three agents carrying slices of the list**, never one agent per repo. `pool_batch.py plan` validates the pasted list (URLs, `owner/name`, `git@` remotes; notes ignored; duplicates collapsed), marks what the registry already knows, slices the work across three agents and prints the delegations ready to paste — each carrying its repos, its output paths and the measuring rules. `check` then gates the batch per repo (`MISSING` / `INVALID` / `NO ROW`, exit 3 while anything is off) and `import` folds it in through the same validating importer as everything else, so a repo outside the registry can never receive details.
+
+Proven on a real list: 4 repos + one off-GitHub line → the line refused, 3 agents planned 2/1/1, the gate correctly demanded the missing files, and a deliberately broken file was caught as `INVALID` rather than silently counted as missing. Rule recorded in `references/pool-batch.md`.
+
+buildout: **0.9.0 · 59 offline tests · 110 for the pack.**
+
 ## 2026-09-23 — the interview starts from the profile (pack v0.16.3)
 
 The phase reference that runs a business intake said nothing about the portable profile, so a session that loaded only that file could ask an owner for facts `~/.deckhand/profile.md` already answers — hosting, stack, DNS/SSL, currency, accounts, brand tone. The intake now opens by reading the profile and treating those items as taken defaults (`assumed: true`) rather than questions, and when no profile exists it creates one first, once, for every future business. The profile step itself was never removed — it is wired into the router and the pack ships the `deckhand-profile` skill; this closes the gap where the ref could contradict it.
@@ -36,7 +44,7 @@ buildout no longer *generates* applications: it **matches, clones, swaps and reb
 
 The defects that run surfaced are fixed in this release: package-manager shims not resolving on Windows, an install running outside the project folder, a swap map written in the wrong shape, and a commit that is now cut before any install can land in it.
 
-Skill versions: buildout 0.8.2 · vps-ops 0.9.9 · deckhand-profile 0.3.3 · component-library 0.1.3. **99 stdlib tests green.**
+Skill versions: buildout 0.9.0 · vps-ops 0.9.9 · deckhand-profile 0.3.3 · component-library 0.1.3. **110 stdlib tests green.**
 
 ## 2026-09-22 — map before build, two directions compete, and the freeze gate that refuses (pack v0.15.0)
 

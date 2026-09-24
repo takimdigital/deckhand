@@ -1,7 +1,7 @@
 ---
 name: buildout
 description: "Use when building/shipping an online business: match a vetted open-source template, clone it, swap the proprietary services, rebrand, verify, deploy."
-version: 0.8.3
+version: 0.9.0
 author: Takim, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -36,7 +36,9 @@ Refs (load by phase): `references/factory/00-intake.md` · `10-match.md` · `20-
 
 Pool data (load when the pool itself is the question): `references/pool-details.md` — the measured
 detail file per template (routes, features, env names, deploy story, pitfalls) and how it enters the
-registry; `references/pool-details-contract.md` — the schema a measuring subagent must fill.
+registry; `references/pool-details-contract.md` — the schema a measuring subagent must fill;
+`references/pool-batch.md` — the owner sent repos: plan, **at most 3** measuring agents, check, import
+(`scripts/pool_batch.py`).
 
 ## Hard rules
 
@@ -89,6 +91,7 @@ Script commands (`py scripts/…`) run **from this skill's own directory** (`py`
 | `scripts/template_intake.py` | measures a repo **remotely** (license, stack, deps, risk, rebrand surface) → registry; `--deep --yes` adds a boot scorecard |
 | `scripts/factory_clone.py` | clones a matched template to `D:/<slug>` + writes `.factory/*` + `PENDING.md`; refuses unlicensed rows and non-empty folders |
 | `scripts/swap_check.py` | proves vendor deps are gone and adapters present, from `.factory/swap-map.json` |
+| `scripts/pool_batch.py` | the owner's repo list → `plan` (≤3 agent slices + paste-ready delegations) · `check` · `import` |
 | `scripts/_tpl_lib.py` | shared detection/classification (imported by the three above — not run directly) |
 | `tests/test_factory.py` | the suite: registry scoring, swap gate, clone gate (offline) |
 
@@ -99,6 +102,7 @@ Script commands (`py scripts/…`) run **from this skill's own directory** (`py`
 | Interview a new business owner | `references/factory/00-intake.md` |
 | Rank the pool / explain a match | `references/factory/10-match.md` |
 | Clone a match onto disk D | `references/factory/20-clone.md` |
+| Add repos the owner found to the pool (batch, ≤3 agents) | `references/pool-batch.md` |
 | Replace Clerk/Neon/Resend/… | `references/factory/30-swap.md` |
 | Put the owner's brand in, take the template's out | `references/factory/40-rebrand.md` |
 | Verify + deploy + the report | `references/factory/50-verify-deploy.md` |
