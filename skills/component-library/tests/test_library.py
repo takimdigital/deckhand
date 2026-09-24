@@ -17,18 +17,80 @@ class LibraryTests(unittest.TestCase):
     def tearDown(self):
         self.env.stop(); self.tmp.cleanup()
 
+    def _add(self, *extra, name="zz"):
+        return self.lib.cmd_add(self.lib.parse_args(["add", "--name", name, "--file", str(self.src), *extra]))
+
     def test_add_then_find(self):
         self.lib.cmd_add(self.lib.parse_args(["add", "--name", "pricing-card", "--file", str(self.src), "--tags", "pricing,cards", "--section", "pricing"]))
         idx = (Path(self.tmp.name) / "index.jsonl").read_text(encoding="utf-8")
         self.assertIn("pricing-card", idx)
-        self.assertIn("motion", idx)          # dep extracted; "@/..." alias ignored
+        self.assertIn("motion", idx)          # dep extracted; "@/..." alias never becomes a dep
         hits = self.lib.search("pricing")
         self.assertEqual(hits[0]["name"], "pricing-card")
 
-    def test_dedupe_requires_force(self):
-        self.lib.cmd_add(self.lib.parse_args(["add", "--name", "zz", "--file", str(self.src)]))
+    def test_alias_imports_recorded_not_deps(self):
+        self.lib.cmd_add(self.lib.parse_args(["add", "--name", "ali", "--file", str(self.src)]))
+        row = next(r for r in self.lib.read_index(self.lib.store_root()) if r["name"] == "ali")
+        self.assertEqual(row["deps"], ["motion"])
+        self.assertIn("@/components/ui/card", row["imports"])
+        item = json.loads((Path(self.tmp.name) / "r" / "ali.json").read_text(encoding="utf-8"))
+        self.assertNotIn("registryDependencies", item)            # never emitted (CLI hard-errors on unknowns)
+        self.assertEqual(item["meta"]["imports"], ["@/components/ui/card"])
+
+    def test_dedupe_same_bytes_is_friendly_noop(self):
+        self._add()
+        import contextlib, io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = self._add()                                       # identical bytes, no --force
+        self.assertEqual(rc, 0)
+        self.assertIn("already in your library", buf.getvalue())
+        self.src.write_text(self.src.read_text(encoding="utf-8") + "// changed\n", encoding="utf-8")
         with self.assertRaises(SystemExit):
-            self.lib.cmd_add(self.lib.parse_args(["add", "--name", "zz", "--file", str(self.src)]))
+            self._add()                                            # different bytes: still refuses without --force
+
+    def test_credential_refused_whole_save(self):
+        bad = Path(self.tmp.name) / "leaky.tsx"
+        bad.write_text('const key = "sk_live_51H8xQ2eZvKYabcdefg";\nexport const C = () => null;\n', encoding="utf-8")
+        import contextlib, io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            with self.assertRaises(SystemExit):
+                self.lib.cmd_add(self.lib.parse_args(["add", "--name", "leaky", "--file", str(bad), "--source", "t"]))
+        self.assertIn("credential-shaped", buf.getvalue())
+        self.assertFalse((Path(self.tmp.name) / "items" / "leaky").exists())   # nothing partial landed
+        idx = (Path(self.tmp.name) / "index.jsonl")
+        self.assertNotIn("leaky", idx.read_text(encoding="utf-8") if idx.exists() else "")
+
+    def test_license_triple_recorded_and_strict_requires(self):
+        self.lib.cmd_add(self.lib.parse_args(
+            ["add", "--name", "lic", "--file", str(self.src), "--source", "built @ demo",
+             "--license", "MIT", "--source-url", "https://ui.shadcn.com/docs", "--license-evidence", "registry claim"]))
+        row = next(r for r in self.lib.read_index(self.lib.store_root()) if r["name"] == "lic")
+        self.assertEqual(row["license"], "MIT")
+        self.assertEqual(row["sourceUrl"], "https://ui.shadcn.com/docs")
+        item = json.loads((Path(self.tmp.name) / "r" / "lic.json").read_text(encoding="utf-8"))
+        self.assertEqual(item["meta"]["license"], "MIT")
+        with self.assertRaises(SystemExit):
+            self.lib.cmd_add(self.lib.parse_args(["add", "--name", "nol", "--file", str(self.src), "--source", "t", "--strict"]))
+
+    def test_render_item_inlines_content_and_hashes(self):
+        self._add("--base", "radix", "--slot", "button")
+        item = json.loads((Path(self.tmp.name) / "r" / "zz.json").read_text(encoding="utf-8"))
+        f = item["files"][0]
+        self.assertIn("content", f)                                # local `shadcn add` installs real files
+        self.assertEqual(f["content"], self.src.read_text(encoding="utf-8"))
+        self.assertEqual(item["meta"]["base"], "radix")
+        self.assertEqual(item["meta"]["slot"], "button")
+        row = next(r for r in self.lib.read_index(self.lib.store_root()) if r["name"] == "zz")
+        self.assertIn("pricing-card.tsx", row["fileHashes"])
+        self.assertEqual(self.lib.cmd_verify(self.lib.parse_args(["verify"])), 0)
+
+    def test_verify_catches_edited_item_file(self):
+        self._add()
+        stored = Path(self.tmp.name) / "items" / "zz" / "pricing-card.tsx"
+        stored.write_text(stored.read_text(encoding="utf-8") + "// tampered\n", encoding="utf-8")
+        self.assertEqual(self.lib.cmd_verify(self.lib.parse_args(["verify"])), 1)
 
     def test_copy_to_project(self):
         self.lib.cmd_add(self.lib.parse_args(["add", "--name", "zz", "--file", str(self.src)]))

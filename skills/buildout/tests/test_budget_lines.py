@@ -6,6 +6,7 @@ removed machinery may never quietly reappear.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 SKILL = Path(__file__).resolve().parents[1]
@@ -69,3 +70,25 @@ def test_registry_seed_is_present_and_parsable():
     rows = seed["templates"]
     assert len(rows) >= 8
     assert all(r["url"].startswith("https://github.com/") for r in rows)
+
+
+def test_tryon_is_wired():
+    """The try-on tool ships wired or not at all: ref routed, scripts named, templates present."""
+    assert (SKILL / "references" / "tryon.md").is_file()
+    assert (SKILL / "references" / "library.md").is_file()
+    text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+    routing = text.split("## What 0.8.0 removed")[0]
+    for needle in ("references/tryon.md", "references/library.md", "tryon_intake.py", "tryon_catalog.py",
+                   "tryon_server.py", "tryon_install.py", "tryon_guard.py", "library_import.py",
+                   "templates/tryon/swap.mjs"):
+        assert needle in routing, f"SKILL.md no longer routes to {needle}"
+    for f in ("loader.cjs", "overlay.js", "swap.mjs", "test-swap.mjs", "test-ladder.cjs", "tryon-dev.tsx"):
+        assert (SKILL / "templates" / "tryon" / f).is_file(), f"missing templates/tryon/{f}"
+    for s in ("tryon_intake.py", "tryon_catalog.py", "tryon_server.py", "tryon_install.py",
+              "tryon_guard.py", "library_import.py"):
+        assert (SKILL / "scripts" / s).is_file(), f"missing scripts/{s}"
+    roster = json.loads((SKILL / "data" / "registries.json").read_text(encoding="utf-8"))
+    usable = [r for r in roster["registries"] if r.get("status", "ok") == "ok"]
+    assert usable, "the registry roster must carry usable registries"
+    assert all(r["license"] in ("MIT", "Apache-2.0") for r in usable), "licence gate on usable registries"
+    assert roster["refusals"], "the refused list is the licence gate's evidence"

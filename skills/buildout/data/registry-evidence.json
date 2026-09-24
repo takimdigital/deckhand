@@ -1,0 +1,83 @@
+{
+ "style": "new-york-v4",
+ "checked_at": "2026-09-24T14:30:13Z",
+ "registries": {
+  "shadcn": {
+   "probed_at": "2026-09-24T14:30:12Z",
+   "style": "new-york-v4",
+   "types": {
+    "registry:block": true,
+    "registry:example": true,
+    "registry:font": false,
+    "registry:hook": true,
+    "registry:internal": true,
+    "registry:lib": true,
+    "registry:style": false,
+    "registry:theme": false,
+    "registry:ui": true
+   },
+   "samples": [
+    {
+     "url": "https://ui.shadcn.com/r/styles/new-york-v4/dashboard-01.json",
+     "type": "registry:block",
+     "ok": true
+    },
+    {
+     "url": "https://ui.shadcn.com/r/styles/new-york-v4/sidebar-01.json",
+     "type": "registry:block",
+     "ok": true
+    },
+    {
+     "url": "https://ui.shadcn.com/r/styles/new-york-v4/sidebar-02.json",
+     "type": "registry:block",
+     "ok": true
+    },
+    {
+     "url": "https://ui.shadcn.com/r/styles/new-york-v4/accordion-demo.json",
+     "type": "registry:example",
+     "ok": true
+    },
+    {
+     "url": "https://ui.shadcn.com/r/styles/new-york-v4/alert-demo.json",
+     "type": "registry:example",
+     "ok": true
+    },
+    {
+     "url": "https://ui.shadcn.com/r/styles/new-york-v4/alert-destructive.json",
+     "type": "registry:example",
+     "ok": true
+    },
+    {
+     "url": "https://ui.shadcn.com/r/styles/new-york-v4/font-geist.json",
+     "type": "registry:font",
+     "ok": false
+    },
+    {
+     "url": "https://ui.shadcn.com/r/styles/new-york-v4/font-inter.json",
+     "type": "registry:font",
+     "ok": false
+    },
+    {
+     "url": "https://ui.shadcn.com/r/styles/new-york-v4/font-noto-sans.json",
+     "type": "registry:font",
+     "ok": false
+    },
+    {
+     "url": "https://ui.shadcn.com/r/styles/new-york-v4/use-mobile.json",
+     "type": "registry:hook",
+     "ok": true
+    },
+    {
+     "url": "https://ui.shadcn.com/r/styles/new-york-v4/sidebar-demo.json",
+     "type": "registry:internal",
+     "ok": true
+    },
+    {
+     "url": "https://ui.shadcn.com/r/styles/new-york-v4/sidebar-header.json",
+     "type": "registry:internal",
+     "ok": true
+    }
+   ]
+  }
+ }
+}

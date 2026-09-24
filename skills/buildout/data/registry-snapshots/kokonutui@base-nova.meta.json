@@ -1,0 +1,10 @@
+{
+ "url": "https://kokonutui.com/r/registry.json",
+ "sha256": "f2d00a578fdadbae26ec115ef3d3e2cff21047b786df53ee3d83d3eed647cef4",
+ "bytes": 26521,
+ "file": "kokonutui@base-nova.json",
+ "gzip": false,
+ "items": 51,
+ "fetched_at": "2026-09-24T06:43:02Z",
+ "style": "base-nova"
+}

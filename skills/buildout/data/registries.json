@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "updated": "2026-09-24",
+  "policy": "MIT / Apache-2.0 only. Dev-time tooling; nothing from here ships into a production build. Attribution (upstream + item URL) is recorded per swap in .tryon/journal.json.",
+  "refusals": [
+    {"id": "originui/coss", "reason": "AGPL-3.0 (repo renamed to cosscom/coss) — verified via GitHub API 2026-09-24"},
+    {"id": "animate-ui", "reason": "MIT + Commons Clause (source-available, not OSI MIT)"},
+    {"id": "aceternity", "reason": "custom 'Aceternity Licence', paid tiers"},
+    {"id": "21st.dev", "reason": "marketplace ToS (no registry.json; redistribution restricted)"},
+    {"id": "hextaui", "reason": "repo and registry endpoints 404 as of 2026-09-24"}
+  ],
+  "registries": [
+    {
+      "id": "shadcn",
+      "name": "shadcn/ui",
+      "license": "MIT",
+      "license_evidence": "https://github.com/shadcn-ui/ui/blob/main/LICENSE.md",
+      "index": "https://ui.shadcn.com/r/styles/{style}/registry.json",
+      "item_url": "https://ui.shadcn.com/r/styles/{style}/{name}.json",
+      "code_index": "https://ui.shadcn.com/r/index.json",
+      "style_scoped": true,
+      "styles": ["base-nova", "new-york-v4"],
+      "base_for_style": {"base-nova": "base-ui", "new-york-v4": "radix"},
+      "free": true,
+      "notes": "Flat /r/<name>.json is GONE (404) — item URLs are style-scoped. Style comes from the target project's components.json (default base-nova). New items import cn from the real npm package `cn` (@^0.4.0) — do not rewrite that import."
+    },
+    {
+      "id": "smoothui",
+      "name": "SmoothUI",
+      "license": "MIT",
+      "license_evidence": "https://github.com/educlopez/smoothui/blob/main/LICENSE",
+      "index": "https://smoothui.dev/r/registry.json",
+      "item_url": "https://smoothui.dev/r/{name}.json",
+      "free": true,
+      "notes": "Installs under components/smoothui/<name>/index.tsx; pulls registry deps (e.g. smooth-button) and can add many CSS variables to app/globals.css."
+    },
+    {
+      "id": "magicui",
+      "name": "Magic UI",
+      "license": "MIT",
+      "license_evidence": "https://github.com/magicuidesign/magicui/blob/main/LICENSE.md",
+      "index": "https://magicui.design/r/registry.json",
+      "item_url": "https://magicui.design/r/{name}.json",
+      "free": true,
+      "notes": "Mostly effect primitives (marquee, particles, animated lists); some need framer-motion/motion."
+    },
+    {
+      "id": "kokonutui",
+      "name": "KokonutUI",
+      "license": "MIT",
+      "license_evidence": "https://github.com/kokonut-labs/kokonutui/blob/main/LICENSE",
+      "index": "https://kokonutui.com/r/registry.json",
+      "item_url": "https://kokonutui.com/r/{name}.json",
+      "free": true,
+      "notes": "Items are registry:component (they land under components/, not components/ui/)."
+    },
+    {
+      "id": "basecn",
+      "name": "basecn",
+      "license": "MIT",
+      "license_evidence": "https://github.com/akash3444/basecn/blob/main/LICENSE",
+      "index": "https://basecn.dev/r/registry.json",
+      "item_url": "https://basecn.dev/r/{name}.json",
+      "base": "base-ui",
+      "free": true,
+      "notes": "shadcn primitives ported to Base UI — the right source for a Base-UI project alongside shadcn base-nova."
+    },
+    {
+      "id": "tailark",
+      "name": "Tailark",
+      "license": "MIT",
+      "license_evidence": "https://github.com/tailark/blocks/blob/main/LICENCE.md",
+      "index": "https://tailark.com/r/registry.json",
+      "item_url": "https://tailark.com/r/{name}.json",
+      "free": true,
+      "free_types": ["registry:ui", "registry:lib"],
+      "blocked_note": "registry:block items are paywalled (401 'Sign in with a plan that includes blocks') — index them but mark NOT free.",
+      "collision_warning": "some items own lib/utils.ts — exclude any item whose files target aliases.utils/aliases.lib",
+      "notes": "Radix and Base UI support; ui/lib only for us."
+    },
+    {
+      "id": "efferd",
+      "name": "Efferd",
+      "license": "NOASSERTION",
+      "license_evidence": "https://github.com/shabanhr/efferd-ui/blob/main/LICENCE.md",
+      "index": "https://efferd.com/r/registry.json",
+      "item_url": "https://efferd.com/r/{name}.json",
+      "status": "deferred",
+      "notes": "LICENSE title line is malformed (GitHub reports NOASSERTION). Do not index until a human confirms MIT."
+    },
+    {
+      "id": "cultui",
+      "name": "Cult UI",
+      "license": "MIT",
+      "license_evidence": "https://github.com/nolly-studio/cult-ui/blob/main/LICENSE.md",
+      "index": "https://cult-ui.com/r/registry.json",
+      "item_url": "https://cult-ui.com/r/{name}.json",
+      "status": "excluded",
+      "notes": "registry endpoint returns 429 (Vercel bot challenge) from a plain fetch AND from the shadcn CLI — not installable as-is. Index from the GitHub mirror only if we later self-host a mirror."
+    }
+  ],
+  "slots": {
+    "primitives": ["button", "badge", "card", "input", "textarea", "select", "checkbox", "radio-group", "switch", "slider", "dialog", "dropdown-menu", "tooltip", "popover", "tabs", "accordion", "avatar", "table", "sheet", "command", "toast", "breadcrumb", "pagination", "progress", "skeleton"],
+    "blocks": ["hero", "pricing", "navbar", "footer", "cta", "faq", "testimonials", "login", "signup"],
+    "thin_v1": ["table", "sheet", "pricing", "cta", "testimonials", "hero"]
+  }
+}

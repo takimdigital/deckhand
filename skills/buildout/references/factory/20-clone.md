@@ -82,9 +82,14 @@ Running it locally, the parts that bite:
   foreground `npm run dev` is refused/blocked by the harness, and a browser pointed at a
   not-yet-listening port just proves the port is closed.
 - **Read the port from the project**, never assume 3000; a second app (or the previous phase's server)
-  is often still holding it — `EADDRINUSE … 127.0.0.1:5770` is a stale process, not a bug. Kill it
-  before rebinding (on Windows from git-bash: `taskkill //F //PID <pid>` — double slashes; single
-  slashes get mangled into paths).
+  is often still holding it — `EADDRINUSE … 127.0.0.1:5770` is a stale process, not a bug. Find the
+  owner by port and kill it before rebinding. On Windows from git-bash (both steps verified on this
+  host — the double-slash form people pass around fails with `Invalid argument/option - '//F'`):
+
+  ```bash
+  netstat -ano | grep -E "TCP.*127\.0\.0\.1:<port>.*LISTENING"   # last column = the Windows PID
+  MSYS2_ARG_CONV_EXCL='*' taskkill /F /PID <that-pid>            # exit 0 = terminated
+  ```
 - **Prove the page served is the build you made** (chunk hashes / BUILD_ID), not a cached one.
 
 ## Env scaffold

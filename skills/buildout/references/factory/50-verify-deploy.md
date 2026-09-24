@@ -20,6 +20,30 @@ The verify tail is small on purpose: the template's own community tests the code
 - Private repo: generate a deploy key on the VPS, add it as a read-only repo key, register it with
   `POST /api/v1/security/keys`, then create the app with `POST /api/v1/applications/private-deploy-key`.
 
+## CI on GitHub — the traps, measured
+
+- **Templates that validate env at import time** (`@t3-oss/env-nextjs`, a zod schema in
+  `src/libs/Env.ts`) kill every job that was not given a value: build, static checks and unit tests all
+  die with `Invalid environment variables` before running anything. Add a workflow-level `env:` block of
+  throwaway values (the DB URL can point at the PGlite port the jobs start themselves). None of it is a
+  secret, and without it every red X is about the workflow, not the code.
+- **better-auth rate limits by default in production** (a few sign-ins per window), and Playwright runs a
+  production build — a suite that signs in repeatedly gets `429 Too many requests` and a login form that
+  silently stays put. Give the test stack an explicit opt-out (`RATE_LIMIT_DISABLED=true`, set only in
+  `playwright.config.ts`'s `webServer.env`, honoured only when `NODE_ENV=production`) and keep the limiter
+  live for real deployments.
+- **A stateful e2e suite runs one browser.** Specs that seed a virgin database ("the first account becomes
+  admin", empty-state assertions) cannot replay against the same server: the second browser project trips
+  on preconditions the first consumed (24 passed / 2 failed is the signature). CI runs a single project;
+  extra browsers are opt-in. Delete template jobs that test what the swap removed (Storybook with zero
+  stories fails on noise).
+- **The browser auth client must resolve its baseURL from `window.location.origin`**, never a build-time
+  `NEXT_PUBLIC_*` value: the baked port breaks previews, test stacks and any deployment whose port differs
+  from the build's. SSR keeps reading the env.
+- Before pushing, run the workflow's own commands locally in the mode CI uses (`CI=1 <command>`):
+  production build, rate limits on, one worker. Dev mode hides all three, which is how a green local suite
+  turns into a red CI run.
+
 ## Phased mode — gate G4
 
 Deploy runs only on the owner's explicit go, in its own turn. The verify rows may all be green before

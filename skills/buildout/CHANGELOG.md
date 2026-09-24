@@ -1,5 +1,107 @@
 # Changelog - Buildout
 
+## 0.12.0 — 2026-09-24
+
+### Added
+- **Save to your library (try-on → component-library).** After a try is answered, the panel's
+  **Save** verb hands the agent a request; the agent resolves the stage record from the new
+  `.tryon/manifest.json` (written by `swap.mjs install`: request id, slot, entry, dest, specifier,
+  sha256, fetch origin, and the candidate's registry/base/style/type/licence evidence), refuses on
+  drift (staged file sha ≠ manifest sha = `STAGE_DRIFT` — saving drifted bytes would attach evidence
+  that no longer describes them), then saves through the companion skill's `library.py add`
+  (licence triple + base + slot + `--strict`; a failed save is never replied as ok). New
+  `scripts/library_import.py` feeds the owner's own items back into the try-on catalog as source
+  `mine` — ranked first in the slot, still under the same hard base filter, and only offered when
+  base + slot + licence are all recorded (`--prune` after `remove`). Loop + gates:
+  `references/library.md`.
+- **P0 loopback hardening of the try-on helper** (audit-mandated before anything save-shaped):
+  POST origin pinning (non-browser callers keep working; a foreign page gets 403), a POST key
+  allowlist with the server-managed id/timestamp unforgeable, a request size cap (413), `/catalog`
+  rows carrying the licence/style/deps fields a save must record, and reply dedupe
+  (`ALREADY_ANSWERED`; `--force` for an explicit correction).
+- **Install-time gitignore.** `tryon_install.py` appends `.tryon/` + the dev mount to `.gitignore`
+  (creates it when absent) so one `git add -A` can never publish the local token; idempotent,
+  journaled, and removed/restored byte-exact by `uninstall`.
+
+### Fixed
+- The overlay correlates replies by request id: `postOr` refuses an answer without an id, a
+  2-minute timeout frees the panel with the exact check to run (measured against a real async
+  agent: wake → guard → fetch → stage → reply takes ~1 min; 45s expired first), and only THIS
+  panel's reply clears `busy` —
+  a replayed or foreign reply is shown inertly (`#N` prefixed) instead of flipping the buttons
+  (“request #undefined sent” and a preview that never ended were one bug).
+- **Save/Keep/Undo/Close pinned as a sticky footer** — with a long candidate list they used to sit
+  below the fold: answering a try meant scrolling the panel past every candidate. Measured in the
+  browser smoke (headless Chrome, 1280×820): the row now sits in view without scrolling.
+- Leak sweep: the private-name list grew (fail-closed) and one stale internal mention was scrubbed
+  from `SKILL.md` — public docs stay product-only.
+- `library_import` skips and counts incomplete store rows (no licence/base/slot) instead of
+  inventing them.
+
+### Tests
+- buildout 99 → 109 offline (origin pin, key allowlist + size cap, CORS pinning, reply dedupe,
+  gitignore install/uninstall, importer gates, `mine`-first ranking in CLI and server) and the
+  codemod battery 27 → 31 (manifest record: request/slot/entry/sha, dest/specifier, fetch origin +
+  licence evidence).
+
+## 0.11.0 — 2026-09-24
+
+### Added
+- **Try-on — real components, on a site the owner already runs.** Works on **any** Next.js project,
+  not only a cloned template: the owner opens their own dev server, clicks a component, and picks a
+  real, licensed, installable component from a measured MIT registry. Their agent stages the
+  candidate under `components/variants/`, flips one import, and the app's own HMR shows it in place —
+  nothing is generated, nothing is vendored, `components/ui/*` is never overwritten. Dev-only,
+  journaled, revertable.
+  - `scripts/tryon_intake.py` measures six MIT registries (1,295 items, 456 free) into a new
+    `registry_items` table: registry-level licence gate (AGPL, MIT + Commons Clause, custom licences
+    and marketplace ToS are refused, not measured), base detection (`base-ui > aria > radix`),
+    slot classification by keyword, a `lib/utils.ts` collision guard, and a **sampled installability
+    probe** per item type family (the CLI silently drops content-less items — the probe asks the item's
+    own endpoint). Evidence lands in `data/registry-snapshots/` + `registry-evidence.json`.
+    `scripts/tryon_catalog.py` answers `slots` and `query --slot … [--base …]`.
+  - `scripts/tryon_server.py` — a loopback-only, token-gated helper (stdlib): the browser POSTs picks,
+    the agent long-polls `wait` and answers with `reply`; `templates/tryon/overlay.js` is the picker the
+    owner uses in their own browser; `templates/tryon/loader.cjs` stamps `data-tryon-src="file:line"`
+    (server components included) and `templates/tryon/swap.mjs` is the codemod — it parses with the
+    project's own `typescript`, verifies the new binding and that every other import is byte-identical,
+    journals `from → to` with a backup, and reverts (byte-exact, or re-derived when the owner edited the
+    file meanwhile).
+  - `scripts/tryon_install.py` writes the two dev-only project files and patches `next.config.*` +
+    `app/layout.tsx`: refused with a paste-ready snippet when it cannot merge, journaled, and
+    `uninstall` restores byte-exact.
+  - **Dev-only twice over:** the Turbopack rule is registered only when `NODE_ENV === "development"`
+    and the loader hard-refuses outside it — a clean production build contains zero stamped files
+    (`condition` inside a Turbopack rule is a matcher, not an env gate).
+- 16 new offline tests (`tests/test_tryon.py` + a wiring test) and a 19-assertion codemod battery
+  (`templates/tryon/test-swap.mjs`) runnable against any project that has `typescript`.
+- **Scoped matching (the registry brief).** The catalog is now a *project scope*, not a keyword pool:
+  a **hard base filter** (a Radix project never sees a Base UI item; base-free always fits) with a
+  counted, visible hidden number (`[#9 of 12 live items; 3 hidden (need base-ui)]`, and the overlay's
+  *Matching your setup: Radix · shadcn-style — 12 ready to try, 5 hidden*), the project's own registry
+  lineage ranked first (a sparse-title shadcn item no longer loses to a chatty one), and real
+  components (`registry:ui`/`registry:component`) above `registry:example` demos. The overlay reads the
+  scope from `/catalog` (server-side, from the project's own `package.json` + `components.json` — never
+  from the client).
+- **Style-keyed registry items.** `registry_items` is keyed `(registry, item, style)` and `base`
+  follows the style family: shadcn ships the *same item names with different code* (`base-nova` = Base
+  UI, `new-york-v4` = Radix), so the pool now carries both families and a project only ever sees its
+  own. Migration backfills `style` from `item_url` (idempotent, runs on connect).
+- **`swap.mjs props` — the prop-shape check** the guard could not do without type info: parses the
+  real JSX usage against the staged candidate with the project's own TypeScript. `missing_required`
+  = refuse (the swap would break at render), `dropped` = reported (`variant`/`size` silently stops
+  meaning anything), `unverifiable` (imported/generic props type, spread usage) said out loud. Resolves
+  the classic shapes: export lists (`export { Button }`), `React.ComponentProps<"x">` (native attrs),
+  `VariantProps<typeof cva>` (variant keys read from the file's own `cva()` call).
+- `tryon_guard.py` gained the **base check** (`--candidate-base`, refused unless the owner explicitly
+  re-scopes) and runs **before** anything is fetched or staged — a refused pick can no longer leave an
+  orphaned variant behind.
+
+### Fixed
+- The stale-port recipe in `references/factory/20-clone.md` now carries the form verified on this
+  host: `netstat -ano` → `MSYS2_ARG_CONV_EXCL='*' taskkill /F /PID <pid>` (the widely-copied
+  `taskkill //F //PID` fails with `Invalid argument/option - '//F'`).
+
 ## 0.10.0 — 2026-09-24
 
 ### Added
@@ -22,7 +124,7 @@
   `column "createdAt" does not exist`), snapshot + name-swap only at the end, and a hand-over that is
   a running local URL, not a report.
 
-### Fixed — from the RAHLA rebuild autopsy (evidence: 71 failure events in that session)
+### Fixed — from a live site-rebuild autopsy (evidence: 71 failure events in that session)
 - Template hooks (husky/lint-staged) can block the factory's own commits — rule added to
   `references/lifecycle/40-git.md`.
 - Vendor-coupled **test** tooling (Chromatic/Checkly/Crowdin) is a swap target, not a footnote —

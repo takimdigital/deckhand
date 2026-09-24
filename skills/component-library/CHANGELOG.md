@@ -1,5 +1,26 @@
 # Changelog — component-library
 
+## 0.1.4 — 2026-09-24
+
+- **Ready for try-on saves.** `add` records what a try-on save must carry: the licence triple
+  (`--license`, `--source-url`, `--license-evidence`; a licence without a source URL warns — the
+  claim cannot be re-checked later), `--base radix|base-ui|aria|none`, `--slot`, and **per-file
+  sha256 hashes** (`fileHashes`) so `verify` can catch a stored file that changed after it was saved.
+- **Credential gate:** a credential-shaped value anywhere in a saved file refuses the whole save —
+  nothing is written, the message names the file, never the value.
+- **Local install is real:** `r/<name>.json` carries each file's content **inline** (the only shape a
+  local `npx shadcn add <path>.json` installs — a content-less entry is silently skipped by the CLI).
+- **Idempotent re-add:** re-adding a name with bytes-identical files prints "already in your library
+  … nothing changed" and exits 0 (no `--force` needed, nothing rewritten); different bytes still need
+  `--force`. `meta` on the rendered item now carries `base`/`slot`/`license`/`sourceUrl`/
+  `licenseEvidence`/`imports` when recorded; aliased imports are never emitted as
+  `registryDependencies` (an unknown `@scope/name` there is a hard install error in the CLI, measured
+  with 4.21.0).
+- Suite 11 → 16 (credential gate × whole save, licence-triple recording, hash recording + `verify`
+  hash mismatch, bytes-identical no-op, inline content in the rendered item).
+- Store resolution unchanged: `DECKHAND_LIBRARY` > legacy `EXPERT_BUILD_LIBRARY` (env or an existing
+  `~/expert-build-library` dir) > `~/deckhand-library`.
+
 ## 0.1.3 — 2026-09-22
 
 - Windows home note for the store path: `~` = `C:\Users\<you>` (compatibility line + the invocation note). No behavior change.

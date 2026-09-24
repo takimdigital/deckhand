@@ -47,6 +47,24 @@ TPL_FIELDS = [
     "details", "details_at", "details_file", "features", "locales", "swap_burden",
 ]
 
+# Registry items are keyed (registry, item, style): one registry may ship several style families
+# with the SAME item name and DIFFERENT code (shadcn `base-nova` = Base UI, `new-york-v4` = Radix),
+# and a project must only ever see the family that matches its own primitive base.
+REGISTRY_ITEMS_DDL = """
+CREATE TABLE IF NOT EXISTS registry_items (
+  registry TEXT NOT NULL,
+  item TEXT NOT NULL,
+  style TEXT NOT NULL DEFAULT '',
+  type TEXT, title TEXT, description TEXT,
+  categories TEXT, slot TEXT, slot_kind TEXT,
+  base TEXT, deps TEXT, registry_deps TEXT,
+  item_url TEXT, index_url TEXT,
+  free INTEGER, license TEXT, license_evidence TEXT,
+  content_sha TEXT, fetched_at TEXT, updated_at TEXT,
+  PRIMARY KEY (registry, item, style)
+);
+"""
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS templates (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,6 +91,14 @@ CREATE TABLE IF NOT EXISTS intake_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   template TEXT NOT NULL, run_at TEXT NOT NULL, upstream_commit TEXT, mode TEXT, log TEXT
 );
+CREATE TABLE IF NOT EXISTS registry_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  started_at TEXT NOT NULL, finished_at TEXT, style TEXT,
+  registries TEXT, written INTEGER, skipped INTEGER
+);
+-- Component registry (try-on): normalized items from MIT shadcn-compatible registries.
+-- Same philosophy as `templates`: measured remotely, license-gated, only a shortlist is ever read.
+""" + REGISTRY_ITEMS_DDL + """
 """
 
 
@@ -116,12 +142,38 @@ def _migrate(con: sqlite3.Connection) -> list[str]:
     return added
 
 
+def _migrate_registry_items(con: sqlite3.Connection) -> bool:
+    """registry_items gained `style` in its key. Rows written before it get their style from their
+    own item_url (/styles/<style>/...) — an old shadcn row IS a base-nova row, and saying so is what
+    keeps Base UI code out of a Radix project's candidate list."""
+    cols = {r["name"] for r in con.execute("PRAGMA table_info(registry_items)")}
+    if not cols or "style" in cols:
+        return False
+    old = [dict(r) for r in con.execute("SELECT * FROM registry_items")]
+    con.execute("ALTER TABLE registry_items RENAME TO registry_items_old")
+    con.executescript(REGISTRY_ITEMS_DDL)
+    fields = ("registry", "item", "style", "type", "title", "description", "categories", "slot",
+              "slot_kind", "base", "deps", "registry_deps", "item_url", "index_url", "free",
+              "license", "license_evidence", "content_sha", "fetched_at", "updated_at")
+    rows = []
+    for r in old:
+        m = re.search(r"/styles/([^/]+)/", r.get("item_url") or "")
+        r["style"] = m.group(1) if m else ""
+        rows.append(tuple(r.get(k) for k in fields))
+    con.executemany("INSERT INTO registry_items (%s) VALUES (%s)"
+                    % (", ".join(fields), ", ".join("?" * len(fields))), rows)
+    con.execute("DROP TABLE registry_items_old")
+    con.commit()
+    return True
+
+
 def connect(db: Path) -> sqlite3.Connection:
     db.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(str(db))
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
     _migrate(con)
+    _migrate_registry_items(con)
     return con
 
 
@@ -607,6 +659,81 @@ def cmd_export(con, out: Path) -> int:
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"exported {len(rows)} template(s) ({detailed} with deep details) -> {out}")
     return 0
+
+
+# ------------------------------------------------- component registry (try-on)
+REG_FIELDS = ("registry", "item", "style", "type", "title", "description", "categories", "slot", "slot_kind",
+              "base", "deps", "registry_deps", "item_url", "index_url", "free", "license",
+              "license_evidence", "content_sha", "fetched_at", "updated_at")
+
+
+def reg_upsert(con: sqlite3.Connection, rec: dict, not_before: str | None = None) -> str:
+    """Insert/update one registry item, keyed (registry, item, style). Same stale-run guard as `upsert`."""
+    rec = {k: rec.get(k) for k in REG_FIELDS if k in rec}
+    rec.setdefault("style", "")
+    for f in ("deps", "registry_deps", "categories"):
+        if isinstance(rec.get(f), (list, dict)):
+            rec[f] = json.dumps(rec[f], ensure_ascii=False)
+    rec["updated_at"] = now()
+    cur = con.execute("SELECT updated_at FROM registry_items WHERE registry = ? AND item = ? AND style = ?",
+                      (rec.get("registry"), rec.get("item"), rec.get("style"))).fetchone()
+    if cur and not_before and (cur["updated_at"] or "") > not_before:
+        return "skipped-newer"
+    cols = [c for c in REG_FIELDS if c in rec]
+    if cur:
+        con.execute(f"UPDATE registry_items SET {', '.join(c + ' = ?' for c in cols)} "
+                    "WHERE registry = ? AND item = ? AND style = ?",
+                    [rec[c] for c in cols] + [rec["registry"], rec["item"], rec.get("style", "")])
+    else:
+        con.execute(f"INSERT INTO registry_items ({', '.join(cols)}) "
+                    f"VALUES ({', '.join('?' * len(cols))})", [rec[c] for c in cols])
+    con.commit()
+    return "written"
+
+
+def reg_rows(con: sqlite3.Connection, slot: str | None = None, base: str | None = None,
+             free_only: bool = False, registry: str | None = None) -> list[sqlite3.Row]:
+    q = "SELECT * FROM registry_items WHERE 1=1"
+    args: list = []
+    if slot:
+        q += " AND slot = ?"
+        args.append(slot)
+    if base:
+        q += " AND (base IS NULL OR base = 'none' OR base = ?)"
+        args.append(base)
+    if free_only:
+        q += " AND free = 1"
+    if registry:
+        q += " AND registry = ?"
+        args.append(registry)
+    return list(con.execute(q + " ORDER BY registry, item", args))
+
+
+def reg_run_start(con: sqlite3.Connection, started_at: str, style: str) -> int:
+    cur = con.execute("INSERT INTO registry_runs (started_at, style) VALUES (?, ?)", (started_at, style))
+    con.commit()
+    return int(cur.lastrowid)
+
+
+def reg_run_finish(con: sqlite3.Connection, run_id: int, registries: str, written: int, skipped: int) -> None:
+    con.execute("UPDATE registry_runs SET finished_at = ?, registries = ?, written = ?, skipped = ? WHERE id = ?",
+                (now(), registries, written, skipped, run_id))
+    con.commit()
+
+
+def reg_run_is_stale(con: sqlite3.Connection, run_start: str) -> bool:
+    """True when a run that STARTED later already COMPLETED. A stalled or replayed run must never
+    write old-policy rows over a newer generation — per-row guards cannot see rows it alone touches."""
+    row = con.execute("SELECT COUNT(*) c FROM registry_runs WHERE finished_at IS NOT NULL AND started_at > ?",
+                      (run_start,)).fetchone()
+    return bool(row["c"])
+
+
+def reg_slots(con: sqlite3.Connection, free_only: bool = False) -> list[dict]:
+    q = ("SELECT slot, slot_kind, COUNT(*) n, SUM(CASE WHEN free = 1 THEN 1 ELSE 0 END) n_free "
+         "FROM registry_items WHERE slot IS NOT NULL GROUP BY slot, slot_kind "
+         "ORDER BY slot_kind DESC, slot")  # primitives first: v1 swaps single components (blocks are v1.5)
+    return [dict(r) for r in con.execute(q)]
 
 
 def main(argv=None) -> int:
