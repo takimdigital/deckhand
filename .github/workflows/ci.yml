@@ -16,6 +16,14 @@ on:
 permissions:
   contents: read
 
+env:
+  # The Windows runner's console is cp1252: a child Python process that prints '★' (the registry
+  # score column, factory reports) dies with UnicodeEncodeError, its stdout comes back EMPTY, and
+  # the parent test then fails with JSONDecodeError far from the cause. UTF-8 mode is the fix;
+  # harmless on linux.
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: "utf-8"
+
 jobs:
   linux:
     name: linux

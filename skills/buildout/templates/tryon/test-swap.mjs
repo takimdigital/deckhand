@@ -100,13 +100,23 @@ try {
     swap.revertSwap({ root: ROOT, file: f.rel });
   }
 
-  // 6. windows separators accepted for --to (path -> specifier)
+  // 6. a filesystem path is accepted for --to (path -> specifier). The absolute form runs on every
+  //    platform; the backslash-separator form only means anything on Windows (a fabricated
+  //    backslash path is not a POSIX path — caught by CI: it passed on the owner's box, failed on
+  //    the Linux runner)
   {
-    const f = fixture("winpath", 'import { Button } from "@/components/ui/button";\n\nexport function W() {\n  return <Button>w</Button>;\n}\n');
-    const to = path.join(ROOT, "components", "variants", "button", "button.tsx").replace(/\//g, "\\");
-    const a = swap.applySwap({ root: ROOT, file: f.rel, local: "Button", to });
-    ok(a.ok && a.changed && a.to === TARGET, "windows path normalises to the same specifier", a.to);
-    swap.revertSwap({ root: ROOT, file: f.rel });
+    const mk = (name) => fixture(name, 'import { Button } from "@/components/ui/button";\n\nexport function W() {\n  return <Button>w</Button>;\n}\n');
+    const abs = path.join(ROOT, "components", "variants", "button", "button.tsx");
+    const f1 = mk("winpath");
+    const a1 = swap.applySwap({ root: ROOT, file: f1.rel, local: "Button", to: abs });
+    ok(a1.ok && a1.changed && a1.to === TARGET, "filesystem path normalises to the same specifier", a1.to);
+    swap.revertSwap({ root: ROOT, file: f1.rel });
+    if (process.platform === "win32") {
+      const f2 = mk("winpath2");
+      const a2 = swap.applySwap({ root: ROOT, file: f2.rel, local: "Button", to: abs.replace(/\//g, "\\") });
+      ok(a2.ok && a2.changed && a2.to === TARGET, "backslash separators normalise on Windows", a2.to);
+      swap.revertSwap({ root: ROOT, file: f2.rel });
+    }
   }
 
   // 7. refusal: no binding for the local name — file untouched
