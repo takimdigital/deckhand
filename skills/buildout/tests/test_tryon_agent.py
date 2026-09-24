@@ -319,3 +319,28 @@ def test_deps_cmd_resolves_the_launcher(tmp_path):
     (tmp_path / "pnpm-lock.yaml").write_text("", encoding="utf-8")
     if shutil.which("pnpm"):
         assert TGA.dep_cmd(tmp_path)[1] == "add", "pnpm projects install with pnpm add"
+
+
+def test_fetch_refuses_non_https_and_oversized_items(tmp_path):
+    """Item URLs come from the catalog, but a tampered row must not become file:// or a remote http GET."""
+    for url in ("file:///C:/Windows/win.ini", "http://example.com/item.json", "ftp://x/y.json"):
+        with pytest.raises(ValueError, match="URL_NOT_ALLOWED"):
+            TGA.fetch_item(url)
+    base, _, srv = serve_items({"big": {"files": [{"path": "x.tsx", "content": "x" * (TGA.MAX_ITEM_BYTES + 10)}]}})
+    try:
+        with pytest.raises(ValueError, match="ITEM_TOO_LARGE"):
+            TGA.fetch_item(base + "/big.json")
+    finally:
+        srv.shutdown()
+
+
+def test_deps_refuse_anything_but_plain_npm_names(tmp_path):
+    """A registry item's `dependencies` reach a package-manager argv: options, paths, URLs refuse."""
+    (tmp_path / "package.json").write_text('{"dependencies": {"react": "19"}}', encoding="utf-8")
+    for bad in ("--registry=https://evil.example", "../../x", "git+https://x/y.git", "https://x/y.tgz", "a b"):
+        with pytest.raises(TGA.Refuse, match="BAD_DEP_NAME"):
+            TGA.ensure_deps(tmp_path, [bad], True, [])
+    TGA.ensure_deps(tmp_path, ["react@^19"], False, [])            # present by name -> no refusal
+    with pytest.raises(TGA.Refuse, match="NEEDS_DEPS: @radix-ui/react-slot"):
+        TGA.ensure_deps(tmp_path, ["@radix-ui/react-slot@1.1.0"], False, [])
+    assert TGA.dep_name("@scope/pkg@1.2") == "@scope/pkg" and TGA.dep_name("lucide-react") == "lucide-react"

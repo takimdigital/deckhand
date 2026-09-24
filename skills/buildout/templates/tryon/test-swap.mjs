@@ -375,6 +375,25 @@ try {
     const kp2 = swap.keepSwap({ root: K2, file: "app/page.tsx", local: "Button" });
     ok(kp2.ok && kp2.kept_imported.includes("components/variants/button/k2.tsx") && fs.existsSync(path.join(K2, "components", "variants", "button", "k2.tsx")),
       "keep: a sibling another file imports is kept and reported", JSON.stringify(kp2));
+
+    // containment: request data (element.file, slot, --as) must never reach outside the project
+    const C = mk("c");
+    const outside = path.join(path.dirname(C), "outside-" + path.basename(C) + ".tsx");
+    fs.writeFileSync(outside, 'import { Button } from "@/components/ui/button";\nexport const X = () => <Button>x</Button>;\n');
+    const outBefore = fs.readFileSync(outside, "utf8");
+    const code = (fn) => { try { fn(); return "NO_THROW"; } catch (e) { return String(e.message).split(":")[0]; } };
+    const i3 = swap.installVariant({ root: C, from: srcOf(C, "KOne"), slot: "button", entry: "KOne", as: "k1.tsx" });
+    ok(code(() => swap.applySwap({ root: C, file: "../" + path.basename(outside), local: "Button", to: i3.specifier, entry: "KOne" })) === "PATH_OUTSIDE_PROJECT"
+      && fs.readFileSync(outside, "utf8") === outBefore, "containment: apply refuses a ../ file and leaves it untouched");
+    ok(code(() => swap.applySwap({ root: C, file: outside, local: "Button", to: i3.specifier, entry: "KOne" })) === "PATH_OUTSIDE_PROJECT",
+      "containment: apply refuses an absolute path outside the root");
+    ok(code(() => swap.installVariant({ root: C, from: srcOf(C, "KOne"), slot: "../../../evil", entry: "KOne" })) === "BAD_SLOT"
+      && !fs.existsSync(path.join(path.dirname(C), "evil")), "containment: install refuses a traversal slot");
+    ok(code(() => swap.installVariant({ root: C, from: srcOf(C, "KOne"), slot: "button", entry: "KOne", as: "../../x.tsx" })) === "BAD_FILE_NAME",
+      "containment: install refuses a path in --as");
+    ok(code(() => swap.revertSwap({ root: C, file: "../" + path.basename(outside) })) === "PATH_OUTSIDE_PROJECT",
+      "containment: revert refuses a ../ file");
+    fs.rmSync(outside, { force: true });
   }
 } catch (e) {
   fail++;

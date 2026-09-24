@@ -526,6 +526,24 @@ def test_guard_allows_a_like_for_like_imported_component(tmp_path):
     assert out["ok"] is True and out["local"] == "Button" and out["code"] == "ALLOWED"
 
 
+def test_guard_refuses_a_file_outside_the_project(tmp_path):
+    """element.file comes from a browser request: `../` or an absolute path elsewhere must refuse."""
+    import tryon_guard as TGU
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    body = 'import { Button } from "@/components/ui/button";\nexport default function P() { return <Button>go</Button>; }\n'
+    outside = tmp_path / "victim.tsx"
+    outside.write_text(body, encoding="utf-8")
+    for f in ("../victim.tsx", str(outside)):
+        out = TGU.check(str(proj), f, 2, "button", "button", False)
+        assert out["ok"] is False and out["code"] == "OUTSIDE_PROJECT", (f, out)
+    nm = proj / "node_modules" / "pkg" / "x.tsx"
+    nm.parent.mkdir(parents=True)
+    nm.write_text(body, encoding="utf-8")
+    out = TGU.check(str(proj), "node_modules/pkg/x.tsx", 2, "button", "button", False)
+    assert out["ok"] is False and out["code"] == "OUTSIDE_PROJECT"
+
+
 # ------------------------------------------- scope: base compatibility + registry preference
 def test_guard_refuses_a_base_mismatch_unless_rescoped(tmp_path):
     """A Radix project must never be repointed at a Base UI component without an explicit confirm."""

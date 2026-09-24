@@ -7,6 +7,17 @@ no defect list, no task instructions) returned 16 findings and a 14-task plan. E
 release. The headline: the panel's checks fail honest — nothing is reported as applied that was not,
 and nothing is silently dropped.
 
+### Security
+- **Request data can no longer reach outside the project.** A panel request's file, slot and
+  staged-file name are now contained: `tryon_guard` refuses `OUTSIDE_PROJECT` (a `../` or absolute
+  path elsewhere, or anything under `node_modules/`/`.git/`), and every `swap.mjs` verb that reads
+  or writes (`apply`, `revert`, `keep`, `props`, `install`) resolves paths through one containment
+  check (symlinks resolved) — `PATH_OUTSIDE_PROJECT`, `BAD_SLOT`, `BAD_FILE_NAME`.
+- **The handler only fetches what a registry can serve.** `tryon_agent` fetches `https://` item URLs
+  only (plain `http` to loopback, for local fixtures), caps an item at 2 MB, and refuses any
+  `dependencies` entry that is not a plain npm package name (`BAD_DEP_NAME` — no options, paths,
+  URLs or git specs ever reach the package manager).
+
 ### Fixed
 - **`uninstall` can no longer strand a swapped site.** With swaps still applied it refuses
   (`SWAPS_ACTIVE`) instead of deleting the only record of the owner's original imports;

@@ -362,6 +362,33 @@ export function verifyEdit({ text, file, local, expectSpecifier, othersBefore })
 }
 
 /* ------------------------------------------------------------- file plumbing */
+/**
+ * Containment: every path a verb reads or writes must resolve INSIDE the project root (symlinks
+ * resolved). A request row is data from a browser page — `../` in element.file or a slot must never
+ * turn "try a button" into a write anywhere on disk. Throws PATH_OUTSIDE_PROJECT.
+ */
+function realish(p) {
+  // realpath the longest existing ancestor, then re-append the rest (dest files may not exist yet)
+  let cur = path.resolve(p); const tail = [];
+  while (!fs.existsSync(cur)) { const up = path.dirname(cur); if (up === cur) break; tail.unshift(path.basename(cur)); cur = up; }
+  let real = cur; try { real = fs.realpathSync.native(cur); } catch { /* keep resolved */ }
+  return path.join(real, ...tail);
+}
+export function insideRoot(root, p, what = "path") {
+  const r = realish(root), abs = realish(path.resolve(root, String(p)));
+  const rel = path.relative(r, abs);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new Error(`PATH_OUTSIDE_PROJECT: ${what} ${JSON.stringify(String(p))} resolves outside the project root`);
+  }
+  const first = rel.split(path.sep)[0];
+  if (first === "node_modules" || first === ".git") {
+    throw new Error(`PATH_OUTSIDE_PROJECT: ${what} ${JSON.stringify(String(p))} is inside ${first}/ (never a try-on target)`);
+  }
+  return path.resolve(root, String(p));
+}
+const SLOT_RE = /^[a-z0-9][a-z0-9-]{0,47}$/;
+const FILE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,95}\.(tsx|ts|jsx|js)$/;
+
 function writeAtomic(file, text) {
   const tmp = `${file}.tryon-tmp-${process.pid}`;
   fs.writeFileSync(tmp, text, "utf8");
@@ -397,7 +424,8 @@ function writeManifest(root, m) { fs.mkdirSync(path.dirname(manifestPath(root)),
 export function inspectProps({ root, file, line, local, candidate, entry }) {
   loadTs(root);
   const ts = _ts;
-  const abs = path.resolve(root, file);
+  const abs = insideRoot(root, file, "--file");
+  insideRoot(root, candidate, "--candidate");
   const usageSf = parseFile(abs, fs.readFileSync(abs, "utf8"));
   const wantLine = Number(line) || 0;
 
@@ -603,7 +631,7 @@ export function inspectProps({ root, file, line, local, candidate, entry }) {
 /* ---------------------------------------------------------------- operations */
 export function applySwap({ root, file, local, to, line, col, entry }) {
   loadTs(root);
-  const abs = path.resolve(root, file);
+  const abs = insideRoot(root, file, "--file");
   const target = toSpecifier(to, root);
   const text0 = fs.readFileSync(abs, "utf8");
   const binding = entry == null ? null
@@ -653,7 +681,7 @@ export function applySwap({ root, file, local, to, line, col, entry }) {
 
 export function revertSwap({ root, file, local, all = false, restoreBackupIfUntouched = true }) {
   loadTs(root);
-  const abs = file ? path.resolve(root, file) : null;
+  const abs = file ? insideRoot(root, file, "--file") : null;
   const j = readJournal(root);
   let entries = j.map((e, i) => ({ e, i })).filter(({ e }) => (all || e.file === (abs ? path.relative(root, abs).split(path.sep).join("/") : null)) && (!local || e.local === local));
   if (entries.length === 0) return { ok: false, reason: "NO_JOURNAL_ENTRY", file, local };
@@ -661,7 +689,8 @@ export function revertSwap({ root, file, local, all = false, restoreBackupIfUnto
   const results = [];
   const drop = [];
   for (const { e, i } of entries) {
-    const p = path.join(root, e.file);
+    const p = insideRoot(root, e.file, "journal file");
+    insideRoot(root, e.backup, "journal backup");
     const cur = fs.readFileSync(p, "utf8");
     const othersBefore = sigOf(descriptors(parseFile(p, cur)).filter((d) => d.local !== e.local));
     let text1, mode;
@@ -713,7 +742,7 @@ export function verifyStage({ root, request }) {
 /** Graduate a try: it leaves the journal, unimported siblings go, the manifest marks it kept. */
 export function keepSwap({ root, file, local }) {
   loadTs(root);
-  const rel = path.relative(root, path.resolve(root, file)).split(path.sep).join("/");
+  const rel = path.relative(root, insideRoot(root, file, "--file")).split(path.sep).join("/");
   const j = readJournal(root);
   let idx = -1;
   for (let i = 0; i < j.length; i++) { const e = j[i]; if (e && e.file === rel && (!local || e.local === local)) idx = i; }
@@ -768,7 +797,9 @@ export function keepSwap({ root, file, local }) {
 export function installVariant({ root, from, slot, entry, as, request, meta }) {
   loadTs(root);
   const src = path.resolve(root, from);
-  const slotDir = path.join(root, "components", "variants", slot);
+  if (!SLOT_RE.test(String(slot ?? ""))) throw new Error(`BAD_SLOT: ${JSON.stringify(slot)} (lowercase letters, digits, hyphens)`);
+  if (as != null && !FILE_NAME_RE.test(String(as))) throw new Error(`BAD_FILE_NAME: --as ${JSON.stringify(as)} (a bare file name ending .tsx/.ts/.jsx/.js)`);
+  const slotDir = insideRoot(root, path.join("components", "variants", String(slot)), "--slot");
   fs.mkdirSync(slotDir, { recursive: true });
   const bytes = fs.readFileSync(src);
   const text = bytes.toString("utf8");

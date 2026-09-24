@@ -94,10 +94,31 @@ def slug(s: str) -> str:
     return re.sub(r"[^a-zA-Z0-9]+", "-", s).strip("-").lower()[:60] or "component"
 
 
+MAX_ITEM_BYTES = 2 * 1024 * 1024        # a registry item is a few KB; anything this big is not one
+# npm package name (optionally scoped) + optional @version range; never an option (`--x`), a path,
+# a URL or a git spec — those would turn "install the item's deps" into arbitrary installs
+NPM_NAME_RE = re.compile(r"^(@[a-z0-9][a-z0-9._~-]*/)?[a-z0-9][a-z0-9._~-]*(@[\w.^~<>=| -]{1,64})?$")
+
+
+def dep_name(spec: str) -> str:
+    """`react@^19` -> `react`; `@scope/pkg@1` -> `@scope/pkg`; a bare name is returned as-is."""
+    head, sep, _ = spec[1:].partition("@") if spec.startswith("@") else spec.partition("@")
+    return ("@" + head) if spec.startswith("@") else head
+
+
 def fetch_item(url: str) -> dict:
+    """GET a registry item. https only (plain http only to loopback, for local fixtures); size-capped."""
+    from urllib.parse import urlparse
+    u = urlparse(url)
+    loopback = u.hostname in ("127.0.0.1", "localhost", "::1")
+    if u.scheme != "https" and not (u.scheme == "http" and loopback):
+        raise ValueError("URL_NOT_ALLOWED: only https:// item URLs are fetched (got %r)" % (u.scheme or url))
     req = Request(url, headers={"User-Agent": "deckhand-tryon/1.0 (+local dev overlay)"})
     with urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode("utf-8"))
+        body = r.read(MAX_ITEM_BYTES + 1)
+    if len(body) > MAX_ITEM_BYTES:
+        raise ValueError("ITEM_TOO_LARGE: more than %d bytes" % MAX_ITEM_BYTES)
+    return json.loads(body.decode("utf-8"))
 
 
 def pick_main_file(files: list[dict], item: str) -> dict:
@@ -169,7 +190,11 @@ def ensure_deps(project: Path, item_deps: list[str], install: bool, steps: list[
             proj = {**(data.get("dependencies") or {}), **(data.get("devDependencies") or {})}
         except Exception:
             pass
-    missing = [d for d in item_deps if d not in proj]
+    bad = [d for d in item_deps if not isinstance(d, str) or not NPM_NAME_RE.match(d)]
+    if bad:
+        raise Refuse("deps", "BAD_DEP_NAME: %s is not a plain npm package name — nothing installed"
+                             % ", ".join(repr(b) for b in bad[:3]))
+    missing = [d for d in item_deps if dep_name(d) not in proj]
     if not missing:
         return
     if not install:

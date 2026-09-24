@@ -99,6 +99,17 @@ def check(project: str, file: str, line: int, cand_slot: str,
     p = Path(file)
     if not p.is_absolute():
         p = Path(project) / file
+    # containment: the file comes from a browser request — it must resolve inside the project
+    # (symlinks resolved) and never into node_modules/.git, or a crafted `../` would aim the swap
+    # at any file on disk
+    root = Path(project).resolve()
+    try:
+        rel = p.resolve().relative_to(root)
+    except ValueError:
+        return refuse("OUTSIDE_PROJECT", "%s resolves outside the project root; try-on only edits "
+                                         "the project's own files." % file)
+    if rel.parts and rel.parts[0] in ("node_modules", ".git"):
+        return refuse("OUTSIDE_PROJECT", "%s is inside %s/; try-on never edits it." % (file, rel.parts[0]))
     if not p.exists():
         return refuse("ELEMENT_NOT_FOUND", "no such file: %s." % file)
     text = p.read_text(encoding="utf-8", errors="replace")
