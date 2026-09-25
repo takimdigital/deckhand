@@ -36,7 +36,11 @@ export const PLACEHOLDER = '/deckhand-placeholder.svg';
 /** A neutral image placeholder in public/ (a registry's demo screenshot is never shown as the owner's). */
 export function ensurePlaceholder(prof) {
   const pub = path.join(prof.root, 'public');
-  if (!fs.existsSync(pub)) return false;
+  // Next and Vite serve public/ at the site root by default — a fresh app may simply not have one yet
+  if (!fs.existsSync(pub)) {
+    if (!['next', 'vite'].includes(prof.framework)) return false;
+    fs.mkdirSync(pub, { recursive: true });
+  }
   const p = path.join(pub, 'deckhand-placeholder.svg');
   if (!fs.existsSync(p)) fs.writeFileSync(p, PLACEHOLDER_SVG);
   return true;
