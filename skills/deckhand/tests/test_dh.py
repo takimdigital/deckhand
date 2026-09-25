@@ -259,6 +259,30 @@ class Deploy(Base):
             srv.shutdown()
 
 
+class Verify(Base):
+    @unittest.skipUnless(shutil.which("npm"), "npm not on PATH")
+    def test_routes_are_proved_on_the_production_build_which_is_stopped_after(self):
+        from dhlib import verify
+        (self.root / "package.json").write_text(json.dumps({"name": "shop", "private": True, "scripts": {
+            "build": "node -e \"require('fs').writeFileSync('built.txt','ok')\"", "start": "node server.js"}}))
+        (self.root / "server.js").write_text(
+            "require('http').createServer((q, s) => { const ok = q.url === '/' || q.url === '/menu';"
+            " s.writeHead(ok ? 200 : 404, {'content-type': 'text/html'}); s.end(ok ? '<a href=\"/menu\">Menu</a>' : 'no'); })"
+            ".listen(Number(process.env.PORT));")
+        (self.root / ".gitignore").write_text(".env\n")
+        write_json(self.root / ".deckhand" / "sitemap.json", {"pages": [{"route": "/"}, {"route": "/menu"}, {"route": "/order"}]})
+        rep = verify.run_verify(self.root, skip=("audit",))
+        routes = next(r for r in rep["rows"] if r["check"] == "routes")
+        self.assertFalse(routes["ok"])
+        self.assertIn("on the production build", routes["detail"])
+        self.assertEqual(routes["evidence"], "/order -> 404")
+        import re
+        import socket
+        port = int(re.search(r"localhost:(\d+)", routes["detail"]).group(1))
+        with socket.socket() as sk:   # the server verify started is gone
+            self.assertNotEqual(sk.connect_ex(("127.0.0.1", port)), 0)
+
+
 class Profile(Base):
     def test_secrets_never_enter_the_profile_and_the_vault_is_private(self):
         with self.assertRaises(DhError):

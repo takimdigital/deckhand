@@ -2,7 +2,7 @@
 
 Rows: typecheck · lint (advisory) · build · prod-clean (no try-on stamp in the build) · tryon-closed ·
 secrets · leaks/honesty · routes (every planned static route + every internal link on the home page
-answers < 400) · a11y basics (advisory) · dependency audit (advisory).
+answers < 400 — on the production build, served on a free port for the check) · a11y basics (advisory) · dependency audit (advisory).
 Writes .deckhand/verify.json + .deckhand/VERIFY.md.
 """
 from __future__ import annotations
@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .util import git_files, is_text, now, package_json, pm_run, read_json, run, write_json
 from . import brand as BRAND
+from . import build as BUILD
 
 SECRET_RX = re.compile(r"(sk_live_[0-9a-zA-Z]{10,}|rk_live_[0-9a-zA-Z]{10,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|AIza[0-9A-Za-z_-]{35}|re_[A-Za-z0-9]{20,}_[A-Za-z0-9]{10,})")
 
@@ -55,8 +56,10 @@ def run_verify(root: Path, url: str | None = None, skip: tuple = (), allow: tupl
     if "lint" not in skip and "lint" in scripts:
         r = run(pm_run(root, "lint"), cwd=root, timeout=900)
         row("lint", r["code"] == 0, "lint clean" if r["code"] == 0 else "lint reported problems", blocking=False, evidence=(r["out"] or r["err"])[-600:] if r["code"] else None)
+    built = False
     if "build" not in skip and "build" in scripts:
         r = run(pm_run(root, "build"), cwd=root, timeout=1800)
+        built = r["code"] == 0
         row("build", r["code"] == 0, "production build ok" if r["code"] == 0 else "build failed", evidence=(r["err"] or r["out"])[-1200:] if r["code"] else None)
         out_dirs = [root / d for d in (".next", "dist", "build", "out") if (root / d).is_dir()]
         stamped = []
@@ -103,26 +106,47 @@ def run_verify(root: Path, url: str | None = None, skip: tuple = (), allow: tupl
     b = BRAND.check(root, allow=allow)
     row("honesty", b["ok"], f"{b['blocking']} blocking findings, {b['warnings']} warnings (template names, demo content, fake logos, placeholders)",
         evidence="\n".join(f"{f['severity']} {f['file']}:{f['line']} {f['kind']}: {f['text']}" for f in b["findings"][:15]) or None)
-    base = url or (read_json(root / ".deckhand" / "dev.json", {}) or {}).get("url")
-    if base and "routes" not in skip:
-        base = base.rstrip("/")
-        sm = read_json(root / ".deckhand" / "sitemap.json", {}) or {}
-        routes = {p["route"] for p in sm.get("pages", []) if "[" not in p.get("route", "[") and (p.get("auth") or "public") == "public"}
-        st, html = _get(base + "/")
-        parser = _Links()
-        try:
-            parser.feed(html)
-        except Exception:
-            pass
-        routes |= parser.links | {"/"}
-        bad = []
-        for r_ in sorted(routes)[:80]:
-            code, _ = _get(base + r_)
-            if not code or code >= 400:
-                bad.append(f"{r_} -> {code}")
-        row("routes", not bad, f"{len(routes)} routes answer" if not bad else f"{len(bad)} of {len(routes)} routes fail", evidence="\n".join(bad[:20]) or None)
-    else:
-        row("routes", False, "not checked: no running URL (dh dev start, or --url)", blocking=False)
+    # routes are proved on what ships: the production build, served here on a free port and stopped after.
+    # An explicit --url wins; the dev server is the fallback when there is no build or start script.
+    prod, base, where = None, url, "the given URL"
+    if not base and built and "start" in scripts and "routes" not in skip:
+        log = root / ".deckhand" / "verify-serve.log"
+        prod, purl, pst = BUILD.serve(root, "start", BUILD._free_port(4100), log, wait=120)
+        if pst and pst < 500:
+            base, where = purl, f"the production build, {purl}"
+        else:
+            row("prod-serve", False, "the production build did not start (`start` script)",
+                evidence=log.read_text(encoding="utf-8", errors="replace")[-800:] or None)
+    if not base:
+        base, where = (read_json(root / ".deckhand" / "dev.json", {}) or {}).get("url"), "the dev server"
+    try:
+        if base and "routes" not in skip:
+            base = base.rstrip("/")
+            sm = read_json(root / ".deckhand" / "sitemap.json", {}) or {}
+            routes = {p["route"] for p in sm.get("pages", []) if "[" not in p.get("route", "[") and (p.get("auth") or "public") == "public"}
+            st, html = _get(base + "/")
+            parser = _Links()
+            try:
+                parser.feed(html)
+            except Exception:
+                pass
+            routes |= parser.links | {"/"}
+            bad = []
+            for r_ in sorted(routes)[:80]:
+                code, _ = _get(base + r_)
+                if not code or code >= 400:
+                    bad.append(f"{r_} -> {code}")
+            row("routes", not bad, (f"{len(routes)} routes answer" if not bad else f"{len(bad)} of {len(routes)} routes fail") + f" (on {where})",
+                evidence="\n".join(bad[:20]) or None)
+        else:
+            row("routes", False, "not checked: no build to serve and no running URL (dh dev start, or --url)", blocking=False)
+    finally:
+        if prod:
+            try:
+                BUILD.kill_tree(prod.pid)
+                prod.wait(timeout=15)
+            except Exception:  # noqa: BLE001
+                pass
     a11y = []
     for p in git_files(root):
         if p.suffix in (".tsx", ".jsx") and "node_modules" not in p.parts:

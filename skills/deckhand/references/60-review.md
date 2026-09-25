@@ -15,12 +15,12 @@ green on every blocking row; `.deckhand/VERIFY.md`. **Gate G4:** the owner says 
 | env-ignored | yes | `.env` is not gitignored |
 | swaps | yes | a vendor SDK marked for replacement is still installed/imported |
 | honesty | yes | template names, demo companies/people, lorem ipsum, fake logos, try-on leftovers |
-| routes | yes (when a URL is given) | a planned public route or a home-page link answers ≥ 400 |
+| routes | yes | a planned public route or a home-page link answers ≥ 400 — checked on the production build (served on a free port and stopped after; `--url` checks a live site instead) |
 | a11y-basics | no | `<img>` without alt, `<html>` without lang |
 | deps-audit | no | high/critical npm advisories |
 
 ## Procedure
-`$T clean` (try-on) → `dh dev start` → `dh verify --url <dev url>` → fix every red blocking row at its root
+`$T clean` (try-on) → `dh verify` (it builds, then serves the build itself for the route check) → fix every red blocking row at its root
 (never by weakening the check) → re-run → `dh phase done review` → show VERIFY.md → G4.
 Security floor before G4: auth routes rate-limited or provider-protected; admin routes server-checked;
 uploads size/type-limited; CSP/headers from the framework defaults at least; no debug endpoints.

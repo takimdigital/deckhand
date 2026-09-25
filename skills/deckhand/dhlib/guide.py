@@ -39,7 +39,7 @@ STEPS = {
               "no browser? {tryon} try --file <f> --line <n> --col <c> --slot hero   then show / keep / discard",
               "{dh} phase done tryon  (or skip it) → wait for the owner's go on the design (G3)"],
     "review": ["{tryon} clean --project .          # unwire try-on (kept sections stay)",
-               "{dh} verify --url <local url>       # every red row is fixed, not argued with",
+               "{dh} verify                         # builds, serves the build, checks every row; red rows are fixed, not argued with",
                "{dh} phase done review  → owner says go live (G4)"],
     "deploy": ["first time: references/ops/00-user-checklist.md → 10/11 (server) → 20/21 (domain) → 30 (app); then {dh} deploy target --app <uuid> --url https://…",
                "{dh} deploy ship                    # push → deploy → wait for YOUR commit → smoke",

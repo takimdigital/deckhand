@@ -170,7 +170,7 @@ def _free_port(start: int = 3000) -> int:
         with socket.socket() as s:
             if s.connect_ex(("127.0.0.1", p)) != 0:
                 return p
-    raise DhError("NO_PORT", "no free port in 3000-3049")
+    raise DhError("NO_PORT", f"no free port in {start}-{start + 49}")
 
 
 def _answers(url: str) -> int | None:
@@ -181,25 +181,24 @@ def _answers(url: str) -> int | None:
         return getattr(e, "code", None)
 
 
-def dev_start(root: Path, port: int | None = None, wait: int = 180) -> dict:
+def serve(root: Path, script: str, port: int, log: Path, wait: int = 180):
+    """Start `<pm> run <script> --port N` detached (own process group); wait until it answers < 500.
+    Returns (proc, url, status). The caller stops it with kill_tree(proc.pid)."""
     root = Path(root)
-    info = read_json(root / ".deckhand" / "dev.json", {}) or {}
-    if info.get("url") and _answers(info["url"]):
-        return {"running": True, **info, "reused": True}
-    pkg = package_json(root)
-    script = "dev" if "dev" in (pkg.get("scripts") or {}) else "start"
-    port = port or _free_port()
     pm = package_manager(root)
     cmd = {"npm": ["npm", "run", script, "--"], "pnpm": ["pnpm", "run", script], "yarn": ["yarn", script], "bun": ["bun", "run", script]}[pm] + ["--port", str(port)]
-    log = (root / ".deckhand" / "dev.log")
     log.parent.mkdir(parents=True, exist_ok=True)
-    kw = {"cwd": str(root), "stdout": open(log, "w"), "stderr": subprocess.STDOUT, "env": {**os.environ, "PORT": str(port)}}
+    out = open(log, "w")
+    kw = {"cwd": str(root), "stdout": out, "stderr": subprocess.STDOUT, "env": {**os.environ, "PORT": str(port)}}
     if os.name == "nt":
         kw["creationflags"] = 0x00000008 | 0x00000200          # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
         cmd[0] = shutil.which(cmd[0]) or cmd[0]
     else:
         kw["start_new_session"] = True
-    proc = subprocess.Popen(cmd, **kw)
+    try:
+        proc = subprocess.Popen(cmd, **kw)
+    finally:
+        out.close()                                            # the child keeps its own handle
     url = f"http://localhost:{port}"
     t0 = time.time()
     status = None
@@ -210,7 +209,27 @@ def dev_start(root: Path, port: int | None = None, wait: int = 180) -> dict:
         if proc.poll() is not None:
             break
         time.sleep(1.5)
-    info = {"url": url, "pid": proc.pid, "cmd": " ".join(cmd), "started": now(), "status": status}
+    proc.cmd = " ".join(cmd)
+    return proc, url, status
+
+
+def kill_tree(pid: int) -> None:
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
+    else:
+        os.killpg(os.getpgid(pid), signal.SIGTERM)
+
+
+def dev_start(root: Path, port: int | None = None, wait: int = 180) -> dict:
+    root = Path(root)
+    info = read_json(root / ".deckhand" / "dev.json", {}) or {}
+    if info.get("url") and _answers(info["url"]):
+        return {"running": True, **info, "reused": True}
+    pkg = package_json(root)
+    script = "dev" if "dev" in (pkg.get("scripts") or {}) else "start"
+    log = root / ".deckhand" / "dev.log"
+    proc, url, status = serve(root, script, port or _free_port(), log, wait)
+    info = {"url": url, "pid": proc.pid, "cmd": proc.cmd, "started": now(), "status": status}
     write_json(root / ".deckhand" / "dev.json", info)
     tail = log.read_text(encoding="utf-8", errors="replace")[-1500:]
     if not status or status >= 500:
@@ -224,10 +243,7 @@ def dev_stop(root: Path) -> dict:
     if not pid:
         return {"stopped": False, "reason": "not started by dh"}
     try:
-        if os.name == "nt":
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
-        else:
-            os.killpg(os.getpgid(pid), signal.SIGTERM)
+        kill_tree(pid)
     except Exception as e:  # noqa: BLE001
         return {"stopped": False, "reason": str(e)}
     return {"stopped": True, "pid": pid}
