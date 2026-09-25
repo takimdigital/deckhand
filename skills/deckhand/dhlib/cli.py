@@ -64,7 +64,7 @@ def build_parser():
     p = sub.add_parser("profile"); p.add_argument("action", choices=["show", "set", "doctor"]); p.add_argument("pairs", nargs="*"); p.add_argument("--offline", action="store_true")
     p = sub.add_parser("vault"); p.add_argument("action", choices=["set", "list"]); p.add_argument("name", nargs="?")
 
-    p = sub.add_parser("pool"); p.add_argument("action", choices=["query", "show", "add", "list"]); p.add_argument("target", nargs="?")
+    p = sub.add_parser("pool"); p.add_argument("action", choices=["query", "show", "vet", "add", "list"]); p.add_argument("target", nargs="?")
     p.add_argument("--shape"); p.add_argument("--features"); p.add_argument("--languages"); p.add_argument("--top", type=int, default=3); p.add_argument("--mine", action="store_true"); p.add_argument("--lane", default="web")
 
     p = sub.add_parser("plan"); p.add_argument("action", choices=["init", "lint", "render", "split"]); p.add_argument("--agents", type=int, default=3); p.add_argument("--force", action="store_true")
@@ -149,6 +149,10 @@ def dispatch(a):
             return POOL.query(brief, a.top)
         if a.action == "show":
             return POOL.show(a.target)
+        if a.action in ("vet", "add") and not a.target:
+            raise DhError("USAGE", f"dh pool {a.action} owner/repo")
+        if a.action == "vet":
+            return POOL.vet(a.target, mine=a.mine)
         if a.action == "add":
             return POOL.add(a.target, mine=a.mine, shape=a.shape, features=[x.strip() for x in (a.features or "").split(",") if x.strip()])
         return {"templates": [{k: r.get(k) for k in ("name", "source", "shape", "lane", "license", "stars")} for r in POOL.rows()]}

@@ -19,6 +19,13 @@ export function libraryDir() {
 export function loadCatalog() {
   const main = JSON.parse(fs.readFileSync(path.join(SKILL_DIR, 'data', 'components.index.json'), 'utf8'));
   let items = main.items;
+  // the owner's vetted registries (`tryon registry add`) — after their own library, before the shipped catalog
+  const extra = path.join(path.dirname(libraryDir()), 'catalog');
+  if (fs.existsSync(extra)) {
+    for (const f of fs.readdirSync(extra).filter((x) => x.endsWith('.json')).sort()) {
+      try { items = JSON.parse(fs.readFileSync(path.join(extra, f), 'utf8')).items.concat(items); } catch { /* skip a broken file */ }
+    }
+  }
   const mine = path.join(libraryDir(), 'components.index.json');
   if (fs.existsSync(mine)) {
     try { items = JSON.parse(fs.readFileSync(mine, 'utf8')).items.concat(items); } catch { /* a broken personal index never blocks the catalog */ }

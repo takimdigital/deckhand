@@ -48,7 +48,7 @@ owner; never re-derive what a script computes.
 **Modes** (asked once, at define): `phased` (default, recommended for a first business: the run STOPS at
 G1–G4 until the owner says go — `dh gate pass Gx`) · `auto` (gates pass themselves; only genuine
 forks, owner-only facts and failures stop the run).
-**Paths**: `pool` (vetted MIT/Apache base) · `mine` (the owner's harvested base) · `existing` (their repo
+**Paths**: `pool` (vetted permissive-licence base) · `mine` (the owner's harvested base) · `existing` (their repo
 or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes their mind → `dh reopen <phase>`.
 
 ## 3. Invariants (MUST / MUST NOT)
@@ -59,8 +59,11 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
    token/script covers, ONE batched message, exact click path, labeled `ACTION NEEDED`/`DECISION NEEDED`.
 3. **Secrets** live in `~/.deckhand/vault.env` (0600) or the platform's env store. MUST NOT appear in chat,
    the profile, commits, logs or HANDOFF.md (write locations, not values).
-4. **Licences.** Bases and components are MIT/Apache-2.0 only; `NOTICE` and `THIRD_PARTY_NOTICES.md` are
-   never deleted or rewritten. Refused registries stay refused (`data/registries.json`).
+4. **Licences.** Bases and components come from permissive licences only (`data/licenses.json`: MIT,
+   Apache-2.0, BSD-2/3, ISC, 0BSD, Unlicense); `NOTICE` and `THIRD_PARTY_NOTICES.md` are never deleted or
+   rewritten. Nothing enters the pool or the catalog unvetted: `dh pool vet|add owner/repo` and `tryon registry
+   vet|add` refuse — with the reason and what would be accepted — copyleft, no/unknown licence, paywalls,
+   paid packages, committed secrets, dead or non-runnable repos. Refused registries stay refused.
 5. **Evidence over assertion.** "Works", "deployed", "fixed" require the command and its output.
    A check that cannot fail is not a check; fixes go into scripts/tests, not prose.
 6. **Deterministic first.** If a script does it (`dh …`, `tryon …`), the agent MUST NOT hand-write it.
@@ -82,7 +85,7 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
 | what now? | `dh next` · `dh status` |
 | start / brief | `dh init --name N --mode phased\|auto --path pool\|mine\|existing\|scratch --project DIR` · `dh brief set k=v …` |
 | owner profile / secrets | `dh profile doctor\|set k=v` · `dh vault set NAME` (value via stdin) · `dh vault list` |
-| bases | `dh pool query [--shape --features]` · `dh pool show N` · `dh pool add owner/repo [--mine]` |
+| bases | `dh pool query [--shape --features]` · `dh pool show N` · `dh pool vet owner/repo` · `dh pool add owner/repo [--mine]` (vetted) |
 | plan | `dh plan init\|lint\|render\|split --agents N` · `dh bb post\|read` (shared memory for parallel agents) |
 | build | `dh clone T --to DIR` · `dh adopt PATH\|URL` · `dh scaffold --to DIR` · `dh compose --sections … --copy .deckhand/copy.json` · `dh swap scan\|check` · `dh dev start\|stop\|status` |
 | brand | `dh rebrand scan\|apply\|check` |

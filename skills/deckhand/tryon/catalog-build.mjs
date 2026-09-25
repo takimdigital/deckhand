@@ -16,12 +16,13 @@ import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { TAILARK_CATEGORY, slotFromName, kindOf } from './lib/slots.mjs';
+import { mapShadcnItems } from './lib/regmap.mjs';
 
 const require = createRequire(import.meta.url);
 const { parse, walk } = require('./lib/ast.cjs');
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SKILL = path.resolve(HERE, '..');
-const OK_LICENSES = new Set(['MIT', 'Apache-2.0']);
+const OK_LICENSES = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(SKILL, 'data', 'licenses.json'), 'utf8')).accepted));
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
@@ -121,24 +122,7 @@ async function shadcnSchema(reg) {
     if (!idx) {
       try { idx = JSON.parse(await get(reg.index.replace('{style}', style))); } catch (e) { console.error('skip', reg.id, style, e.message); continue; }
     }
-    for (const it of idx.items || []) {
-      const type = String(it.type || '');
-      if (!/registry:(ui|block|component)$/.test(type)) continue;
-      if (reg.free_types && !reg.free_types.includes(type)) continue;
-      const slot = (type === 'registry:ui' && slotFromName(it.name)) || slotFromName(it.name) || slotFromName((it.categories || []).join('-'));
-      if (!slot) continue;
-      const targetsUtils = (it.files || []).some((f) => /lib\/utils/.test(String(f.target || f.path || '')) && type !== 'registry:ui');
-      if (targetsUtils) continue;
-      const item = {
-        id: `${reg.id}/${it.name}@${base}`, r: reg.id, n: it.name, base, slot, kind: kindOf(slot),
-        t: it.title || it.name, deps: it.dependencies || [], rdeps: it.registryDependencies || [],
-        json: reg.item.replace('{style}', style || '').replace('{name}', it.name), lic: reg.license,
-      };
-      if (style) item.style = style;
-      if (reg.mirror) item.mirror = reg.mirror.replace('{style}', style || '').replace('{name}', it.name);
-      if (reg.gh && (it.files || []).length) item.ghFiles = it.files.map((f) => `${reg.gh}/${f.path}`);
-      out.push(item);
-    }
+    out.push(...mapShadcnItems(reg, idx, style, base));
   }
   return out;
 }

@@ -26,7 +26,7 @@ export function cacheDir() {
   return process.env.DH_CACHE || path.join(process.env.DECKHAND_HOME || path.join(os.homedir(), '.deckhand'), 'cache', 'tryon');
 }
 
-const keyOf = (url) => crypto.createHash('sha1').update(url).digest('hex').slice(0, 20);
+export const keyOf = (url) => crypto.createHash('sha1').update(url).digest('hex').slice(0, 20);
 
 export async function getText(url, { cache = true } = {}) {
   const k = keyOf(url);
@@ -34,8 +34,9 @@ export async function getText(url, { cache = true } = {}) {
   if (fx) {
     const p = path.join(fx, k + '.txt');
     if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
-    const miss = path.join(fx, k + '.404');
-    if (fs.existsSync(miss)) throw Object.assign(new Error('HTTP 404 ' + url), { status: 404 });
+    for (const code of [404, 401, 402, 403, 429, 500]) {
+      if (fs.existsSync(path.join(fx, k + '.' + code))) throw Object.assign(new Error('HTTP ' + code + ' ' + url), { status: code });
+    }
     if (!process.env.DH_FIXTURES_PASSTHROUGH) throw Object.assign(new Error('FIXTURE_MISSING ' + url), { status: 599 });
   }
   const cdir = cacheDir();

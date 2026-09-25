@@ -27,6 +27,15 @@ to the sitemap's `nav` (page titles as labels). A section that must keep the des
 section (owner words carried, demo left, design family) and reports `dropped` / `demo_copy`: rewrite those
 words, never delete the report.
 
+## Adding a base someone found (vetted, never on trust)
+`dh pool vet owner/repo` measures it through the GitHub API (no clone, no code run) and judges it against
+written criteria. Refused (any one): a licence outside the permissive family (`data/licenses.json`), a
+`package.json` licence that contradicts it, archived or no push in 3 years, not a runnable web app (build +
+dev/start), committed secrets, paid/private packages. Warnings: a paid tier in the README, stale, few
+stars, huge monorepo, rented services to swap, try-on-incompatible framework. `dh pool add owner/repo
+[--mine]` adds it only when accepted; a refusal prints the reasons and what would be accepted.
+Component registries follow the same policy: `tryon registry vet|add --index <registry.json> --repo owner/name`.
+
 ## Swap rented services (pool/existing bases)
 `dh swap scan` → `.deckhand/swap-map.json`. Replace ONE vendor at a time, keeping the base's call-site
 interfaces (an adapter module), then `dh swap check` (vendor SDK absent + target present). Targets:

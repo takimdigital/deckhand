@@ -21,6 +21,10 @@
  *   node tryon/cli.mjs drafts     [--wait [--timeout 1800]]          pending requests (+ each brief path)
  *   node tryon/cli.mjs draft-check --id D                            run the gates, write nothing
  *   node tryon/cli.mjs draft-done  --id D                            gate + show it (labelled AI-generated)
+ *
+ * A registry someone found — vetted (licence, paywall, schema, usable items) before it is indexed:
+ *   node tryon/cli.mjs registry vet|add --index https://…/registry.json --repo owner/name [--id x]
+ *   node tryon/cli.mjs registry list | registry remove --id x
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,6 +35,7 @@ import { loadCatalog, rank, slotsSummary } from './lib/catalog.mjs';
 import { saveToLibrary, listLibrary } from './lib/library.mjs';
 import { startServer, detectTarget } from './server.mjs';
 import * as draft from './lib/draft.mjs';
+import { vetRegistry, addRegistry, listRegistries, removeRegistry } from './lib/vet.mjs';
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -114,6 +119,17 @@ async function main() {
       const r = await draft.completeDraft(project, flags.id, { install: false });
       return out({ ok: true, ...r, next: `the owner compares it in the browser (labelled AI-generated) — or \`show --id ${r.id} --idx ${r.ai_variant}\`, then keep/discard` });
     }
+    case 'registry': {
+      // a registry the owner (or the agent) found: vetted against written criteria before anything is indexed
+      const act = argv[1];
+      if (act === 'list') return out({ ok: true, registries: listRegistries() });
+      if (act === 'remove') { need('id'); return out({ ok: true, ...removeRegistry(flags.id) }); }
+      if (!['vet', 'add'].includes(act)) return out({ ok: false, code: 'USAGE', usage: 'registry vet|add --index https://…/registry.json --repo owner/name [--id x] | registry list | registry remove --id x' }, 2);
+      need('index');
+      const o = { index: flags.index, repo: typeof flags.repo === 'string' ? flags.repo : null, id: typeof flags.id === 'string' ? flags.id : null, item: typeof flags.item === 'string' ? flags.item : null };
+      if (act === 'vet') { const { _reg, _items, ...v } = await vetRegistry(o); return out({ ok: v.verdict === 'accepted', ...v }, v.verdict === 'accepted' ? 0 : 1); }
+      return out({ ok: true, ...(await addRegistry(o)) });
+    }
     case 'show': need('id', 'idx'); return out({ ok: true, ...engine.show(project, flags.id, flags.idx) });
     case 'keep': need('id'); return out(engine.keep(project, flags.id, flags.idx));
     case 'discard': need('id'); return out(engine.discard(project, flags.id));
@@ -133,9 +149,9 @@ async function main() {
       return out({ ok: true, discarded, ...r, restartDevServer: true });
     }
     default:
-      return out({ ok: false, code: 'USAGE', commands: ['setup', 'serve', 'doctor', 'slots', 'query', 'inspect', 'try', 'show', 'keep', 'discard', 'save', 'library', 'status', 'clean', 'draft', 'drafts', 'draft-check', 'draft-done'] }, 2);
+      return out({ ok: false, code: 'USAGE', commands: ['setup', 'serve', 'doctor', 'slots', 'query', 'inspect', 'try', 'show', 'keep', 'discard', 'save', 'library', 'status', 'clean', 'draft', 'drafts', 'draft-check', 'draft-done', 'registry'] }, 2);
   }
 }
 
-main().catch((e) => out({ ok: false, code: e.code || 'ERROR', message: String(e.message || e).slice(0, 3000), skipped: e.skipped, problems: e.problems,
+main().catch((e) => out({ ok: false, code: e.code || 'ERROR', message: String(e.message || e).slice(0, 3000), skipped: e.skipped, problems: e.problems, ...(e.report ? { report: e.report } : {}),
   ...(e.draft ? { next: `no licensed design fits — an AI draft is possible (labelled AI-generated for the owner): draft --file ${e.draft.file} --line ${e.draft.line} --col ${e.draft.col} --slot ${e.draft.slot}` } : {}) }, 1));

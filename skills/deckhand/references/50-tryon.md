@@ -44,6 +44,13 @@ owner's are allowed only as short UI copy, and are shown as "its own words" and 
 (prices, numbers, names, reviews, logos, dates). The variant is labelled AI-generated in the bar; its file
 header says so on keep; no third-party licence notice is written for it.
 
+## A registry the owner found
+`$T registry vet --index https://x.dev/r/registry.json --repo owner/name` → accepted or refused with reasons
+(not on the refused list · permissive licence evidenced by the source repo · shadcn schema · items that map
+to slots · sampled items download with their source: a 401/402/403 or a content-less "pro" item is a
+paywall). `registry add` indexes it into `~/.deckhand/catalog/` — it ranks beside the shipped catalog.
+`registry list` / `registry remove --id x`.
+
 ## What the engine guarantees
 - Location: every JSX element carries `data-dh="file:line:col"` in dev (AST, vendored parser — works with
   TypeScript 7 projects); the overlay resolves the clicked node and its owners.

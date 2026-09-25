@@ -15,8 +15,9 @@ from pathlib import Path
 
 from .util import DATA, DhError, home, now, read_json, write_json
 from . import profile as PROFILE
+from . import vet as VET
 
-OK_LICENSES = {"MIT", "Apache-2.0"}
+OK_LICENSES = set(json.loads((DATA / "licenses.json").read_text(encoding="utf-8"))["accepted"])  # one policy: data/licenses.json
 OWNER_LICENSES = {"owner"}          # the owner's own harvested bases
 FEATURE_WORDS = ["accounts", "payments", "billing", "admin", "i18n", "jobs", "search", "notifications", "uploads", "booking",
                  "blog", "docs", "dashboard", "teams", "api", "email", "analytics", "cms", "ecommerce", "marketplace"]
@@ -49,7 +50,7 @@ def _days_since(date: str):
 def score(row: dict, brief: dict) -> tuple:
     reasons, blockers = [], []
     if row.get("license") not in OK_LICENSES and not (row.get("source") == "mine" and row.get("license") in OWNER_LICENSES):
-        blockers.append(f"licence {row.get('license')} (MIT/Apache-2.0 only)")
+        blockers.append(f"licence {row.get('license')} (permissive licences only: {', '.join(sorted(OK_LICENSES))})")
     if row.get("archived"):
         blockers.append("archived upstream")
     lane = brief.get("lane") or "web"
@@ -188,7 +189,11 @@ def measure(repo: str) -> dict:
     lic = (meta.get("license") or {}).get("spdx_id")
     branch = meta.get("default_branch") or "main"
     tree = [t["path"] for t in _gh(f"https://api.github.com/repos/{repo}/git/trees/{branch}?recursive=1").get("tree", []) if t.get("type") == "blob"][:20000]
-    pkg = json.loads(_raw(repo, branch, "package.json") or "{}")
+    pkg_text = _raw(repo, branch, "package.json")
+    try:
+        pkg = json.loads(pkg_text or "{}")
+    except ValueError:
+        pkg = {}
     readme = (_raw(repo, branch, "README.md") or "")[:20000]
     head = _gh(f"https://api.github.com/repos/{repo}/commits/{branch}")
     stack = detect_stack(pkg, tree)
@@ -212,24 +217,35 @@ def measure(repo: str) -> dict:
         "risks": [r for r, c in (("no-tests", not any(re.search(r"(vitest|jest|playwright)", k) for k in deps)),
                                   ("no-docker", not stack["docker"])) if c],
         "measured": "github-api", "measured_at": now(),
+        "evidence": VET.evidence(pkg, tree, readme, bool(pkg_text)),
     }
 
 
-def add(repo: str, mine: bool = False, shape: str | None = None, features: list | None = None) -> dict:
+def vet(repo: str, mine: bool = False) -> dict:
+    """Measure + judge, write nothing (`dh pool vet`)."""
     row = measure(repo)
+    return {"row": {k: v for k, v in row.items() if k != "evidence"}, **VET.verdict(row, mine=mine)}
+
+
+def add(repo: str, mine: bool = False, shape: str | None = None, features: list | None = None, row: dict | None = None) -> dict:
+    row = row or measure(repo)
     if shape:
         row["shape"] = shape
         row["shape_source"] = "owner"
     if features:
         row["features"] = sorted(set(row["features"]) | set(features))
-    if row["license"] not in OK_LICENSES:
-        return {"added": False, "row": row, "reason": f"licence {row['license']} — the pool is MIT/Apache-2.0 only"}
+    v = VET.verdict(row, mine=mine)
+    if v["verdict"] != "accepted":
+        raise DhError("REFUSED", f"{row.get('repo')} does not meet the pool criteria: " + "; ".join(f["detail"] for f in v["fails"]),
+                      fails=v["fails"], warnings=v["warnings"], acceptable=v["acceptable"])
+    row = {k: val for k, val in row.items() if k != "evidence"}
+    row["vetted"] = {"at": now(), "warnings": [w["id"] for w in v["warnings"]]}
     target = personal_path() if mine else DATA / "pool.json"
     doc = read_json(target, {"version": 2, "templates": []}) or {"version": 2, "templates": []}
     doc["templates"] = [r for r in doc.get("templates", []) if r.get("repo") != row["repo"]] + [row]
     doc["count"] = len(doc["templates"])
     write_json(target, doc)
-    return {"added": True, "to": str(target), "row": row}
+    return {"added": True, "to": str(target), "row": row, "verdict": "accepted", "warnings": v["warnings"]}
 
 
 def add_local(path: Path, meta: dict) -> dict:

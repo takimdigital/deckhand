@@ -3,13 +3,13 @@
   "updated": "2026-09-24",
   "policy": "MIT / Apache-2.0 only. A registry is indexed only after its LICENSE was read at the URL in license_evidence. Try-on writes an attribution header (source URL + licence) into every staged file; a kept file keeps it.",
   "refused": [
-    {"id": "coss (originui)", "reason": "AGPL-3.0"},
-    {"id": "animate-ui", "reason": "MIT + Commons Clause (not OSI MIT)"},
-    {"id": "aceternity", "reason": "custom licence, paid tiers"},
-    {"id": "21st.dev", "reason": "marketplace ToS, no redistribution grant"},
-    {"id": "tailark.com (pro)", "reason": "paywalled blocks (401) — the MIT OSS registry below is the free source"},
-    {"id": "cult-ui", "reason": "endpoint bot-challenged (429) for every client — not installable"}
-  ],
+  {"id": "coss (originui)", "reason": "AGPL-3.0", "hosts": ["coss.com", "originui.com"]},
+  {"id": "animate-ui", "reason": "MIT + Commons Clause (not OSI MIT)", "hosts": ["animate-ui.com"]},
+  {"id": "aceternity", "reason": "custom licence, paid tiers", "hosts": ["aceternity.com"]},
+  {"id": "21st.dev", "reason": "marketplace ToS, no redistribution grant", "hosts": ["21st.dev"]},
+  {"id": "tailark.com (pro)", "reason": "paywalled blocks (401) — the MIT OSS registry below is the free source", "hosts": ["tailark.com"]},
+  {"id": "cult-ui", "reason": "endpoint bot-challenged (429) for every client — not installable", "hosts": ["cult-ui.com"]}
+ ],
   "registries": [
     {
       "id": "tailark-oss",
