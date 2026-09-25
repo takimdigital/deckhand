@@ -5,7 +5,7 @@ After this file: `30-deploy-app.md` (attach the same domain to the app), then `4
 
 > Rehearsal tip (live-verified): to test a fresh VPS **before DNS exists**, set the app's domain to
 > the plain server IP (`http://<server-ip>`) — Traefik matches on Host and serves it with no DNS at all;
-> smoke with `py scripts/coolify_api.py smoke http://<server-ip>`.
+> smoke with `py ops/scripts/coolify_api.py smoke http://<server-ip>`.
 
 Prerequisites: `~/.vps-ops/secrets/env.sh` exported (`$HOSTINGER_API_TOKEN`, `$COOLIFY_URL`,
 `$COOLIFY_TOKEN` — see `10-bootstrap-vps.md` Steps 1a/5); VPS IP known; SSH + Coolify health verified.
@@ -40,7 +40,7 @@ curl -sS "https://developers.hostinger.com/api/dns/v1/zones/$DOMAIN" \
   | tee ~/.vps-ops/dns-backup-$(date +%F-%H%M%S).json
 ```
 
-Script equivalent: `py scripts/hostinger_api.py dns get <domain> --save ~/.vps-ops/dns-backup-<timestamp>.json` — a NEW name every read (never overwrite: a same-day re-read would save the already-changed zone over the pre-change rollback reference).
+Script equivalent: `py ops/scripts/hostinger_api.py dns get <domain> --save ~/.vps-ops/dns-backup-<timestamp>.json` — a NEW name every read (never overwrite: a same-day re-read would save the already-changed zone over the pre-change rollback reference).
 Expected: the full current zone JSON — keep the copy; it is the rollback reference.
 
 ### 2. Write `proposed.json` — A records only
@@ -87,7 +87,7 @@ curl -sS "https://developers.hostinger.com/api/dns/v1/zones/$DOMAIN" \
 ```
 
 Script equivalent for steps 2–5 (idempotent merge + diff summary):
-`py scripts/hostinger_api.py dns set-a <domain> --ip <IP> --names @,www,coolify --ttl 14400`.
+`py ops/scripts/hostinger_api.py dns set-a <domain> --ip <IP> --names @,www,coolify --ttl 14400`.
 
 ### Rollback — DNS snapshots
 
@@ -142,7 +142,7 @@ echo | openssl s_client -connect <domain>:443 -servername <domain> 2>/dev/null \
 # expect: issuer string contains "Let's Encrypt"; notBefore/notAfter bracket today
 # [verify at live drill] — this one-liner has not been executed end-to-end yet
 
-py scripts/coolify_api.py smoke https://<domain> --expect 200 --contains "<a string only your app returns>"   # a bare 200 can't tell your app from a default page
+py ops/scripts/coolify_api.py smoke https://<domain> --expect 200 --contains "<a string only your app returns>"   # a bare 200 can't tell your app from a default page
 # expect: OK 200 https://<domain>     (exit code 4 = check failed)
 ```
 
@@ -155,7 +155,7 @@ py scripts/coolify_api.py smoke https://<domain> --expect 200 --contains "<a str
 | Issuance fails, port 80 blocked | firewall has a TCP/80 rule? `…/firewall/<fwId>/sync` run? | add the rule + sync (`10-bootstrap-vps.md` Step 3), redeploy |
 | `www` fails while apex works (or vice versa) | both A records present? both hostnames in the `domains` string? | add the missing A record (record plan) and include both hostnames in `domains`; certs are per hostname |
 | Stale / duplicate A records | re-GET the zone, look for extra A entries | PUT the desired-state body again (`overwrite:true`, A only) — it rewrites exactly those names |
-| DNS correct but app 404s / 502s | app deployed and healthy? `py scripts/coolify_api.py status` | deploy the app (`30-deploy-app.md`); inspect logs |
+| DNS correct but app 404s / 502s | app deployed and healthy? `py ops/scripts/coolify_api.py status` | deploy the app (`30-deploy-app.md`); inspect logs |
 
 ## Next
 

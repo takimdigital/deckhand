@@ -1,7 +1,7 @@
 # 70 — Auth & login email (verify + reset that actually arrives)
 
 Load when: the app must send account email (signup verification, password reset, receipts) or needs auth added.
-Read after `30-deploy-app.md`. Partner file: `references/80-mcp-integrations.md` (MCP catalog; DNS section).
+Read after `30-deploy-app.md`. Partner file: `references/ops/80-mcp-integrations.md` (MCP catalog; DNS section).
 
 "No email = not a business" — this ref turns a deployed shell into something users can actually sign up for.
 
@@ -99,9 +99,9 @@ Free-plan quirk (live-seen): Brevo-carried mail shows Gmail's **"Unsubscribe"** 
 is the overflow provider, but clicking it suppresses ONLY Brevo for that address — so keep Brevo LAST in
 the chain. Toggle location in Brevo's account settings: [unverified — verify if a user asks].
 
-## 4. Failover router — drop-in (`templates/mail-router/`)
+## 4. Failover router — drop-in (`templates/ops/mail-router/`)
 
-Copy `templates/mail-router/` into the app: `send.ts` → `lib/email/`, run `schema.sql`, fill the env rows, wire per its README.
+Copy `templates/ops/mail-router/` into the app: `send.ts` → `lib/email/`, run `schema.sql`, fill the env rows, wire per its README.
 Rules it implements (do not deviate):
 - ONE send path (`lib/email/send.ts`); chain order + caps from env; HTTP APIs, no vendor SDKs.
 - Sequential failover, 8 s/attempt, first 2xx wins — the end user never sees the switch.

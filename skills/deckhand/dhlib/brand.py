@@ -151,7 +151,22 @@ def check(root: Path, allow: tuple = ()) -> dict:
                 add(rel, i, "placeholder-image", line, "warn")
             if "data-dh-demo" in line or "dh-tryon" in line and not rel.startswith(".deckhand"):
                 add(rel, i, "tryon-leftover", line)
+        lorem = len(re.findall(r"\b(lorem|ipsum|dolor|amet|consectetur|adipiscing|mollitia|rerum|quisquam|voluptate|dolore|cumque|illo|esse|aliquam|tempor|incididunt)\b", text, re.I))
+        if lorem >= 3 and not is_doc:
+            add(rel, 1, "lorem", f"{lorem} lorem-ipsum words in this file (placeholder Latin shipped as content)")
         if BRAND_LOGO_FILES.search(rel) and re.search(r"components/(sections|ui-kit)/", rel):
             add(rel, 1, "third-party-logo", "a registry demo logo shipped as social proof — replace with real clients or remove", "block")
+    # the design's demo copy that try-on/compose could not replace with the owner's words
+    ledger = read_json(root / ".deckhand" / "demo-copy.json", {}) or {}
+    norm = lambda t: re.sub(r"\s+", " ", t).strip()  # noqa: E731
+    cache = {}
+    for e in ledger.get("entries", []):
+        fp = root / e["file"]
+        if not fp.exists() or "demo-copy" in allow:
+            continue
+        if e["file"] not in cache:
+            cache[e["file"]] = norm(fp.read_text(encoding="utf-8", errors="ignore"))
+        if norm(e["text"]) in cache[e["file"]]:
+            add(e["file"], 1, "demo-copy", f"design demo text still on the page: \"{e['text'][:80]}\" — rewrite for the owner or delete")
     blocking = [f for f in findings if f["severity"] == "block"]
     return {"ok": not blocking, "blocking": len(blocking), "warnings": len(findings) - len(blocking), "findings": findings[:300]}

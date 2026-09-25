@@ -60,6 +60,31 @@ export function compatFixes(file, code) {
       && !n.attributes.some((a) => a.type === 'JSXAttribute' && a.name.name === 'unoptimized')) {
       edits.push({ at: n.name.end, text: ' unoptimized' });
     }
+    // `(React.)ComponentProps` used bare: infer the element from what the component returns
+    if (/Function/.test(n.type) && n.params[0] && n.params[0].typeAnnotation) {
+      const ta = n.params[0].typeAnnotation.typeAnnotation;
+      const tn = ta && ta.type === 'TSTypeReference' ? code.slice(ta.typeName.start, ta.typeName.end) : '';
+      if (/^(React\.)?(ComponentProps|ComponentPropsWithoutRef|ComponentPropsWithRef)$/.test(tn) && !ta.typeParameters && !ta.typeArguments) {
+        // the element that receives `{...props}` owns the props type; else the first element returned
+        const pat = n.params[0].type === 'ObjectPattern' ? n.params[0] : null;
+        const rest = pat && pat.properties.find((x) => x.type === 'RestElement');
+        const restName = rest ? rest.argument.name : (n.params[0].type === 'Identifier' ? n.params[0].name : null);
+        let el = null, first = null;
+        walk(n.body, (m) => {
+          if (el) return false;
+          if (m.type === 'JSXOpeningElement') {
+            if (!first) first = code.slice(m.name.start, m.name.end);
+            if (restName && m.attributes.some((at) => at.type === 'JSXSpreadAttribute' && at.argument.type === 'Identifier' && at.argument.name === restName)) {
+              el = code.slice(m.name.start, m.name.end);
+              return false;
+            }
+          }
+          return true;
+        });
+        el = el || first;
+        if (el) edits.push({ at: ta.typeName.end, text: /^[a-z]/.test(el) && !el.includes('.') ? `<"${el}">` : `<typeof ${el}>` });
+      }
+    }
     // `SVGProps` used bare (React 19 types require the element parameter)
     if (n.type === 'TSTypeReference' && n.typeName.type === 'Identifier' && n.typeName.name === 'SVGProps' && !n.typeParameters && !n.typeArguments) {
       edits.push({ at: n.typeName.end, text: '<SVGSVGElement>' });

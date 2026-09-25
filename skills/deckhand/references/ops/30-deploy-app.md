@@ -1,11 +1,13 @@
 # 30 — Deploy an app (repo → Coolify app → envs → Postgres → HTTPS → smoke)
 
-**Purpose:** turn a repo produced by the buildout engine into a running, HTTPS, auto-deploying app on the Coolify VPS.
+> Ported from the proven `vps-ops` runbooks. Commands run from the deckhand skill folder (`py` on Windows, `python3` elsewhere); `~/.vps-ops/` remains the server-credentials home these scripts read. `dh deploy …` wraps the common path.
+
+**Purpose:** turn a Deckhand project into a running, HTTPS, auto-deploying app on the Coolify VPS.
 **Use when:** first deployment of a project — "deploy / host / go live / put this on my VPS".
 **Prerequisites:** `10-bootstrap-vps.md` done (Coolify live, token in `~/.vps-ops/secrets/env.sh`, `coolify` CLI context optional) · `20-domain-dns-ssl.md` A-record step done for `<domain>` **before** §5.
 **Companion refs:** `40-change-pipeline.md` (every later change) · `50-ops-monitoring.md` (status/backups/incidents) · `00-user-checklist.md` (one-time browser approvals).
 
-Run from git-bash. `py scripts/...` paths are relative to the skill root. REST fallbacks need `. ~/.vps-ops/secrets/env.sh` (`$COOLIFY_URL`, `$COOLIFY_TOKEN`) — never echo the token.
+Run from git-bash. `py ops/scripts/...` paths are relative to the skill root. REST fallbacks need `. ~/.vps-ops/secrets/env.sh` (`$COOLIFY_URL`, `$COOLIFY_TOKEN`) — never echo the token.
 
 ## 0. Prerequisites on the repo
 
@@ -14,7 +16,7 @@ gh repo create <name> --private --source=. --push    # GitHub repo, pushed
 ```
 
 If `gh` is missing/not authed → hand the user the `00-user-checklist.md` browser step, then continue from the push URL.
-The app must be scaffolded by `buildout`: a `Dockerfile` **or** a nixpacks-detectable app, listening on **port 3000**, with `.env.example` listing every variable.
+The app must be built by Deckhand (any path): a `Dockerfile` **or** a nixpacks-detectable app, listening on **port 3000**, with `.env.example` listing every variable.
 
 Deploy-blocking repo traps (live-verified 2026-09-19 — check these BEFORE the first build):
 
@@ -113,7 +115,7 @@ Build `.env.production` locally from `.env.example` + the user's business keys (
 
 ```bash
 coolify app env sync <APP_UUID> --file .env.production     # upsert; existing keys untouched; nothing is ever deleted
-py scripts/coolify_api.py envs <APP_UUID>                  # verify: prints the key names present
+py ops/scripts/coolify_api.py envs <APP_UUID>                  # verify: prints the key names present
 ```
 
 REST fallback (exact schema — `{"data":[{key,value,(optional) is_preview|is_literal|is_multiline|is_shown_once}]}`):
@@ -124,7 +126,7 @@ curl -sS -X PATCH "$COOLIFY_URL/api/v1/applications/<APP_UUID>/envs/bulk" \
   -d '{"data":[{"key":"DATABASE_URL","value":"<url>"},{"key":"STRIPE_SECRET_KEY","value":"<key>"}]}'
 ```
 
-For one-off **non-secret** values, `py scripts/coolify_api.py envset <APP_UUID> KEY=VALUE` is fine — but never put a secret value on a command line (shell history); secrets go through `--file` or the API only. *(Live-verified: the bulk PATCH answers **201**, not 200 — accept any 2xx; changes apply on the next deploy.)*
+For one-off **non-secret** values, `py ops/scripts/coolify_api.py envset <APP_UUID> KEY=VALUE` is fine — but never put a secret value on a command line (shell history); secrets go through `--file` or the API only. *(Live-verified: the bulk PATCH answers **201**, not 200 — accept any 2xx; changes apply on the next deploy.)*
 
 ## 4. Postgres (skip if the app brings its own DB)
 
@@ -158,7 +160,7 @@ Add the connection URL to `.env.production` as `DATABASE_URL=<url>`, re-run `coo
 
 ## 5. Attach the domain
 
-Prerequisite: `<domain>` resolves to the VPS IP (`20-domain-dns-ssl.md`; `py scripts/hostinger_api.py dns set-a <domain> --ip <IP> --names @,www`).
+Prerequisite: `<domain>` resolves to the VPS IP (`20-domain-dns-ssl.md`; `py ops/scripts/hostinger_api.py dns set-a <domain> --ip <IP> --names @,www`).
 
 ```bash
 curl -sS -X PATCH "$COOLIFY_URL/api/v1/applications/<APP_UUID>" \
@@ -173,8 +175,8 @@ Coolify issues the Let's Encrypt certificate on the next deploy (port 80 reachab
 
 ```bash
 coolify deploy uuid <APP_UUID>                                   # enqueue
-py scripts/coolify_api.py wait <APP_UUID> --timeout 900          # poll to terminal status
-py scripts/coolify_api.py smoke https://<domain> --expect 200 --contains "<a string only your app returns>"
+py ops/scripts/coolify_api.py wait <APP_UUID> --timeout 900          # poll to terminal status
+py ops/scripts/coolify_api.py smoke https://<domain> --expect 200 --contains "<a string only your app returns>"
 ```
 
 REST deploy trigger — **query params only, no body**:
@@ -188,7 +190,7 @@ Expected:
 - `wait` → `SUCCESS (1m32s, deployment <id>)`, exit **0**. Exit `3` = deployment failed → `40-change-pipeline.md` classification. Exit `5` = timeout → keep polling / read logs.
 - `smoke` → `OK 200 https://<domain>`, exit **0**; exit `4` = fail. A bare 200 proves *something* answered — not that it's YOUR app: the `--contains` run (title, hero line, any string only the app returns) is the proof.
 
-Statuses are tolerant: `{"success","finished"}` = OK · `{"failed","cancelled"}` = FAIL · **anything else = still running**. *Live-verified on Coolify 4.3.21: terminal OK = `finished`; the deployments endpoint returns `{"count":N,"deployments":[...]}` (newest first by `created_at`), which `scripts/coolify_api.py` already normalizes.*
+Statuses are tolerant: `{"success","finished"}` = OK · `{"failed","cancelled"}` = FAIL · **anything else = still running**. *Live-verified on Coolify 4.3.21: terminal OK = `finished`; the deployments endpoint returns `{"count":N,"deployments":[...]}` (newest first by `created_at`), which `ops/scripts/coolify_api.py` already normalizes.*
 
 ## 6b. First-run data steps — inside the running container (live-verified)
 
@@ -231,7 +233,7 @@ handoff (§9), which they can actually read and act on.
 
 The anchor (§8) is machine-minimal. Every deployed app ALSO gets **`OPS.md` at the repo root** — the
 single file any future session (human or agent, zero context) reads FIRST, so nobody burns tokens
-re-discovering the world. Start from `templates/OPS-handoff-template.md`, fill it, commit it with the app.
+re-discovering the world. Start from `templates/ops/OPS.md`, fill it, commit it with the app.
 
 It must carry: what the app is · live URL(s) + health checks · server + SSH command + provider/panel ·
 Coolify ids + dashboard access (the tunnel command) · **a secrets inventory — locations only, NEVER values** ·
@@ -247,7 +249,7 @@ Tell the user it exists — it is the cold-start door into everything else.
 | # | Check | Command |
 |---|---|---|
 | 1 | app uuid pinned + committed | `cat .vps-ops.json` |
-| 2 | env keys present | `py scripts/coolify_api.py envs <APP_UUID>` |
-| 3 | deployment terminal SUCCESS | `py scripts/coolify_api.py deployments <APP_UUID> --limit 3` |
-| 4 | HTTPS answers 200 + app content | `py scripts/coolify_api.py smoke https://<domain> --expect 200 --contains "<app string>"` |
+| 2 | env keys present | `py ops/scripts/coolify_api.py envs <APP_UUID>` |
+| 3 | deployment terminal SUCCESS | `py ops/scripts/coolify_api.py deployments <APP_UUID> --limit 3` |
+| 4 | HTTPS answers 200 + app content | `py ops/scripts/coolify_api.py smoke https://<domain> --expect 200 --contains "<app string>"` |
 | 5 | auto-deploy wired | push a trivial commit → expect a new deployment (`[verify at live drill]` on non-GitHub-App routes) |

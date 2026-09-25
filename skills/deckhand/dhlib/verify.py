@@ -95,6 +95,11 @@ def run_verify(root: Path, url: str | None = None, skip: tuple = (), allow: tupl
         evidence="\n".join(leaked[:10] + env_committed) or None)
     if ".env" not in gi:
         row("env-ignored", False, ".env is not in .gitignore", blocking=True)
+    from . import swap as SWAP
+    sw = SWAP.check(root)
+    if sw.get("rows"):
+        row("swaps", sw["ok"], "every rented service replaced or kept by decision" if sw["ok"] else "vendor SDKs still present",
+            evidence="\n".join(f"{r['vendor']}: {r['detail']}" for r in sw["rows"] if not r["ok"]) or None)
     b = BRAND.check(root, allow=allow)
     row("honesty", b["ok"], f"{b['blocking']} blocking findings, {b['warnings']} warnings (template names, demo content, fake logos, placeholders)",
         evidence="\n".join(f"{f['severity']} {f['file']}:{f['line']} {f['kind']}: {f['text']}" for f in b["findings"][:15]) or None)

@@ -35,14 +35,14 @@ durability. Status: researched + primary-source-verified 2026-09-18; first live 
    - Shape: **Ampere → VM.Standard.A1.Flex → 2 OCPU / 12 GB** (the max allowed)
    - Networking: public subnet + *Automatically assign public IPv4 address*; boot volume default fine
    - **Add SSH keys → Paste public keys** → the agent's `~/.vps-ops/ssh/id_ed25519.pub`
-   - **Show advanced options → Management → Initialization script** → paste `assets/oci-cloud-init.yaml`
+   - **Show advanced options → Management → Initialization script** → paste `templates/ops/oci-cloud-init.yaml`
 4. **Security List** (one-time): add ingress **TCP 80** and **TCP 443** from `0.0.0.0/0` (exact field
    values below). Never open 8000.
 5. Routinely: **log in to Oracle at least monthly** (30-day-idle accounts can be deemed abandoned).
 
 ## Agent steps
 
-0. Hand over ONE copy-paste bundle: `cat ~/.vps-ops/ssh/id_ed25519.pub` + `cat assets/oci-cloud-init.yaml`.
+0. Hand over ONE copy-paste bundle: `cat ~/.vps-ops/ssh/id_ed25519.pub` + `cat templates/ops/oci-cloud-init.yaml`.
 1. **Two firewalls — both must open** (the #1 Oracle gotcha):
    - **Layer 1 — VCN Security List** (user clicks; agent dictates): Networking → VCN → Security
      Lists → default → Add Ingress Rule: Stateless **unchecked**, Source Type **CIDR**, Source

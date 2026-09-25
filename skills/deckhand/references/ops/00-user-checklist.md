@@ -1,6 +1,6 @@
 # 00 — User checklist: the only things we ask the user for
 
-**First: read `~/.deckhand/profile.md`** (skill `deckhand-profile`) — items it answers are already collected; ask only what it leaves open.
+**First: `dh profile doctor`** (the owner's profile + vault) — items it answers are already collected; ask only what it leaves open.
 
 Load when: a deployment engagement starts ("host my app", "I have a VPS", "deploy this project").
 This file is the complete ask-list. Collect items 1–4 once (plus any §5 keys the app needs), then run
@@ -57,14 +57,14 @@ If chosen, the user's complete job is:
    capacity ($0 while inside Always Free limits; $100 hold at upgrade, reversed).
 2. **Create the instance** (agent guides field-by-field): Ubuntu 24.04, VM.Standard.A1.Flex ≤2 OCPU /
    12 GB, public IPv4, paste the agent's `~/.vps-ops/ssh/id_ed25519.pub` into **Add SSH keys → Paste
-   public keys**, and paste `assets/oci-cloud-init.yaml` into **Show advanced options → Management →
+   public keys**, and paste `templates/ops/oci-cloud-init.yaml` into **Show advanced options → Management →
    Initialization script**. On "out of host capacity": retry, change AD, or use the PAYG upgrade.
 3. **Security List** (one-time, agent dictates exact values): add ingress TCP 80 and 443 from
    0.0.0.0/0. Never open 8000 (the dashboard is reached via the agent's SSH tunnel).
 4. **Free domain** (optional — skip if a real domain exists): `.pp.ua` at https://nic.ua — account +
    confirmed email + a linked card (1 UAH pre-auth, refunded — the main failure point), real legal
    name/address in the profile, then Telegram-bot (@ppuabot) phone activation within 5 days. Steps in
-   `references/21-free-domain-cloudflare.md`.
+   `references/ops/21-free-domain-cloudflare.md`.
 5. **Cloudflare account** (free) — add the domain as a zone, change the 2 nameservers at nic.ua.
 6. Keep the account reachable: **log in to Oracle at least monthly** (30-day-idle accounts can be
    deemed abandoned); yearly `.pp.ua` renewal also re-activates by phone.
@@ -119,7 +119,7 @@ agent creates the bucket via API** so the storage class is right; a console-crea
 serves 0-byte reads). Both **card-free**. R2 only if the user accepts a card. Ask for all of it in ONE
 message; buckets, scoped keys, schedules, drills — agent work.
 
-**Pending ledger (every project — skill `deckhand-profile`):** whenever a human action is needed —
+**Pending ledger (every project — the project's `PENDING.md`):** whenever a human action is needed —
 keys to paste, a click to make, a password to escrow/rotate, an account to create — record it in
 `~/.deckhand/pending.md` (id · what · WHY · HOW · WHERE · asked date · status · nag) in the same message where
 you ask. `WHERE` = the exact file path / URL / menu chain — the user must not have to search. Close items with a date once done/confirmed. **Every report back to the user ends with the

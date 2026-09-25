@@ -1,0 +1,20 @@
+# 40 — BRAND (their identity in, the template's out)
+
+**Objective:** nothing on the site says the base's name, a demo company, lorem ipsum, a fake client logo or
+a placeholder the owner has not accepted. **Output:** `dh rebrand check` 0 blocking; `dh phase done brand`.
+
+## Procedure
+1. `dh rebrand scan` — identity surface: package name, metadata, site config, template names, assets.
+2. `dh brief set brand.name=… brand.tagline=… brand.primary=#hex` (if not set), then `dh rebrand apply`
+   (`--dry` first when unsure): package name, metadata title/description, config names, template display
+   names, `--primary` token, monogram `app/icon.svg` when there is no logo.
+3. Copy pass (the model's real job here): rewrite page copy from `copy.json`/brief in the owner's voice
+   and languages. Headlines state the outcome for the audience; one CTA verb per section; no superlatives
+   the owner cannot prove. RTL languages: `dir="rtl"` on `<html>` + logical CSS properties.
+4. `dh rebrand check` until 0 blocking. Warnings (placeholder images, docs mentions) are listed to the owner.
+
+## Rules
+- LICENSE, NOTICE, THIRD_PARTY_NOTICES are never edited.
+- Images: owner-supplied or generated diagrams/illustrations the owner approves; never stock photos presented
+  as the business; `/deckhand-placeholder.svg` is allowed until G4, never at deploy.
+- Testimonials, client logos, ratings, "as seen in": real + owner-confirmed, or removed.

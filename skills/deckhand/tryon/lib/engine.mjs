@@ -33,7 +33,7 @@ const PLACEHOLDER_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1600" he
 export const PLACEHOLDER = '/deckhand-placeholder.svg';
 
 /** A neutral image placeholder in public/ (a registry's demo screenshot is never shown as the owner's). */
-function ensurePlaceholder(prof) {
+export function ensurePlaceholder(prof) {
   const pub = path.join(prof.root, 'public');
   if (!fs.existsSync(pub)) return false;
   const p = path.join(pub, 'deckhand-placeholder.svg');
@@ -135,12 +135,18 @@ function primitiveUsage(code, el, local, candCode) {
   return inner ? `<${local}${attrs ? ' ' + attrs : ''}>${inner}</${local}>` : `<${local}${attrs ? ' ' + attrs : ''} />`;
 }
 
-function install(prof, pkgs, log) {
+export function install(prof, pkgs, log) {
   if (!pkgs.length) return { ok: true };
   const cmd = { pnpm: ['pnpm', 'add'], yarn: ['yarn', 'add'], bun: ['bun', 'add'], npm: ['npm', 'install', '--no-audit', '--no-fund'] }[prof.pm] || ['npm', 'install'];
   log && log({ phase: 'install', pkgs });
   const r = spawnSync(cmd[0], [...cmd.slice(1), ...pkgs], { cwd: prof.root, encoding: 'utf8', shell: process.platform === 'win32', timeout: 300000 });
   return { ok: r.status === 0, cmd: cmd.concat(pkgs).join(' '), out: ((r.stdout || '') + (r.stderr || '')).split('\n').slice(-8).join('\n') };
+}
+
+/** The owner's brand name: brief first, then package.json. */
+export function brandName(root) {
+  try { const b = JSON.parse(fs.readFileSync(path.join(root, '.deckhand', 'brief.json'), 'utf8')); if (b.brand?.name || b.name) return b.brand?.name || b.name; } catch { /* none */ }
+  try { const n = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).name; return n ? n.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : null; } catch { return null; }
 }
 
 /** Ensure the semantic token layer exists (idempotent; recorded for `clean`). */
@@ -218,9 +224,12 @@ export async function open(rootIn, opts) {
   const variants = [];
   const skipped = [];
   const stripChrome = opts.stripChrome ?? (slot !== 'navbar');
+  // a variant folder another open session is showing is never re-staged (it would be wiped)
+  const busy = new Set(listSessions(root).filter((o) => o.state === 'open').flatMap((o) => o.variants.map((v) => v.slug)));
   for (const cand of ranked.items) {
     if (variants.length >= count) break;
     if (skipped.length > count * 3) break;
+    if (busy.has(slugOf(cand))) continue;
     log({ phase: 'fetch', id: cand.id });
     let stage;
     try {
@@ -246,7 +255,7 @@ export async function open(rootIn, opts) {
         continue;
       }
       fs.writeFileSync(entryAbs, p.code);
-      const b = bind(orig, p, { placeholder: hasPublic ? PLACEHOLDER : null });
+      const b = bind(orig, p, { placeholder: hasPublic ? PLACEHOLDER : null, brand: brandName(root) });
       // fit gate: a variant that would throw away most of the owner's words is not offered
       if (origCount >= 2 && b.carried.length < Math.ceil(origCount / 2) && !opts.noFitGate) {
         skipped.push({ id: cand.id, why: 'POOR_FIT', detail: `carries ${b.carried.length}/${origCount}` });
@@ -254,6 +263,8 @@ export async function open(rootIn, opts) {
         continue;
       }
       fit = b;
+      fit.demoVisual = demoTexts(root, stage.relDir, []).length;
+      stage.ownerTexts = orig.units.map((x) => x.text).concat(orig.lists.flatMap((l) => l.items.flatMap((it) => it.units.map((u) => u.text))));
       usage = `<${local}${contentProp(p.prop, b.props)} />`;
       stage.prop = p.prop;
       stage.removedChrome = p.removed;
@@ -265,7 +276,8 @@ export async function open(rootIn, opts) {
       slug: stage.slug, dir: stage.relDir, entry: stage.entry, spec: stage.spec, export: stage.export, local, usage,
       deps: stage.deps, missingDeps: stage.missingDeps, sourceUrl: stage.sourceUrl, prop: stage.prop || null,
       css: itemCss({ css: stage.css, cssVars: stage.cssVars }, id + '-' + stage.slug) || null,
-      fit: { carried: fit.carried.length, of: origCount, dropped: fit.dropped, demo: fit.demo.map((d) => d.text).slice(0, 6), hidden: fit.hidden || [] },
+      fit: { carried: fit.carried.length, of: origCount, dropped: fit.dropped, demo: fit.demo.map((d) => d.text).slice(0, 6), hidden: fit.hidden || [], demoVisual: fit.demoVisual || 0 },
+      ownerTexts: stage.ownerTexts || [],
       removedChrome: stage.removedChrome || [],
     });
   }
@@ -288,6 +300,8 @@ export async function open(rootIn, opts) {
       installed = need;
     }
   }
+  // best fit first: most of the owner's content, then the least leftover demo copy (rank breaks ties)
+  variants.sort((a, b) => (b.fit.of ? b.fit.carried / b.fit.of : 0) - (a.fit.of ? a.fit.carried / a.fit.of : 0) || a.fit.demoVisual - b.fit.demoVisual);
   variants.forEach((v, i) => { v.idx = i + 1; });
   for (const v of variants) if (v.css) appendCss(prof, v.css);
 
@@ -391,14 +405,20 @@ function referencedByOtherOpen(root, dir, exceptId) {
   return listSessions(root).some((o) => o.id !== exceptId && o.state === 'open' && o.variants.some((v) => v.dir === dir));
 }
 
-/** Text and plain host markup only (`Bake <span className="x">fresh</span>`): safe to inline anywhere. */
+const SAFE_GLOBALS = new Set(['Date', 'Math', 'Intl', 'String', 'Number', 'JSON', 'undefined']);
+
+/** Text, plain host markup and self-contained expressions (`© {new Date().getFullYear()}`) only:
+ *  safe to inline into another file because nothing refers to the usage site's scope. */
 function markupOnly(frag) {
   let ok = true;
-  walk(frag, (n) => {
+  walk(frag, (n, parent, key) => {
     if (!ok) return false;
-    if (n.type === 'JSXExpressionContainer' && n.expression.type !== 'StringLiteral') { ok = false; return false; }
     if (n.type === 'JSXOpeningElement' && !/^[a-z]/.test(jsxName(n.name))) { ok = false; return false; }
     if (n.type === 'JSXSpreadAttribute') { ok = false; return false; }
+    if (n.type === 'Identifier') {
+      const isProp = parent && ((parent.type === 'MemberExpression' && key === 'property' && !parent.computed) || (parent.type === 'ObjectProperty' && key === 'key'));
+      if (!isProp && !SAFE_GLOBALS.has(n.name)) { ok = false; return false; }
+    }
     return true;
   });
   return ok;
@@ -474,6 +494,10 @@ export function bake(root, fileRel, local, variant) {
       const v = p.value;
       if (v.type === 'StringLiteral') values.set(k, { kind: 'string', value: v.value });
       else if (v.type === 'BooleanLiteral') values.set(k, { kind: 'bool', value: v.value });
+      else if (v.type === 'NumericLiteral') values.set(k, { kind: 'number', value: v.value });
+      else if (v.type === 'ArrayExpression' && v.elements.length && v.elements.every((x) => x && x.type === 'ObjectExpression' && markupOnly(x))) {
+        values.set(k, { kind: 'list', raw: code.slice(v.start, v.end), node: v });
+      }
       else if (v.type === 'ArrayExpression' && v.elements.every((x) => x && x.type === 'StringLiteral')) values.set(k, { kind: 'array', raw: code.slice(v.start, v.end) });
       else if (v.type === 'JSXFragment' && markupOnly(v)) {
         let txt = '';
@@ -509,7 +533,16 @@ export function bake(root, fileRel, local, variant) {
     }
     if (n.type === 'LogicalExpression' && n.operator === '??') {
       const k = keyOf(n.left);
-      if (!k || live.has(k)) return true;
+      if (k && live.has(k)) {
+        // a live prop keeps its fallback, but never the preview's demo marker
+        const r = n.right;
+        if (r.type === 'JSXElement' && attr(r, 'data-dh-demo')) {
+          const inner = r.children.length ? comp.slice(r.children[0].start, r.children[r.children.length - 1].end) : '';
+          edits.push({ start: r.start, end: r.end, text: `<>${inner}</>` });
+        }
+        return false;
+      }
+      if (!k) return true;
       const container = parent && parent.type === 'JSXExpressionContainer' ? parent : null;
       const lit = values.get(k);
       if (!container) {
@@ -532,7 +565,64 @@ export function bake(root, fileRel, local, variant) {
       edits.push({ start: container.start, end: container.end, text });
       return false;
     }
-    // list/bullet slots: (content.list1 ? … : demo) / (content.bullets1 ?? demo)
+    // list slots `((content.list1 ? merge : demo) as typeof demo)`: unbound -> the design's own data
+    if (n.type === 'ConditionalExpression') {
+      // resolve a whole chain statically: `content.x ? a : b` and `content.cols === 2 ? "…" : …`
+      const verdict = (t) => {
+        const k1 = keyOf(t);
+        if (k1 && !live.has(k1)) return values.has(k1) ? !!values.get(k1).value : false;
+        if (t.type === 'BinaryExpression' && t.operator === '===' && t.right.type === 'NumericLiteral') {
+          const k2 = keyOf(t.left);
+          if (k2 && !live.has(k2)) return values.has(k2) ? Number(values.get(k2).value) === t.right.value : false;
+        }
+        return null;
+      };
+      // a list slot with literal data: the owner's items are written INTO the design's own array
+      // (fields the owner did not give — icons, ids — keep the design's values), then the switch goes
+      const lk = keyOf(n.test);
+      if (lk && values.has(lk) && values.get(lk).kind === 'list' && n.alternate.type === 'Identifier') {
+        const arrName = n.alternate.name;
+        let decl = null;
+        walk(cast, (m) => {
+          if (decl) return false;
+          if (m.type === 'VariableDeclarator' && m.id.type === 'Identifier' && m.id.name === arrName) {
+            let init = m.init;
+            while (init && /^TS(As|Satisfies)Expression$/.test(init.type)) init = init.expression;
+            if (init && init.type === 'ArrayExpression') decl = init;
+            return false;
+          }
+          return true;
+        });
+        if (decl && decl.elements.length && decl.elements.every((e) => e && e.type === 'ObjectExpression')) {
+          const ownerItems = values.get(lk).node.elements;
+          const objSrc = (i) => {
+            const demoEl = decl.elements[i % decl.elements.length];
+            const own = ownerItems[i];
+            const ownKeys = new Map(own.properties.map((p) => [p.key.name || p.key.value, code.slice(p.value.start, p.value.end)]));
+            const parts = [];
+            for (const p of demoEl.properties) {
+              const key = p.type === 'ObjectProperty' ? (p.key.name || p.key.value) : null;
+              if (key && ownKeys.has(key)) { parts.push(`${comp.slice(p.key.start, p.key.end)}: ${ownKeys.get(key)}`); ownKeys.delete(key); }
+              else parts.push(comp.slice(p.start, p.end));
+            }
+            for (const [key, val] of ownKeys) parts.push(`${JSON.stringify(key)}: ${val}`);
+            return `{ ${parts.join(', ')} }`;
+          };
+          const ind = indentAt(comp, decl.elements[0].start);
+          edits.push({ start: decl.start, end: decl.end, text: `[\n${ownerItems.map((_, i) => ind + objSrc(i)).join(',\n')},\n${ind.slice(0, -2) || ''}]` });
+          const target = parent && parent.type === 'TSAsExpression' ? parent : n;
+          edits.push({ start: target.start, end: target.end, text: arrName });
+          return false;
+        }
+      }
+      if (verdict(n.test) !== null) {
+        let node = n;
+        while (node.type === 'ConditionalExpression' && verdict(node.test) !== null) node = verdict(node.test) ? node.consequent : node.alternate;
+        const target = parent && parent.type === 'TSAsExpression' && keyOf(n.test) ? parent : n;
+        edits.push({ start: target.start, end: target.end, text: comp.slice(node.start, node.end) });
+        return false;
+      }
+    }
     return true;
   });
   // apply innermost-first: a kept wrapper body may contain slot edits
@@ -556,7 +646,7 @@ export function bake(root, fileRel, local, variant) {
     applied.push(e);
   }
   // `unoptimized` was a preview guard for remote demo images; a local src gets Next's optimizer back
-  comp = comp.replace(/(<\w+) unoptimized(\s+src="\/[^"]*")/g, '$1$2');
+  comp = comp.replace(/(<\w+) unoptimized(\s+src="\/[^"]*(?<!\.svg)")/g, '$1$2');
   if (!keepProps.length) {
     comp = comp.replace(`{ ${variant.prop} = {} }: { ${variant.prop}?: Record<string, any> } = {}`, '')
       .replace(`{ ${variant.prop} = {} } = {}`, '')
@@ -578,6 +668,52 @@ export function bake(root, fileRel, local, variant) {
     fs.writeFileSync(abs, code);
   }
   return { baked: values.size, live: keepProps.length };
+}
+
+/** Static prose a design ships (JSX text + prose strings in its data arrays), minus the owner's words
+ *  and minus fallbacks of live slots. Used to rank (mockup-heavy designs lose) and to ledger what the
+ *  owner still has to replace before launch. */
+export function demoTexts(root, dirRel, ownerTexts = []) {
+  const own = new Set(ownerTexts.map((t) => String(t).replace(/\s+/g, ' ').trim().toLowerCase()));
+  const out = [];
+  const dir = path.join(root, dirRel);
+  if (!fs.existsSync(dir)) return out;
+  for (const f of fs.readdirSync(dir)) {
+    if (!/\.(tsx|jsx)$/.test(f)) continue;
+    const code = fs.readFileSync(path.join(dir, f), 'utf8');
+    let ast;
+    try { ast = parse(f, code); } catch { continue; }
+    const push = (t) => {
+      const x = String(t).replace(/\s+/g, ' ').trim();
+      if ((x.match(/\p{L}/gu) || []).length < 3 || own.has(x.toLowerCase())) return;
+      if (x.split(/\s+/).every((t) => /^[a-z0-9:/[\]._%!*&>()-]+$/.test(t)) && /(^|\s)[a-z0-9:]+-[\w./-]+/.test(x)) return;   // a class list
+      if (/^(https?:|\/|#|mailto:|tel:)/.test(x)) return;
+      out.push({ file: path.posix.join(dirRel, f), text: x.slice(0, 120) });
+    };
+    walk(ast, (n, parent) => {
+      if (n.type === 'LogicalExpression' && n.operator === '??') return false;          // a slot fallback
+      if (n.type === 'JSXAttribute') return false;
+      if (n.type === 'ImportDeclaration' || n.type === 'TSTypeAnnotation') return false;
+      if (n.type === 'JSXText') push(n.value);
+      if (n.type === 'StringLiteral' && parent && (parent.type === 'ObjectProperty' && parent.value === n || parent.type === 'ArrayExpression')) {
+        if (/\s/.test(n.value) || /^[A-Z][a-z]+/.test(n.value)) push(n.value);
+      }
+      return true;
+    });
+  }
+  return out;
+}
+
+export function recordDemoCopy(root, entries) {
+  const p = path.join(root, '.deckhand', 'demo-copy.json');
+  let doc = { entries: [] };
+  try { doc = JSON.parse(fs.readFileSync(p, 'utf8')); } catch { /* new */ }
+  const key = (e) => e.file + '\u0000' + e.text;
+  const seen = new Set(doc.entries.map(key));
+  for (const e of entries) if (!seen.has(key(e))) { doc.entries.push(e); seen.add(key(e)); }
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify(doc, null, 1));
+  return doc.entries.length;
 }
 
 const NOTICE_FILE = 'THIRD_PARTY_NOTICES.md';
@@ -644,12 +780,16 @@ export function keep(rootIn, id, idx) {
   if (fs.existsSync(stageRoot) && !fs.readdirSync(stageRoot).length) fs.rmdirSync(stageRoot);
   v.finalDir = final;
   recordNotice(root, v);
+  const leftovers = demoTexts(root, final, v.ownerTexts || []);
+  if (leftovers.length) recordDemoCopy(root, leftovers);
   s.state = 'kept';
   s.chosen = i;
   s.keptAt = now();
   s.final = { dir: final, entry: entryFinal, spec: newSpec, local: cleanLocal, baked };
   saveSession(root, s);
-  return { ok: true, id, kept: v.t, file: s.file, component: entryFinal, local: cleanLocal, baked, fit: v.fit, notice: NOTICE_FILE };
+  return { ok: true, id, kept: v.t, file: s.file, component: entryFinal, local: cleanLocal, baked, fit: v.fit, notice: NOTICE_FILE,
+    demo_copy_to_replace: leftovers.map((e) => e.text).slice(0, 20),
+    next: leftovers.length ? 'replace or delete the design\'s demo copy listed above (dh rebrand check blocks until then)' : null };
 }
 
 export function discard(rootIn, id, { reason } = {}) {

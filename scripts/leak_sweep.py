@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 from typing import NoReturn
 
-PACK_SKILLS = ["buildout", "component-library", "vps-ops", "session-autopsy", "deckhand-profile"]
+PACK_SKILLS = ["deckhand"]
 SKIP_DIRS = {".git", "__pycache__", ".pytest_cache", "node_modules", ".next", ".turbo"}
 SKIP_EXT = {".zip", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".woff", ".woff2",
             ".ttf", ".eot", ".pdf", ".mp3", ".mp4", ".docx", ".xlsx", ".sqlite", ".db",

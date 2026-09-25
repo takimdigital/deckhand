@@ -47,7 +47,7 @@ Serve files with presigned GETs (or a public-read bucket policy if acceptable). 
 
 ## Offsite for the files (two layers)
 
-1. **Object-level mirror (preferred):** hourly/daily `rclone sync` of the bucket → B2 **and** R2 (`rclone` config: `type=s3, provider=Minio, endpoint=https://s3.<domain>, force_path_style=true`, scoped read key). Object storage has no DB-consistency problem, so object-level sync is the honest copy. (A third, browseable copy can be a **local RustFS on the user's own machine** — `templates/vps-backup/rustfs-local.compose.yml`, ref 55 §7; the home pull writes into it automatically.)
+1. **Object-level mirror (preferred):** hourly/daily `rclone sync` of the bucket → B2 **and** R2 (`rclone` config: `type=s3, provider=Minio, endpoint=https://s3.<domain>, force_path_style=true`, scoped read key). Object storage has no DB-consistency problem, so object-level sync is the honest copy. (A third, browseable copy can be a **local RustFS on the user's own machine** — `templates/ops/vps-backup/rustfs-local.compose.yml`, ref 55 §7; the home pull writes into it automatically.)
 2. **Weekly full-volume tar** (DR): `docker run --rm -v <vol>:/data:ro -v /opt/backups:/backup alpine tar czf /backup/rustfs-$(date -u +%F).tgz -C /data .` → upload to both providers, keep 3.
 
 Coolify scheduled volume backups are documented for **application** mounts; for a compose service, try `PUT /api/v1/services/{uuid}/storages/{storage_uuid}/backups` (endpoint exists in v4.3.23) — if a Service refuses, use the scripted tar. `[verify at live drill]`

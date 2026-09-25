@@ -1,12 +1,4 @@
-# CI for the public pack — github.com/takimdigital/deckhand-skill.
-#
-# README shows the status of THIS file as the CI badge:
-#   https://img.shields.io/github/actions/workflow/status/takimdigital/deckhand-skill/ci.yml?branch=main
-#
-# Both jobs run the SAME commands (bash on both — the owner's own shell is git-bash, so
-# `mkdir -p` / `$PWD` behave identically): build a TypeScript 5 root, run pytest over skills/,
-# then the three try-on node batteries. Windows is the owner's host and the source of half the
-# traps, so it runs too — but it is NON-BLOCKING for the first two weeks (see the windows job).
+# Deckhand v2 CI — every suite is offline (registry responses are recorded fixtures).
 name: ci
 
 on:
@@ -17,17 +9,20 @@ permissions:
   contents: read
 
 env:
-  # The Windows runner's console is cp1252: a child Python process that prints '★' (the registry
-  # score column, factory reports) dies with UnicodeEncodeError, its stdout comes back EMPTY, and
-  # the parent test then fails with JSONDecodeError far from the cause. UTF-8 mode is the fix;
-  # harmless on linux.
   PYTHONUTF8: "1"
   PYTHONIOENCODING: "utf-8"
 
 jobs:
-  linux:
-    name: linux
-    runs-on: ubuntu-latest
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    # Windows is the owner's host; it runs on every push but stays non-blocking until it has
+    # been green on this workflow for two weeks (then delete this line).
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     defaults:
       run:
         shell: bash
@@ -39,63 +34,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Toolchain
-        run: python --version && node --version && npm --version
-      - name: Install pytest
-        run: python -m pip install --upgrade pip pytest
-      - name: TypeScript 5 root (the try-on tests parse against it)
-        run: mkdir -p ts && cd ts && npm init -y >/dev/null && npm i typescript@5 >/dev/null
-      # `python`, never `py`: the `py` launcher does not exist on Linux.
-      - name: pytest — skills
-        run: TRYON_TS_ROOT=$PWD/ts python -m pytest skills -q
-      - name: try-on battery — test-ladder
-        run: node skills/buildout/templates/tryon/test-ladder.cjs
-      - name: try-on battery — test-loader
-        run: node skills/buildout/templates/tryon/test-loader.cjs
-      # ABSOLUTE root, never `--ts-root ts`: swap.mjs resolves TypeScript through
-      # createRequire(path.join(tsRoot, "package.json")), which refuses a relative path, so every
-      # candidate misses and the battery dies on TYPESCRIPT_NOT_FOUND (reproduced: `--ts-root ts`
-      # → 0/1 assertions, `--ts-root "$PWD/ts"` → 55/55).
-      - name: try-on battery — test-swap
-        run: node skills/buildout/templates/tryon/test-swap.mjs --ts-root "$PWD/ts"
-
-  windows:
-    name: windows
-    runs-on: windows-latest
-    # NON-BLOCKING for the first two weeks (owner decision Q1 / risk R8): a red Windows run is
-    # visible on the run page but does not fail the workflow, so the public badge stays a signal
-    # about the pack while fresh-runner traps get shaken out. FLIP IT after 2026-10-08: delete
-    # this line and Windows blocks exactly like linux.
-    continue-on-error: true
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Toolchain
-        run: python --version && node --version && npm --version
-      - name: Install pytest
-        run: python -m pip install --upgrade pip pytest
-      - name: TypeScript 5 root (the try-on tests parse against it)
-        run: mkdir -p ts && cd ts && npm init -y >/dev/null && npm i typescript@5 >/dev/null
-      # `python`, never `py`: setup-python puts a real interpreter on PATH; the `py` launcher
-      # also exists on the runner but resolves to whichever Windows Python it prefers.
-      # TRYON_TS_ROOT is the NATIVE workspace path ($GITHUB_WORKSPACE = D:\a\<repo>\<repo>), not
-      # $PWD: MSYS bash reports /d/a/... and native Python resolves a leading slash against the
-      # current drive (D:\d\a\...), so the root check misses and the 7 TS tests SKIP silently —
-      # a green run that tested less. Windows accepts the mixed separator in "$GITHUB_WORKSPACE/ts".
-      - name: pytest — skills
-        run: TRYON_TS_ROOT="$GITHUB_WORKSPACE/ts" python -m pytest skills -q
-      - name: try-on battery — test-ladder
-        run: node skills/buildout/templates/tryon/test-ladder.cjs
-      - name: try-on battery — test-loader
-        run: node skills/buildout/templates/tryon/test-loader.cjs
-      # Absolute root — see the linux job's note: D:\a\<repo>\<repo>/ts.
-      - name: try-on battery — test-swap
-        run: node skills/buildout/templates/tryon/test-swap.mjs --ts-root "$GITHUB_WORKSPACE/ts"
+      - name: git identity (tests create repos)
+        run: git config --global user.email ci@localhost && git config --global user.name ci
+      - name: dh control plane (unittest, stdlib)
+        run: python -m unittest discover -s skills/deckhand/tests -v
+      - name: ops scripts (Coolify / backups / Hostinger clients)
+        run: python -m pip install -q pytest && python -m pytest skills/deckhand/ops/tests -q
+      - name: try-on engine (node --test, offline fixtures)
+        run: node --test skills/deckhand/tryon/test/*.test.mjs
+      - name: version consistency
+        run: python scripts/version_check.py

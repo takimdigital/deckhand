@@ -8,31 +8,31 @@
 ## 1. Status at ask-time
 
 ```bash
-py scripts/coolify_api.py status      # all apps: name, status, last deployment (status + time)
-py scripts/coolify_api.py apps        # same inventory, uuid + status only
-py scripts/coolify_api.py health      # Coolify API reachable? (GET /health, no auth)
+py ops/scripts/coolify_api.py status      # all apps: name, status, last deployment (status + time)
+py ops/scripts/coolify_api.py apps        # same inventory, uuid + status only
+py ops/scripts/coolify_api.py health      # Coolify API reachable? (GET /health, no auth)
 coolify app list --format json        # full JSON inventory — REST equivalent: GET /applications
 ```
 
 Expected `status` line: `<app-name>  running  last:success 2026-09-17T18:04:12`. Report exactly what it prints — `last:-` means no deployment recorded yet.
-Fast reachability: `py scripts/coolify_api.py smoke https://<domain> --expect 200` (exit 0 pass · 4 fail).
+Fast reachability: `py ops/scripts/coolify_api.py smoke https://<domain> --expect 200` (exit 0 pass · 4 fail).
 
 ## 2. Logs
 
 ```bash
-py scripts/coolify_api.py logs <APP_UUID> --lines 200 --timestamps
+py ops/scripts/coolify_api.py logs <APP_UUID> --lines 200 --timestamps
 coolify app logs <APP_UUID> --lines 200 --show-timestamps
 curl -sS "$COOLIFY_URL/api/v1/applications/<APP_UUID>/logs?lines=200&show_timestamps=false" \
   -H "Authorization: Bearer $COOLIFY_TOKEN"
 ```
 
-Build (deployment) logs live on the deployment object — `py scripts/coolify_api.py deployments <APP_UUID> --limit 5`, then its `logs` field. Runtime crashes live in app logs. Quote the last ~30 relevant lines in a report, not the whole dump.
+Build (deployment) logs live on the deployment object — `py ops/scripts/coolify_api.py deployments <APP_UUID> --limit 5`, then its `logs` field. Runtime crashes live in app logs. Quote the last ~30 relevant lines in a report, not the whole dump.
 
 ## 3. Server health (Hostinger)
 
 ```bash
-py scripts/hostinger_api.py vm get <vmId>              # specs + state
-py scripts/hostinger_api.py vm metrics <vmId> --days 7 # 7-day window for CPU/RAM/disk/traffic
+py ops/scripts/hostinger_api.py vm get <vmId>              # specs + state
+py ops/scripts/hostinger_api.py vm metrics <vmId> --days 7 # 7-day window for CPU/RAM/disk/traffic
 ```
 
 The metrics endpoint requires **both** `date_from` and `date_to` (ISO) — `--days N` builds that window for you. Raw form:
@@ -78,9 +78,9 @@ Offsite is no longer "optional": **every project defaults to dual offsite target
 VPS-level snapshot (monthly, before updates):
 
 ```bash
-py scripts/hostinger_api.py snapshot create <vmId>
-py scripts/hostinger_api.py actions <vmId>            # poll the async op until state=success
-py scripts/hostinger_api.py snapshot list <vmId>
+py ops/scripts/hostinger_api.py snapshot create <vmId>
+py ops/scripts/hostinger_api.py actions <vmId>            # poll the async op until state=success
+py ops/scripts/hostinger_api.py snapshot list <vmId>
 ```
 
 Restore drill (live-verified 2026-09-17 — run ~yearly, or after any schema scare): dumps are **custom-format (magic `PGDMP`)** → restore with `pg_restore`, not `psql`. The database's docker container is named **exactly its uuid** (Coolify's display name `postgresql-database-<uuid>` is NOT the container name):
@@ -101,7 +101,7 @@ Coolify (the script backs up the DB first; log at `/data/coolify/source/upgrade-
 
 ```bash
 ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'curl -fsSL https://cdn.coollabs.io/coolify/upgrade.sh | bash'
-py scripts/coolify_api.py health       # expect 200 once containers are back
+py ops/scripts/coolify_api.py health       # expect 200 once containers are back
 coolify context version                # confirm the new version after the upgrade
 ```
 
@@ -118,13 +118,13 @@ Cadence: monthly, agent-driven, **after** a fresh snapshot (§5). Never update w
 
 | Incident | First checks | Action |
 |---|---|---|
-| App 502 / site down | `py scripts/coolify_api.py deployments <APP_UUID> --limit 5` + app logs (§2) | `POST /applications/{uuid}/restart` (+ `/start` `/stop`); if a bad release → `40-change-pipeline.md` rollback |
-| Server unreachable (SSH and `:8000` both fail) | `py scripts/hostinger_api.py vm get <vmId>` | `py scripts/hostinger_api.py vm restart <vmId>`; still dead → snapshot restore |
+| App 502 / site down | `py ops/scripts/coolify_api.py deployments <APP_UUID> --limit 5` + app logs (§2) | `POST /applications/{uuid}/restart` (+ `/start` `/stop`); if a bad release → `40-change-pipeline.md` rollback |
+| Server unreachable (SSH and `:8000` both fail) | `py ops/scripts/hostinger_api.py vm get <vmId>` | `py ops/scripts/hostinger_api.py vm restart <vmId>`; still dead → snapshot restore |
 | Certificate expired / TLS error | `curl -sI https://<domain>` + ref 20 checks | redeploy the app (Let's Encrypt renews on deploy); confirm port 80 open |
 | Disk full (deploys start failing, metrics `disk_space`) | §3 metrics | §4 docker-cleanup; remove stale resources; resize if structural |
-| Coolify dashboard/API down | `py scripts/coolify_api.py health` | re-run the §6 upgrade script; last resort `ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'cd /data/coolify/source && docker compose up -d'` |
-| DNS wrong / not resolving | `nslookup <domain> 1.1.1.1` vs VPS IP | `py scripts/hostinger_api.py dns set-a <domain> --ip <IP> --names @,www` (ref 20) |
-| Deploy queue stuck after a restart | `py scripts/coolify_api.py deployments <APP_UUID> --limit 3` | re-trigger `coolify deploy uuid <APP_UUID>` once; if it repeats, update Coolify (§6) |
+| Coolify dashboard/API down | `py ops/scripts/coolify_api.py health` | re-run the §6 upgrade script; last resort `ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP 'cd /data/coolify/source && docker compose up -d'` |
+| DNS wrong / not resolving | `nslookup <domain> 1.1.1.1` vs VPS IP | `py ops/scripts/hostinger_api.py dns set-a <domain> --ip <IP> --names @,www` (ref 20) |
+| Deploy queue stuck after a restart | `py ops/scripts/coolify_api.py deployments <APP_UUID> --limit 3` | re-trigger `coolify deploy uuid <APP_UUID>` once; if it repeats, update Coolify (§6) |
 
 Escalate in writing: which row, what the check returned verbatim, what action was taken. Never guess a cause.
 
@@ -132,7 +132,7 @@ Escalate in writing: which row, what the check returned verbatim, what action wa
 
 | When | Do |
 |---|---|
-| every ask | `py scripts/coolify_api.py status` + smoke the domain |
+| every ask | `py ops/scripts/coolify_api.py status` + smoke the domain |
 | weekly | skim app logs (§2) for restarts; glance at metrics (§3) |
 | monthly | snapshot → updates (§6) → docker-cleanup (§4) → smoke check |
 | yearly | restore drill (§5) on a scratch app |

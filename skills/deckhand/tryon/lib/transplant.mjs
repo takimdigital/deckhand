@@ -23,17 +23,25 @@ const BLOCK_TAGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'a', 'butto
 
 export function roleOf(name) {
   if (/^h[1-6]$/.test(name)) return 'heading';
+  // compound components (shadcn/Radix naming): CardTitle, AccordionTrigger, DialogDescription …
+  if (/[a-z](Title|Trigger|Heading|Question|Label)$/.test(name)) return /Label$/.test(name) ? 'label' : 'heading';
+  if (/[a-z](Description|Content|Answer|Body|Text|Subtitle)$/.test(name)) return 'text';
   if (/^(a|button)$/.test(name) || /(^|\.)(Link|Button|NavLink|Anchor)$/.test(name) || /Button$/.test(name)) return 'action';
   if (/^(li|dt|dd)$/.test(name)) return 'item';
   if (name === 'label' || name === 'legend') return 'label';
   if (/^(blockquote|q|cite|figcaption)$/.test(name)) return 'quote';
   return 'text';
 }
-const isBlockEl = (name) => BLOCK_TAGS.has(name) || roleOf(name) === 'action';
-const CONTENT_ROLES = ['heading', 'text', 'price', 'action', 'item', 'label', 'quote'];
+const COMPOUND = /[a-z](Title|Trigger|Heading|Question|Label|Description|Content|Answer|Body|Text|Subtitle)$/;
+const isBlockEl = (name) => BLOCK_TAGS.has(name) || roleOf(name) === 'action' || COMPOUND.test(name);
+const CONTENT_ROLES = ['heading', 'text', 'price', 'action', 'item', 'label', 'quote', 'copyright'];
 const ITEM_CLASSES = [['heading', 'text', 'quote', 'label'], ['price'], ['action'], ['item']];
 const PRICE = /^(?:from\s+)?[$€£¥₹]?\s?\d[\d.,\s]*(?:k)?\s?(?:[$€£¥₹]|eur|usd|mad|dh)?\s*(?:\/\s*\w+|per \w+)?$/i;
-const withPrice = (u) => (u.role !== 'action' && u.role !== 'heading' && PRICE.test(u.text) ? { ...u, role: 'price' } : u);
+const COPYRIGHT = /^(©|\(c\)|copyright\b)/i;
+const withPrice = (u) => {
+  if (u.role !== 'action' && COPYRIGHT.test(u.text)) return { ...u, role: 'copyright' };
+  return u.role !== 'action' && u.role !== 'heading' && PRICE.test(u.text) ? { ...u, role: 'price' } : u;
+};
 
 const isStaticExpr = (e) => e.type === 'StringLiteral' || (e.type === 'TemplateLiteral' && !e.expressions.length);
 
@@ -76,6 +84,26 @@ function containsBlock(el) {
   });
   return found;
 }
+/** A call to action (a Button, or a filled/padded host button) vs a plain text link (nav, eyebrow pill). */
+function actionKind(outer) {
+  const name = jsxName(outer.openingElement.name);
+  if (/Button$/.test(name) || name === 'button') return 'cta';
+  const cls = (() => { const a = attr(outer, 'className'); return a && a.value && a.value.type === 'StringLiteral' ? a.value.value : ''; })();
+  if (/^[a-z]/.test(name) && /\bbg-(?!transparent|muted|background)/.test(cls) && /\b(px|py|p)-\d/.test(cls)) return 'cta';
+  return 'link';
+}
+
+/** Index range [a, b] of children that carry text; icons/whitespace at either end are left alone. */
+function textRange(kids) {
+  const hasText = (c) => (c.type === 'JSXText' && c.value.trim()) || (c.type === 'JSXExpressionContainer' && c.expression.type !== 'JSXEmptyExpression'
+    && !(isStaticExpr(c.expression) && !String(c.expression.value ?? c.expression.quasis?.[0]?.value?.cooked ?? '').trim()))
+    || (c.type === 'JSXElement' && inlineContent(c, true));
+  let a = 0, b = kids.length - 1;
+  while (a <= b && !hasText(kids[a])) a++;
+  while (b >= a && !hasText(kids[b])) b--;
+  return [a, b];
+}
+
 /** `<Button asChild><Link href="/x">…` — the href lives on the single child element. */
 function findHref(el) {
   const own = attr(el, 'href') || attr(el, 'to');
@@ -127,17 +155,16 @@ export function litValue(node) {
   }
 }
 
+/** Literal arrays by name — module level AND inside component bodies (Tailark keeps FAQ data there). */
 function topArrays(ast) {
   const m = new Map();
-  for (const st of ast.program.body) {
-    const d = st.type === 'ExportNamedDeclaration' ? st.declaration : st;
-    if (!d || d.type !== 'VariableDeclaration') continue;
-    for (const v of d.declarations) {
-      let init = v.init;
-      while (init && /^TS(As|Satisfies)Expression$/.test(init.type)) init = init.expression;
-      if (v.id.type === 'Identifier' && init && init.type === 'ArrayExpression') m.set(v.id.name, init);
-    }
-  }
+  walk(ast, (n) => {
+    if (n.type !== 'VariableDeclarator' || n.id.type !== 'Identifier') return true;
+    let init = n.init;
+    while (init && /^TS(As|Satisfies)Expression$/.test(init.type)) init = init.expression;
+    if (init && init.type === 'ArrayExpression' && !m.has(n.id.name)) m.set(n.id.name, init);
+    return true;
+  });
   return m;
 }
 
@@ -256,9 +283,31 @@ function collect(code, root, ast, mode) {
     }
     const dynamic = childExpressions(host);
     if (mode === 'candidate' && dynamic) return null;
-    const src = code.slice(hk[0].start, hk[hk.length - 1].end);
+    // the replaceable range skips icons at either end (`<Icon/> Label` / `Label <Chevron/>`)
+    const [a, b] = textRange(hk);
+    if (a > b) return null;
+    const src = code.slice(hk[a].start, hk[b].end);
     if (!src.trim()) return null;
-    return { ...base, childrenStart: hk[0].start, childrenEnd: hk[hk.length - 1].end, src, text: textOf(code, host), dynamic, hrefAttr };
+    return { ...base, childrenStart: hk[a].start, childrenEnd: hk[b].end, src, text: textOf(code, host), dynamic, hrefAttr };
+  };
+
+  // `<p><span><Icon/> Title.</span>{' '}Description</p>` is TWO slots: a lead (heading) and a body
+  const leadBody = (el) => {
+    const kids = (el.children || []).filter((c) => !(c.type === 'JSXText' && !c.value.trim()) && !(c.type === 'JSXExpressionContainer' && isStaticExpr(c.expression) && !String(c.expression.value ?? '').trim()));
+    if (kids.length < 2 || kids[0].type !== 'JSXElement') return null;
+    const lead = kids[0];
+    const ln = jsxName(lead.openingElement.name);
+    if (isBlockEl(ln) || !inlineContent(lead, mode === 'original')) return null;
+    const rest = kids.slice(1);
+    if (!rest.every((c) => c.type === 'JSXText' || (c.type === 'JSXExpressionContainer' && (mode === 'original' || isStaticExpr(c.expression))) || (c.type === 'JSXElement' && !isBlockEl(jsxName(c.openingElement.name))))) return null;
+    if (!rest.some((c) => c.type === 'JSXText' && c.value.trim())) return null;
+    const lu = unitFor(lead, null);
+    if (!lu) return null;
+    const bodyStart = rest[0].start, bodyEnd = rest[rest.length - 1].end;
+    const bsrc = code.slice(bodyStart, bodyEnd);
+    return [{ ...lu, role: 'heading', sub: 'lead', el: lead },
+      { role: 'text', level: null, el, tag: jsxName(el.openingElement.name), host: el, childrenStart: bodyStart, childrenEnd: bodyEnd,
+        src: bsrc, text: bsrc.replace(/<[^>]+>/g, ' ').replace(/\{\s*['"] ?['"]\s*\}/g, ' ').replace(/\s+/g, ' ').trim(), dynamic: false, hrefAttr: null }];
   };
 
   const visit = (el, ctx) => {
@@ -289,13 +338,17 @@ function collect(code, root, ast, mode) {
     // a div/span that holds text directly (a price, a tagline) is content too — decorative bits are not
     const loose = !blockish && !nestedBlock && /^[a-z]/.test(name) && !/^(svg|path|g|circle|rect|code|pre|kbd|option)$/.test(name)
       && directContent(kids, mode === 'original' || !!ctx.env);
+    if (blockish && !ctx.env && !ctx.inMap && /^(text|item)$/.test(roleOf(name))) {
+      const pair = leadBody(el);
+      if (pair) { for (const u of pair) units.push(u); return; }
+    }
     if (blockish || loose) {
       if (!ctx.inMap || ctx.env) {
         let u = unitFor(el, ctx.env);
         if (u) u = withPrice(u);
         if (u && loose && u.role !== 'price' && u.text.replace(/[^\p{L}\p{N}]/gu, '').length < 4) u = null;
         if (u) {
-          if (u.role === 'action') u.outer = ctx.actionOuter || el;
+          if (u.role === 'action') { u.outer = ctx.actionOuter || el; u.sub = actionKind(u.outer); }
           if (ctx.env) { u.list = ctx.list; u.itemIdx = ctx.itemIdx; ctx.item.units.push(u); }
           units.push(u);
           return;
@@ -379,7 +432,7 @@ function listFields(code, roots, bind) {
           else if (an === 'src' && /^(img|Image)$/.test(name)) push({ field: f, role: 'image' });
           else if (an === 'alt') push({ field: f, role: 'imageAlt' });
         }
-        if (isBlockEl(name)) {
+        if (isBlockEl(name) || COMPOUND.test(name)) {
           const host = textHost(n, true);
           const exprs = (host.children || []).filter((c) => c.type === 'JSXExpressionContainer' && c.expression.type !== 'JSXEmptyExpression');
           if (exprs.length === 1) {
@@ -418,11 +471,15 @@ function siblingGroups(root, units) {
     for (const members of byTag.values()) {
       if (members.length < 2) continue;
       const per = members.map((m) => units.filter((u) => u.el.start >= m.start && u.el.end <= m.end));
-      if (per.filter((p) => p.length >= 2).length >= 2) groups.push({ members, per, total: per.reduce((a, p) => a + p.length, 0) });
+      if (per.filter((p) => p.length >= 2).length >= 2) {
+        const total = per.reduce((a, p) => a + p.length, 0);
+        // a list is BALANCED: cards of similar weight — not "a heading block + everything else"
+        groups.push({ members, per, total, balance: Math.min(...per.map((p) => p.length)) * members.length });
+      }
     }
     return true;
   });
-  groups.sort((a, b) => b.total - a.total || a.members[0].start - b.members[0].start);
+  groups.sort((a, b) => b.balance - a.balance || b.total - a.total || a.members[0].start - b.members[0].start);
   return groups;
 }
 
@@ -438,7 +495,7 @@ export function extractUnits(code, el, ast = null) {
   const fileAst = ast || parse('x.tsx', code);
   const c = collect(code, el, fileAst, 'original');
   const pub = (u) => ({
-    role: u.role, level: u.level, text: u.text, src: u.src.trim(), dynamic: !!u.dynamic,
+    role: u.role, sub: u.sub || null, level: u.level, text: u.text, src: u.src.trim(), dynamic: !!u.dynamic,
     href: u.href !== undefined ? u.href : attrValueSrc(code, u.hrefAttr), list: u.list ? c.lists.indexOf(u.list) : null, item: u.itemIdx ?? null,
   });
   const lists = c.lists.map((l) => ({ items: l.items.map((it) => ({ units: it.units.map(pub), images: it.images, bullets: it.bullets })) }));
@@ -606,17 +663,31 @@ export function parameterize(file, code, exp, opts = {}) {
       const gk = 'group' + (groups.length + 1);
       g.per.forEach((p, i) => p.forEach((u) => memberOf.set(u, i)));
       g.members.forEach((m, i) => { if (inChildren(m)) addCond(m, `${acc(gk + 'Show' + (i + 1))} !== false`); });
-      groups.push({ key: gk, count: g.members.length });
+      // hiding cards must not leave empty grid columns: the container gets one full class list per count
+      const box = parents.get(g.members[0]);
+      const ca = box && box.type === 'JSXElement' ? attr(box, 'className') : null;
+      const N = g.members.length;
+      let cols = false;
+      if (ca && ca.value && ca.value.type === 'StringLiteral' && new RegExp(`grid-cols-${N}\\b`).test(ca.value.value)) {
+        const v = ca.value.value;
+        const variant = (n) => JSON.stringify(v.replace(new RegExp(`grid-cols-${N}\\b`, 'g'), `grid-cols-${n}`));
+        let expr = JSON.stringify(v);
+        for (let n = N - 1; n >= 1; n--) expr = `${acc(gk + 'Cols')} === ${n} ? ${variant(n)} : ${expr}`;
+        edits.push({ start: ca.value.start, end: ca.value.end, text: `{${expr}}` });
+        cols = true;
+      }
+      groups.push({ key: gk, count: N, cols });
     }
     for (const u of c.units) {
       if (inCut(u.el)) continue;
       const k = key(u.role);
-      if (u.role === 'action' && u.outer && inChildren(u.outer) && !u.outer.__dhWrapped) {
+      const inSentence = (node) => { const p = parents.get(node); return !!(p && (p.children || []).some((c) => c.type === 'JSXText' && c.value.trim())); };
+      if (u.role === 'action' && u.outer && inChildren(u.outer) && !u.outer.__dhWrapped && !inSentence(u.outer)) {
         u.outer.__dhWrapped = true;
         addCond(u.outer, `${acc(k + 'Show')} !== false`);
       }
       edits.push({ start: u.childrenStart, end: u.childrenEnd, text: `{${acc(k)} ?? <span data-dh-demo="">${code.slice(u.childrenStart, u.childrenEnd)}</span>}` });
-      const slot = { key: k, role: u.role, level: u.level, demo: u.text, hideable: u.role === 'action' && !!(u.outer && u.outer.__dhWrapped) };
+      const slot = { key: k, role: u.role, sub: u.sub || null, level: u.level, demo: u.text, hideable: u.role === 'action' && !!(u.outer && u.outer.__dhWrapped) };
       if (memberOf.has(u)) { slot.group = groups[groups.length - 1].key; slot.member = memberOf.get(u); }
       const hv = u.hrefAttr && u.hrefAttr.value;
       if (u.role === 'action' && hv && hv.type === 'StringLiteral') {
@@ -714,10 +785,20 @@ export function bind(orig, cand, opts = {}) {
       } else if (items[i].bullets.length) dropped.push({ role: 'item', text: items[i].bullets.join(', ') });
     }
     for (let i = candGroups[0].count; i < items.length; i++) for (const u of items[i].units) dropped.push({ role: u.role, text: u.text });
+    if (candGroups[0].cols && items.length < candGroups[0].count) props.push([gk + 'Cols', String(Math.max(1, items.length))]);
   }
 
+  // actions pair by kind first (the owner's CTA goes to the design's CTA button, not its eyebrow link)
+  const kindOrder = (arr) => { const ctas = arr.filter((x) => x.sub !== 'link'), links = arr.filter((x) => x.sub === 'link'); return [ctas, links]; };
   for (const role of CONTENT_ROLES) {
-    const o = byRole(flat, role), s = byRole(flatSlots, role);
+    let o = byRole(flat, role), s = byRole(flatSlots, role);
+    if (role === 'action') {
+      const [oc, ol] = kindOrder(o), [sc, sl] = kindOrder(s);
+      const nc = Math.min(oc.length, sc.length), nl = Math.min(ol.length, sl.length);
+      const oRest = [...oc.slice(nc), ...ol.slice(nl)], sRest = [...sc.slice(nc), ...sl.slice(nl)];
+      o = [...oc.slice(0, nc), ...ol.slice(0, nl), ...oRest];
+      s = [...sc.slice(0, nc), ...sl.slice(0, nl), ...sRest];
+    }
     const n = Math.min(o.length, s.length);
     for (let i = 0; i < n; i++) {
       props.push([s[i].key, `<>${o[i].src}</>`]);
@@ -759,6 +840,14 @@ export function bind(orig, cand, opts = {}) {
     });
   }
 
+  // a design's own copyright line never survives: the owner's, or © <year> <brand>
+  if (opts.brand) {
+    for (const d of demo.filter((x) => x.role === 'copyright')) {
+      props.push([d.key, `<>© {new Date().getFullYear()} ${opts.brand.replace(/[{}<>]/g, '')}</>`]);
+      demo.splice(demo.indexOf(d), 1);
+      carried.push({ role: 'copyright', text: `© ${opts.brand}` });
+    }
+  }
   const oi = orig.images, si = slots.filter((x) => x.role === 'image');
   for (let i = 0; i < Math.min(oi.length, si.length); i++) {
     if (oi[i].src) props.push([si[i].key, oi[i].src]);

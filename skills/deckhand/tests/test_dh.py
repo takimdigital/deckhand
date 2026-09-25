@@ -171,7 +171,7 @@ class Brand(Base):
         self.assertTrue((self.root / "app" / "icon.svg").exists())
         self.assertIn("Next SaaS Starter", (self.root / "LICENSE").read_text())          # the licence is never rewritten
         left = {f["kind"] for f in brand.check(self.root)["findings"] if f["severity"] == "block"}
-        self.assertEqual(left, {"demo-content"})                                          # lorem ipsum is content work, not a rename
+        self.assertEqual(left, {"demo-content", "lorem"})                                 # lorem ipsum is content work, not a rename
 
 
 class Learn(Base):

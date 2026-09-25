@@ -77,6 +77,7 @@ def build_parser():
     p = sub.add_parser("dev"); p.add_argument("action", choices=["start", "stop", "status"]); p.add_argument("--port", type=int)
 
     p = sub.add_parser("rebrand"); p.add_argument("action", choices=["scan", "apply", "check"]); p.add_argument("pairs", nargs="*"); p.add_argument("--dry", action="store_true"); p.add_argument("--allow", default="")
+    p = sub.add_parser("swap"); p.add_argument("action", choices=["scan", "check"])
     p = sub.add_parser("verify"); p.add_argument("--url"); p.add_argument("--skip", default=""); p.add_argument("--allow", default="")
 
     p = sub.add_parser("deploy"); p.add_argument("action", choices=["target", "ship", "smoke", "raw"]); p.add_argument("rest", nargs=argparse.REMAINDER)
@@ -187,6 +188,14 @@ def dispatch(a):
         r = BR.check(root, allow=tuple(x for x in a.allow.split(",") if x))
         if not r["ok"]:
             raise DhError("LEAKS", f"{r['blocking']} blocking findings", **r)
+        return r
+    if c == "swap":
+        from . import swap as SW
+        if a.action == "scan":
+            return SW.scan(root)
+        r = SW.check(root)
+        if not r["ok"]:
+            raise DhError("SWAP_INCOMPLETE", "a vendor SDK is still in the code", **r)
         return r
     if c == "verify":
         from . import verify as V

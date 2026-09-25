@@ -6,8 +6,8 @@ Load when: the user's VPS + access method (+ provider API token) are known — i
 > **Oracle Cloud (free-preview track):** do `11-oracle-free-tier.md` FIRST (root login + in-VM
 > firewall + cloud-init), then run Steps 0 → 2 → 4 → 5 → 6 here; **skip Step 3** (firewall = OCI
 > Security List + ref 11 — that pair IS Track F's dashboard lock: never open 8000 there + the tunnel, ref 11 Steps 1/4) and **Step 7** (Hostinger-only). **Never run UFW on Oracle images.**
-Runs from the agent machine (git-bash on Windows; `py` = Python launcher). `scripts/hostinger_api.py`
-and `scripts/coolify_api.py` are stdlib-only — the contract; raw curl equivalents shown for every
+Runs from the agent machine (git-bash on Windows; `py` = Python launcher). `ops/scripts/hostinger_api.py`
+and `ops/scripts/coolify_api.py` are stdlib-only — the contract; raw curl equivalents shown for every
 step. Secrets live only in `~/.vps-ops/secrets/env.sh` (chmod 600 — cosmetic on Windows git-bash;
 enforce for real with `icacls <file> /inheritance:r /grant:r "%USERNAME%:F"`).
 
@@ -54,7 +54,7 @@ curl -sS https://developers.hostinger.com/api/vps/v1/virtual-machines/<vmId>/pub
 
 Expected: step 3 lists `vps-ops` with our pubkey material.
 Script equivalent (idempotent — reuses an existing key by material, then attaches):
-`py scripts/hostinger_api.py sshkey ensure --vm <vmId> --name vps-ops --key-file ~/.vps-ops/ssh/id_ed25519.pub`
+`py ops/scripts/hostinger_api.py sshkey ensure --vm <vmId> --name vps-ops --key-file ~/.vps-ops/ssh/id_ed25519.pub`
 
 ## Step 1b — generic: one-paste key install
 
@@ -107,7 +107,7 @@ curl -sS -X POST "https://developers.hostinger.com/api/vps/v1/firewall/<fwId>/sy
 DURING BOOTSTRAP (health checks before Step 3b locks the dashboard at the Docker level) — once the tunnel
 works you can delete those three from the firewall and `…/sync`; 22/80/443 stay.
 Protocol enum: `TCP|UDP|ICMP|GRE|any|ESP|AH|ICMPv6|SSH|HTTP|HTTPS|MySQL|PostgreSQL`; port range form `"1024:2048"`.
-Script equivalent (idempotent: find-or-create → ensure rules → activate → sync): `py scripts/hostinger_api.py firewall ensure --vm <vmId> --ports 22,80,443,8000,6001,6002 --name vps-ops`
+Script equivalent (idempotent: find-or-create → ensure rules → activate → sync): `py ops/scripts/hostinger_api.py firewall ensure --vm <vmId> --ports 22,80,443,8000,6001,6002 --name vps-ops`
 
 ### Generic (ufw — non-Hostinger providers only)
 
@@ -162,7 +162,7 @@ with `Host key verification failed` (silently in background; live-hit again 2026
 known_hosts once — `ssh-keyscan -t ed25519 $VPS_IP | tr -d '\r' > ~/.vps-ops/ssh/known_hosts`
 (verify the fingerprint before trusting!) — and carry `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes` on **every** ssh this skill runs from the agent machine: bootstrap gates, ops/deploy commands, backup/watchdog status pulls. Belt (when `/home` is writable): `mkdir -p /home/$USER && ln -s "$HOME/.ssh" /home/$USER/.ssh`. If the DEFAULT `~/.ssh/known_hosts` is ever poisoned for a host (bad/duplicate row or a changed host key), repair it with the sanctioned path — `ssh-keygen -R <ip> -f "$HOME/.ssh/known_hosts"`, then re-add the current line from the vault copy (`ssh-keygen -F <ip> -f "$HOME/.vps-ops/ssh/known_hosts"`, append the match to the default file) — never a raw in-place text edit: the harness guard blocks edits on `~/.ssh/known_hosts` and the file stays broken (live: an attempted in-place fix was guard-blocked and the default file stayed stale until the next repair). **Dead-tunnel
 symptom:** every `coolify_api.py` call fails with `10061 / actively refused` — that is the tunnel,
-not Coolify; run `py scripts/coolify_api.py tunnel` (health-checks and auto-starts it; `deploy` preflights it too - set `VPS_SSH_HOST`/`VPS_SSH_KEY` once in the vault env), or restart it manually (background) and `curl -s http://127.0.0.1:8000/api/health` before deploying.
+not Coolify; run `py ops/scripts/coolify_api.py tunnel` (health-checks and auto-starts it; `deploy` preflights it too - set `VPS_SSH_HOST`/`VPS_SSH_KEY` once in the vault env), or restart it manually (background) and `curl -s http://127.0.0.1:8000/api/health` before deploying.
 
 Windows note (live-verified): forwarding 6001/6002 can die with `bind [127.0.0.1]:6002: Permission
 denied` (Windows reserved port ranges) and `ExitOnForwardFailure` then kills the whole tunnel —
@@ -205,7 +205,7 @@ curl -sS -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_URL/api/v1/applicat
 ```
 
 Expected: `[]` (fresh install) or a JSON array — via the tunnel: COOLIFY_URL is the tunnel's local end (`http://127.0.0.1:8000`); after Step 3b the public IP's :8000 is closed, so a public-IP URL here can never answer. `401` → API access still disabled or token wrong (§4A).
-Script check: `py scripts/coolify_api.py health` → `coolify health: 200`. Never echo the token into
+Script check: `py ops/scripts/coolify_api.py health` → `coolify health: 200`. Never echo the token into
 chat, logs, or a repo file. The token contains `|` (Sanctum format `1|…`): the env file must hold it
 **single-quoted** (`export COOLIFY_TOKEN='1|…'`) or the shell splits it and every call answers
 `Unauthenticated.` (live-verified). `coolify_api.py` reads `$COOLIFY_URL`/`$COOLIFY_TOKEN`, then `~/.vps-ops/config.json` / `secrets/env.sh`.
@@ -232,7 +232,7 @@ curl -sS "https://developers.hostinger.com/api/vps/v1/virtual-machines/<vmId>/ac
 # → "state": "success"    (states: success | error | delayed | sent | created)
 ```
 
-Script equivalents: `py scripts/hostinger_api.py snapshot create <vmId>` · `py scripts/hostinger_api.py actions <vmId> <actionId>`.
+Script equivalents: `py ops/scripts/hostinger_api.py snapshot create <vmId>` · `py ops/scripts/hostinger_api.py actions <vmId> <actionId>`.
 Record the timestamp — the known-good baseline for restores. Generic providers: their snapshot UI/API, or skip.
 
 ## Step 8 — Coolify instance domain (recommended: unlocks HTTPS + MCP)
@@ -256,7 +256,7 @@ Claude Code:
 ```bash
 claude mcp add --transport http coolify https://coolify.<domain>/mcp --header "Authorization: Bearer <token>"
 ```
-Hostinger's remote MCP (`https://mcp.hostinger.com`) is OAuth-based — fine in Claude Code/Cursor; for Hermes use `scripts/hostinger_api.py` with `$HOSTINGER_API_TOKEN`.
+Hostinger's remote MCP (`https://mcp.hostinger.com`) is OAuth-based — fine in Claude Code/Cursor; for Hermes use `ops/scripts/hostinger_api.py` with `$HOSTINGER_API_TOKEN`.
 
 ## Failure remedies
 
@@ -267,7 +267,7 @@ Hostinger's remote MCP (`https://mcp.hostinger.com`) is OAuth-based — fine in 
 | `UNPROTECTED PRIVATE KEY` / bad permissions | Windows perms on the key file | `chmod 600`; use git-bash `/usr/bin/ssh`; add `-o IdentitiesOnly=yes` |
 | `Host key verification failed` (bare ssh from an MSYS harness) | ssh read `/home/<user>/.ssh/known_hosts` (absent) instead of `$HOME/…` | add `-o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes` (canonical form — trap in Step 3b) |
 | `Host key verification failed` after a VPS rebuild | stale entry for `$VPS_IP` in the vault known_hosts | `ssh-keygen -R $VPS_IP -f ~/.vps-ops/ssh/known_hosts`, retry Step 2 |
-| `:8000/api/health` not 200, or unreachable | install still running; AFTER Step 3b the port is loopback-only BY DESIGN (a timeout from the internet is the lock working) | wait 2–3 min; `docker ps`; from the agent machine run the tunnel (`py scripts/coolify_api.py tunnel`) then `curl http://127.0.0.1:8000/api/health` — never re-open 8000 publicly |
+| `:8000/api/health` not 200, or unreachable | install still running; AFTER Step 3b the port is loopback-only BY DESIGN (a timeout from the internet is the lock working) | wait 2–3 min; `docker ps`; from the agent machine run the tunnel (`py ops/scripts/coolify_api.py tunnel`) then `curl http://127.0.0.1:8000/api/health` — never re-open 8000 publicly |
 | Token curl → `401` | API access off / token scopes wrong | `00-user-checklist.md` §4A, recreate the token |
 | `config error: …` from a script | env not loaded | `. ~/.vps-ops/secrets/env.sh` |
 | SSH lost after firewall change | rule for 22 missing | add TCP/22 + `…/sync`; recover via provider console |
