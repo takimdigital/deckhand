@@ -24,6 +24,20 @@ $T keep --id <S> --idx 2      # or: discard --id <S>   (byte-exact restore)
 ```
 `--no-install` refuses candidates needing new npm packages instead of installing them.
 
+## Tune it (adjust, don't replace) and Site (the whole look) — no model calls
+Picker panel → **Tune it**: presets (quieter · bolder · airy · compact · clarity · softer · sharper) and
+knobs (spacing, headlines, weight, corners, depth, contrast, width). Each change is an exact Tailwind class
+transform of the picked element's subtree, recomputed from the original every time and written to the
+file; HMR shows it, so what the owner sees is what is kept. **Keep** finishes, **Reset**/**Close** restore
+the file byte-exact. "Describe it to the AI" hands the note to the gated, labelled AI draft (below).
+**Site** (button beside Try-on): accent (curated swatches or any colour), neutrals (neutral/warm/cool),
+corners (`--radius`), density (`--spacing`, Tailwind 4), headline scale (`--text-2xl…9xl`), body and heading
+fonts. The preview sets the EXACT values apply writes (from the same function); **Apply** writes one marked
+`dh:theme` block at the end of the global stylesheet (light + dark) and, for fonts, rewrites `next/font` in
+the root layout by AST (the body rule beats a hard-coded `font-family`); **Undo last apply** restores both
+files byte-exact. Headless: `tune-*` / `theme-*` endpoints of the helper; engines in `lib/tune.mjs`,
+`lib/sitetheme.mjs`.
+
 ## No licensed design fits? The AI draft (labelled, gated)
 The owner can ask for an AI-written variant: "Ask AI to draft one" appears when a slot has no licensed
 design, when none can hold their content (`NO_CANDIDATES` / `NO_VARIANTS`), and as **AI draft** in the

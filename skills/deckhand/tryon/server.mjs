@@ -4,8 +4,8 @@
  *   http://127.0.0.1:<port>  ->  reverse proxy of the dev server (HMR websockets included)
  *                                with the overlay injected into every HTML page;
  *   /__dh/overlay.js           the picker UI;
- *   /__dh/api/*                inspect · open · show · keep · discard · more · save · state ·
- *                              draft · draft-status (token-gated; the engine does every write itself).
+ *   /__dh/api/*                inspect · open · show · keep · discard · more · save · state · draft ·
+ *                              draft-status · tune-* · theme-* (token-gated; the engine does every write).
  *
  * AI drafts: the owner's request is written to .deckhand/tryon/drafts/ and printed on stdout as ONE
  * JSON line ({"event":"draft_request",…}) for an agent watching this process; the overlay polls only
@@ -25,6 +25,8 @@ import { detectProject } from './lib/project.mjs';
 import { loadCatalog, slotsSummary } from './lib/catalog.mjs';
 import { saveToLibrary } from './lib/library.mjs';
 import * as draft from './lib/draft.mjs';
+import { tuneOpen, tuneSet, tuneKeep, tuneReset } from './lib/tune.mjs';
+import { themeState, themeVars, themeApply, themeUndo } from './lib/sitetheme.mjs';
 import { BLOCK_SLOTS, UI_SLOTS, EFFECT_SLOTS } from './lib/slots.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -99,6 +101,16 @@ export function startServer({ root: rootIn, port = 3999, target, host = '127.0.0
         onDraft(r);
         return r;
       }
+      // Tune: knobs on one element (exact class transforms, written once per change, HMR shows them)
+      case 'tune-open': return tuneOpen(root, body);
+      case 'tune-set': return serial(() => tuneSet(root, body.id, { dials: body.dials || {}, preset: body.preset || null }));
+      case 'tune-keep': return serial(() => tuneKeep(root, body.id));
+      case 'tune-reset': return serial(() => tuneReset(root, body.id));
+      // Site: the whole look (CSS variables previewed with the exact values apply writes; fonts via next/font)
+      case 'theme-state': return themeState(root);
+      case 'theme-vars': return themeVars(body || {});
+      case 'theme-apply': return serial(() => themeApply(root, body || {}));
+      case 'theme-undo': return serial(() => themeUndo(root));
       case 'draft-status': {
         const d = draft.loadDraft(root, body.id);
         let session = null;

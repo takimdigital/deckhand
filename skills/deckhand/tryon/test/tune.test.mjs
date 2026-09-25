@@ -98,6 +98,7 @@ test('site theme: exact variables, one marked block, fonts rewritten by AST, und
   assert.equal((css.match(/dh:theme —/g) || []).length, 1);
   assert.match(css, /--primary: oklch\(0\.620 0\.150 40\.0\);/);
   assert.match(css, /font-family: var\(--font-heading\)/);
+  assert.match(css, /body \{\n  font-family: var\(--font-geist-sans\), ui-sans-serif/);     // beats a hard-coded body font
   const lay = read(dir, 'app/layout.tsx');
   parse('layout.tsx', lay);
   assert.match(lay, /import \{ Fraunces, Geist_Mono, Manrope \} from "next\/font\/google";/);

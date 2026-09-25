@@ -93,11 +93,16 @@ export function themeVars(v = {}) {
   return { light, dark };
 }
 
-export function themeCss(v) {
+export function themeCss(v, fonts = {}) {
   const { light, dark } = themeVars(v);
-  if (!Object.keys(light).length && !Object.keys(dark).length) return '';
+  const rules = [];
+  // the body font must win over a stylesheet that hard-codes one (create-next-app: `body { font-family: Arial }`)
+  if (fonts.bodyVar) rules.push(`body {\n  font-family: var(${fonts.bodyVar}), ui-sans-serif, system-ui, sans-serif;\n}\n`);
+  // headings: in the base layer, so an explicit font utility on a heading still wins
+  if (fonts.heading) rules.push('@layer base {\n  h1, h2, h3 { font-family: var(--font-heading), ui-serif, Georgia, serif; }\n}\n');
+  if (!Object.keys(light).length && !Object.keys(dark).length && !rules.length) return '';
   const block = (sel, o) => (Object.keys(o).length ? `${sel} {\n${Object.entries(o).map(([k, val]) => `  --${k}: ${val};`).join('\n')}\n}\n` : '');
-  return `${BEGIN}\n/* ${JSON.stringify(v)} */\n${block(':root', light)}${block('.dark', dark)}${END}\n`;
+  return `${BEGIN}\n/* ${JSON.stringify(v)} */\n${block(':root', light)}${block('.dark', dark)}${rules.join('')}${END}\n`;
 }
 
 function stripBlock(css) {
@@ -211,7 +216,6 @@ export function rewriteFonts(prof, { body, heading } = {}) {
   return { file: info.file, code };
 }
 
-const HEADING_RULE = '@layer base {\n  h1, h2, h3 { font-family: var(--font-heading), var(--font-sans, ui-sans-serif), serif; }\n}\n';
 
 /* ------------------------------------------------------------------ state · apply · undo */
 
@@ -235,14 +239,16 @@ export function themeApply(rootIn, v = {}) {
   const cssPath = path.join(prof.root, prof.globalsCss);
   const before = { [prof.globalsCss]: fs.readFileSync(cssPath, 'utf8') };
   let css = stripBlock(before[prof.globalsCss]);
-  const block = themeCss(v);
-  let fonts = null;
+  let fonts = null, bodyVar = null;
   if ((v.body || v.heading) && prof.framework === 'next') {
+    const info = readFonts(prof);
+    const bodyDecl = info && info.fonts.find((f) => roleOf(f) === 'body' && f.variable);
+    bodyVar = v.body && bodyDecl ? bodyDecl.variable : null;
     fonts = rewriteFonts(prof, { body: v.body, heading: v.heading });
     if (fonts) before[fonts.file] = fs.readFileSync(path.join(prof.root, fonts.file), 'utf8');
   }
-  const needHeading = !!(fonts && v.heading) && !css.includes('var(--font-heading)');
-  css = css.replace(/\s*$/, '\n') + (block ? '\n' + block : '') + (needHeading ? '\n' + HEADING_RULE : '');
+  const block = themeCss(v, { bodyVar, heading: !!(fonts && v.heading) });
+  css = css.replace(/\s*$/, '\n') + (block ? '\n' + block : '');
   fs.mkdirSync(stateDir(prof.root), { recursive: true });
   fs.writeFileSync(path.join(stateDir(prof.root), 'last.json'), JSON.stringify({ at: new Date().toISOString(), files: before }));
   fs.writeFileSync(cssPath, css);

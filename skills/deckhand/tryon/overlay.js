@@ -53,6 +53,12 @@
     'textarea{font:inherit;width:100%;min-height:54px;border:1px solid #d4d4d8;border-radius:8px;padding:6px 8px;resize:vertical;margin-top:6px}',
     'button.ai{background:#6d28d9;color:#fff;border-color:#6d28d9}.bar button.ai{background:#6d28d9;border-color:#6d28d9}',
     'code.say{display:block;margin-top:6px;padding:6px 8px;border-radius:6px;background:#ede9fe;color:#3b0764;font:12px ui-monospace,monospace;white-space:pre-wrap}',
+    '.tabs{display:flex;gap:4px;margin:0 0 10px;padding:3px;border-radius:10px;background:#f4f4f5}.tabs button{flex:1;border:0;background:transparent;padding:5px 8px}.tabs button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:600}',
+    '.dial{display:grid;grid-template-columns:78px 1fr;gap:8px;align-items:center;margin-top:7px}.dial .lab{font-size:12px;color:#52525b}',
+    '.seg{display:flex;border:1px solid #d4d4d8;border-radius:8px;overflow:hidden}.seg button{flex:1;border:0;border-radius:0;padding:4px 2px;font-size:11.5px;background:#fff;white-space:nowrap}.seg button+button{border-left:1px solid #e4e4e7}.seg button.on{background:#18181b;color:#fff}',
+    '.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chips button{border-radius:999px;padding:3px 10px;font-size:12px}.chips button.on{background:#18181b;color:#fff;border-color:#18181b}',
+    '.sw{width:22px;height:22px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #d4d4d8;cursor:pointer;padding:0}.sw.on{box-shadow:0 0 0 2px #18181b}',
+    '.site{pointer-events:auto;position:fixed;right:122px;bottom:18px;padding:9px 13px;border-radius:999px;background:#fff;color:#18181b;border:1px solid #e4e4e7;cursor:pointer;box-shadow:0 8px 30px rgba(0,0,0,.14);font-weight:600}',
     '.spin{width:14px;height:14px;border:2px solid #d4d4d8;border-top-color:#2563eb;border-radius:50%;animation:s .8s linear infinite;display:inline-block;vertical-align:-2px;margin-right:6px}@keyframes s{to{transform:rotate(360deg)}}',
   ].join('') + '</style>';
   (document.body || document.documentElement).appendChild(host);
@@ -65,6 +71,9 @@
   pill.appendChild(el('b', null, 'Try-on'));
   pill.title = 'Deckhand try-on: pick any section or component and try licensed alternatives in your own colours and words';
   root.appendChild(pill);
+  var siteBtn = el('div', 'site', 'Site');
+  siteBtn.title = 'Tune the whole site: accent colour, warmth, corners, density, headline size, fonts';
+  root.appendChild(siteBtn);
 
   var picking = false, outline = null, tag = null, panel = null, bar = null, session = null, idx = 1, state = null, busy = false;
 
@@ -200,7 +209,11 @@
   function openPanel(cr, sel) {
     closePanel();
     panel = el('div', 'panel');
-    panel.appendChild(el('p', 'h', 'What do you want to swap?'));
+    var tabs = el('div', 'tabs'), tSwap = el('button', 'on', 'Swap it'), tTune = el('button', null, 'Tune it');
+    tabs.appendChild(tSwap); tabs.appendChild(tTune);
+    panel.appendChild(tabs);
+    var title = el('p', 'h', 'What do you want to swap?');
+    panel.appendChild(title);
     var list = el('div');
     var slotSel = el('select');
     var slots = (state && state.slots) || {};
@@ -248,9 +261,25 @@
     msg.style.marginTop = '10px';
     msg.textContent = 'Variants are real MIT-licensed components, shown in your colours with your text. Nothing ships until you keep one.';
     panel.appendChild(msg);
+    var tuneBox = tuneUI(function () {
+      var m = /^(.*):(\d+):(\d+)$/.exec(cr[sel].stamp);
+      return m ? { file: m[1], line: +m[2], col: +m[3], slot: slotSel.value || guessSlot(cr[sel].el) || 'content' } : null;
+    });
+    tuneBox.el.style.display = 'none';
+    panel.appendChild(tuneBox.el);
+    function tab(t) {
+      var tune = t === 'tune';
+      tSwap.className = tune ? '' : 'on'; tTune.className = tune ? 'on' : '';
+      title.textContent = tune ? 'Tune it — your design, adjusted' : 'What do you want to swap?';
+      [r1, r2, msg].forEach(function (x) { x.style.display = tune ? 'none' : ''; });
+      tuneBox.el.style.display = tune ? '' : 'none';
+    }
+    tSwap.onclick = function () { tuneBox.reset(); tab('swap'); };
+    tTune.onclick = function () { tab('tune'); };
     root.appendChild(panel);
     fillSlots(guessSlot(cr[sel].el));
     slotSel.addEventListener('change', syncGo);
+    list.addEventListener('click', function () { tuneBox.reset(); }, true);
     cancel.addEventListener('click', closePanel);
     go.addEventListener('click', function () {
       var m = /^(.*):(\d+):(\d+)$/.exec(cr[sel].stamp);
@@ -272,6 +301,188 @@
       }).catch(function (e) { busy = false; go.disabled = false; msg.className = 'err'; msg.textContent = String(e); });
     });
   }
+  /* ------------------------------------------------------------ Tune (knobs on one element, no AI) */
+  var DIALS = [
+    ['density', 'Spacing', [-2, -1, 0, 1, 2], ['tight', 'snug', 'as is', 'airy', 'open']],
+    ['size', 'Headlines', [-2, -1, 0, 1, 2], ['xs', 'small', 'as is', 'large', 'xl']],
+    ['weight', 'Weight', [-1, 0, 1, 2], ['lighter', 'as is', 'bolder', 'heavy']],
+    ['corners', 'Corners', ['sharp', 'soft', 'as is', 'round', 'pill'], ['sharp', 'soft', 'as is', 'round', 'pill']],
+    ['depth', 'Depth', ['flat', 'subtle', 'as is', 'raised'], ['flat', 'subtle', 'as is', 'raised']],
+    ['contrast', 'Contrast', ['soft', 'as is', 'crisp'], ['soft', 'as is', 'crisp']],
+    ['width', 'Width', [-1, 0, 1, 2], ['narrower', 'as is', 'wider', 'widest']],
+  ];
+  var PRESETS = ['quieter', 'bolder', 'airy', 'compact', 'clarity', 'softer', 'sharper'];
+  function tuneUI(where) {
+    var box = el('div'), sess = null, dials = {}, preset = null, pending = null, running = false;
+    var chips = el('div', 'chips'), status = el('div', 'small muted');
+    status.style.marginTop = '8px';
+    status.textContent = 'Each change is written to your code and shown live; Keep to finish, Reset to undo.';
+    PRESETS.forEach(function (p) {
+      var b = el('button', null, p);
+      b.onclick = function () { preset = preset === p ? null : p; dials = {}; render(); push(); };
+      chips.appendChild(b);
+    });
+    box.appendChild(el('div', 'small muted', 'One click:'));
+    box.appendChild(chips);
+    var rows = el('div');
+    box.appendChild(rows);
+    function render() {
+      [].forEach.call(chips.children, function (b) { b.className = b.textContent === preset ? 'on' : ''; });
+      rows.innerHTML = '';
+      DIALS.forEach(function (d) {
+        var row = el('div', 'dial'), seg = el('div', 'seg');
+        row.appendChild(el('div', 'lab', d[1]));
+        var cur = dials[d[0]] !== undefined ? dials[d[0]] : (d[2].indexOf(0) >= 0 ? 0 : 'as is');
+        d[2].forEach(function (v, i) {
+          var b = el('button', v === cur ? 'on' : null, d[3][i]);
+          b.onclick = function () { dials[d[0]] = v; render(); push(); };
+          seg.appendChild(b);
+        });
+        row.appendChild(seg);
+        rows.appendChild(row);
+      });
+    }
+    function push() {
+      pending = { dials: Object.assign({}, dials), preset: preset };
+      if (running) return;
+      running = true;
+      (function next() {
+        var job = pending; pending = null;
+        var go = sess ? Promise.resolve({ ok: true, id: sess }) : api('tune-open', where());
+        go.then(function (o) {
+          if (!o.ok) throw o;
+          sess = o.id;
+          status.innerHTML = '<span class="spin"></span>Writing it to your code…';
+          return api('tune-set', { id: sess, dials: job.dials, preset: job.preset });
+        }).then(function (r) {
+          if (!r.ok) throw r;
+          status.className = 'small'; status.textContent = r.changed ? 'Live on the page (' + r.changed + ' class changes). Keep it, or Reset.' : 'Nothing to change there for this knob.';
+        }).catch(function (e) { status.className = 'err'; status.textContent = (e.code || 'ERROR') + ': ' + (e.message || e); })
+          .then(function () { if (pending) next(); else running = false; });
+      })();
+    }
+    render();
+    var r = el('div', 'row'), keep = el('button', 'primary', 'Keep'), reset = el('button', null, 'Reset'), ai = el('button', 'ai', 'Describe it to the AI'), close = el('button', null, 'Close');
+    r.appendChild(keep); r.appendChild(reset); r.appendChild(ai); r.appendChild(close);
+    close.onclick = function () { doReset().then(closePanel); };              // unkept changes never linger
+    box.appendChild(r);
+    box.appendChild(status);
+    keep.onclick = function () {
+      if (!sess) return;
+      api('tune-keep', { id: sess }).then(function (x) { sess = null; dials = {}; preset = null; render(); status.className = 'ok'; status.textContent = x.ok ? 'Kept in ' + x.file + '.' : x.message; });
+    };
+    function doReset() {
+      if (!sess) return Promise.resolve();
+      var id = sess; sess = null; dials = {}; preset = null; render();
+      return api('tune-reset', { id: id }).then(function (x) { status.className = 'small muted'; status.textContent = x.ok ? 'Back to the original (byte-exact).' : x.message; });
+    }
+    reset.onclick = doReset;
+    ai.onclick = function () { doReset().then(function () { var w = where(); if (w) draftForm(box, w, 'Knobs not enough?'); }); };
+    return { el: box, reset: doReset };
+  }
+
+  /* ------------------------------------------------------------ Site (the whole look, previewed exactly) */
+  var themeSet = [];
+  function clearPreview() {
+    themeSet.forEach(function (k) { document.documentElement.style.removeProperty(k); });
+    themeSet = [];
+    var f = document.getElementById('dh-font-preview'); if (f) f.remove();
+    var l = document.getElementById('dh-font-link'); if (l) l.remove();
+  }
+  function sitePanel() {
+    closePanel();
+    panel = el('div', 'panel');
+    panel.appendChild(el('p', 'h', 'The whole site'));
+    var body = el('div', 'small muted', 'Loading…');
+    panel.appendChild(body);
+    root.appendChild(panel);
+    api('theme-state').then(function (st) {
+      body.innerHTML = '';
+      if (!st.ok) { body.className = 'err'; body.textContent = st.message; return; }
+      var v = Object.assign({}, st.current), status = el('div', 'small muted');
+      status.style.marginTop = '8px';
+      status.textContent = 'Preview only — nothing is written until Apply.';
+      function seg(label, key, opts) {
+        var row = el('div', 'dial'), sg = el('div', 'seg');
+        row.appendChild(el('div', 'lab', label));
+        opts.forEach(function (o) {
+          var b = el('button', (v[key] || 'as is') === o ? 'on' : null, o);
+          b.onclick = function () { v[key] = o; [].forEach.call(sg.children, function (x) { x.className = x === b ? 'on' : ''; }); preview(); };
+          sg.appendChild(b);
+        });
+        row.appendChild(sg);
+        body.appendChild(row);
+      }
+      var arow = el('div', 'dial'), sws = el('div', 'chips');
+      arow.appendChild(el('div', 'lab', 'Accent'));
+      Object.keys(st.accents).forEach(function (k) {
+        var b = el('button', 'sw' + (v.accent === k ? ' on' : ''));
+        b.style.background = st.accents[k]; b.title = k;
+        b.onclick = function () { v.accent = k; [].forEach.call(sws.children, function (x) { if (x.classList.contains('sw')) x.className = 'sw' + (x === b ? ' on' : ''); }); preview(); };
+        sws.appendChild(b);
+      });
+      var pick = el('input'); pick.type = 'color'; pick.title = 'your own colour'; pick.style.width = '30px'; pick.style.height = '24px';
+      pick.oninput = function () { v.accent = pick.value; preview(); };
+      sws.appendChild(pick);
+      arow.appendChild(sws);
+      body.appendChild(arow);
+      seg('Neutrals', 'neutrals', st.knobs.neutrals);
+      seg('Corners', 'corners', st.knobs.corners);
+      if (st.spacingVar) seg('Density', 'density', st.knobs.density);
+      seg('Headlines', 'headlines', st.knobs.headlines);
+      if (st.fonts) {
+        ['body', 'heading'].forEach(function (role) {
+          var row = el('div', 'dial'), sel = el('select');
+          row.appendChild(el('div', 'lab', role === 'body' ? 'Body font' : 'Heading font'));
+          var o0 = el('option', null, 'as is'); o0.value = ''; sel.appendChild(o0);
+          st.fonts.list.forEach(function (f) { var o = el('option', null, f.google + ' (' + f.kind + ')'); o.value = f.id; if (v[role] === f.id) o.selected = true; sel.appendChild(o); });
+          sel.onchange = function () { v[role] = sel.value || undefined; preview(); };
+          row.appendChild(sel);
+          body.appendChild(row);
+        });
+      }
+      function preview() {
+        api('theme-vars', v).then(function (r) {
+          if (!r.ok) return;
+          clearPreview();
+          var dark = document.documentElement.classList.contains('dark');
+          var vars = Object.assign({}, r.light, dark ? r.dark : {});
+          Object.keys(vars).forEach(function (k) { document.documentElement.style.setProperty('--' + k, vars[k]); themeSet.push('--' + k); });
+          var fam = function (id) { var f = st.fonts && st.fonts.list.filter(function (x) { return x.id === id; })[0]; return f ? f.google : null; };
+          var b = fam(v.body), h = fam(v.heading);
+          if (b || h) {
+            var link = document.createElement('link'); link.id = 'dh-font-link'; link.rel = 'stylesheet';
+            link.href = 'https://fonts.googleapis.com/css2?' + [b, h].filter(Boolean).map(function (x) { return 'family=' + x.replace(/ /g, '+'); }).join('&') + '&display=swap';
+            document.head.appendChild(link);
+            var st2 = document.createElement('style'); st2.id = 'dh-font-preview';
+            // the same reach as apply: body inherits it, explicit font utilities keep theirs
+            st2.textContent = (b ? 'html body{font-family:"' + b + '",ui-sans-serif,system-ui,sans-serif}' : '') + (h ? 'html body :is(h1,h2,h3){font-family:"' + h + '",ui-serif,Georgia,serif}' : '');
+            document.head.appendChild(st2);
+          }
+          status.className = 'small'; status.textContent = 'Previewing (exact values). Apply writes them to your stylesheet' + (b || h ? ' and layout' : '') + '.';
+        });
+      }
+      body.appendChild(status);
+      var r = el('div', 'row'), apply = el('button', 'primary', 'Apply to the site'), undo = el('button', null, 'Undo last apply'), close = el('button', null, 'Close');
+      undo.disabled = !st.undo;
+      r.appendChild(apply); r.appendChild(undo); r.appendChild(close);
+      body.appendChild(r);
+      apply.onclick = function () {
+        apply.disabled = true;
+        api('theme-apply', v).then(function (x) {
+          apply.disabled = false;
+          if (!x.ok) { status.className = 'err'; status.textContent = x.code + ': ' + x.message; return; }
+          status.className = 'ok'; status.textContent = 'Applied to ' + x.files.join(' + ') + '.';
+          undo.disabled = false;
+          setTimeout(clearPreview, 2500);                              // the dev server now serves the same values
+        });
+      };
+      undo.onclick = function () { api('theme-undo').then(function (x) { clearPreview(); status.className = x.ok ? 'ok' : 'err'; status.textContent = x.ok ? 'Restored ' + x.restored.join(' + ') + ' (byte-exact).' : x.message; undo.disabled = true; }); };
+      close.onclick = function () { clearPreview(); closePanel(); };
+    });
+  }
+  siteBtn.addEventListener('click', function () { if (session) return; stopPicking(); sitePanel(); });
+
   /* ------------------------------------------------------------ AI draft (the fallback, labelled) */
   function draftForm(container, where, why) {
     var old = container.querySelector('.ai-box'); if (old) old.remove();

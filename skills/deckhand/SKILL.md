@@ -107,7 +107,10 @@ Keep bakes the copy in, prunes unused files, records the licence. Launch: `tryon
 headless. The agent is NOT in the click loop — do not poll. **No licensed design fits?** The owner can ask
 for an AI draft: you write it ONCE from the brief (`tryon drafts` → write → `tryon draft-done`); scripts gate
 it (every owner word and link, token colours, installed imports, no invented facts) and it is labelled
-AI-generated everywhere. Details: `references/50-tryon.md`.
+AI-generated everywhere. **Tune it** adjusts instead of replacing (spacing, headlines, weight, corners, depth,
+contrast, width + presets like quieter/bolder), and **Site** tunes the whole look (accent, neutrals, radius,
+density, headline scale, fonts) — deterministic, previewed exactly, reversible byte-exact.
+Details: `references/50-tryon.md`.
 
 ## 6. Delegation protocol (parallel agents)
 
