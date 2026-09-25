@@ -243,7 +243,8 @@ def render(st: dict) -> str:
          + (f" · **waiting for the owner: {st['gate']}** ({st['gate_what']})" if st["gate"] else ""),
          "- Next (exact, from `dh next`):"] + [f"  - `{x}`" for x in st["next"]]
     if st["read"]:
-        L.append(f"- Read only: `{Path(st['read']).relative_to(SKILL) if str(st['read']).startswith(str(SKILL)) else st['read']}` (inside the skill)")
+        rd = Path(st["read"])
+        L.append(f"- Read only: `{rd.relative_to(SKILL).as_posix() if str(rd).startswith(str(SKILL)) else rd.as_posix()}` (inside the skill)")
     L += ["", "## Done (with proof)"]
     L += [f"- {p} {at} — {proof}" for p, at, proof in st["done"]] or ["- nothing yet"]
     if st["skipped"]:

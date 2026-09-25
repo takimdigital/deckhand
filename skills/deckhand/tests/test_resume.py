@@ -190,7 +190,7 @@ class ColdStart(Base):
         self.assertEqual(resume.hook("not json"), "")                        # a hook never breaks the harness
         env = {**os.environ}
         p = subprocess.run([sys.executable, str(SKILL / "dh.py"), "resume", "--hook"], input=json.dumps({"cwd": str(sub)}),
-                           capture_output=True, text=True, cwd=str(outside), env=env, timeout=60)
+                           capture_output=True, text=True, encoding="utf-8", cwd=str(outside), env=env, timeout=60)
         self.assertEqual(p.returncode, 0, p.stderr)
         self.assertTrue(p.stdout.startswith("Deckhand project detected"))    # plain text: the harness injects it as context
 
