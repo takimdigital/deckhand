@@ -192,6 +192,10 @@ privately, never shown.
 
 ## 10. For developers
 
+- Starting a session with an AI that has never seen this repo? Tell it to read
+  [`LLM_CONTEXT.md`](../LLM_CONTEXT.md) first. It holds the whole repo in one file: how it works, where
+  everything lives, and every command and function with its line number. It's regenerated from the code, so
+  it's never out of date.
 - Read [`skills/deckhand/SKILL.md`](../skills/deckhand/SKILL.md) (~150 lines). Every command prints one
   JSON object: exit 0 = ok, 1 = a check failed (with why), 2 = usage.
 - Headless try-on:

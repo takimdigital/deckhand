@@ -170,6 +170,10 @@ on it directly.
 
 **Is anything paid required?** No. Open-source parts, Coolify on your own server, and a real $0 track.
 
+**Working on Deckhand with an AI?** Tell it to read [`LLM_CONTEXT.md`](LLM_CONTEXT.md) first. It's the whole repo
+in one file, written for a model and regenerated from the code on every change, so a brand-new session starts
+with full context.
+
 **Coming from v1?** The five skills are now one (`skills/deckhand`). See the [changelog](CHANGELOG.md).
 
 ## 📄 License

@@ -1,0 +1,41 @@
+# Keeps LLM_CONTEXT.md (the cold-start map any AI reads first) in step with main. Branches and pull requests are
+# held to it by ci.yml (`llm_context.py --check`); this job repairs main when a merge or a direct push left it stale,
+# so the file on the default branch is never behind the code.
+name: llm-context
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: llm-context
+  cancel-in-progress: true
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: regenerate LLM_CONTEXT.md
+        # a broken curated anchor still writes the file (marked ⚠UNRESOLVED); the last step turns the job red
+        run: python scripts/llm_context.py || true
+      - name: commit it if it changed
+        run: |
+          if git diff --quiet -- LLM_CONTEXT.md; then echo "LLM_CONTEXT.md is fresh"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add LLM_CONTEXT.md
+          git commit -m "chore: regenerate LLM_CONTEXT.md for ${GITHUB_SHA::7}"
+          git push origin HEAD:main || echo "::notice::main moved on; the run for the newer push regenerates it"
+      - name: every curated anchor resolves
+        run: python scripts/llm_context.py --check

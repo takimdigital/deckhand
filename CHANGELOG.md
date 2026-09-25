@@ -62,6 +62,16 @@ the measured template pool).
   depth, contrast, width; presets quieter/bolder/airy/compact/clarity/softer/sharper) and the whole look
   (accent, neutrals, radius, density, headline scale, next/font body + heading fonts) — previewed with the
   exact values applied, reversible byte-exact.
+- **`LLM_CONTEXT.md` — the cold-start map for any AI** (`scripts/llm_context.py`, stdlib).
+  - One file holds the whole repo for a model with no memory:
+    - curated: architecture, every state file, invariants and what enforces them, the flows step by step,
+      "to change X edit Y, prove in Z", traps already paid for;
+    - generated from the code: every file, dh/tryon command, helper API route with its handler, function with
+      its exact line, error code, env var, data shape, doc outline, test and CI step.
+  - Curated text points at code through anchors (`[[path#symbol]]`, `[[dh:cmd]]`, `[[!CODE]]`), resolved to
+    `symbol@path:line`. A renamed or removed symbol fails the build, so neither half can go stale silently.
+  - Kept current automatically: the `.githooks/pre-commit` hook (from the index); CI `--check` on branches and
+    PRs; `.github/workflows/llm-context.yml` regenerating `main`.
 - `docs/USE-CASES.md`: ten scenarios, each with the sentence to say, what happens, and what you do.
 - `dh verify` proves routes on the production build it just made (served on a free port, stopped after).
 - Kokonut UI items fall back to the project's GitHub mirror when kokonutui.com is unreachable.

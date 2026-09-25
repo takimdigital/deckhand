@@ -1,0 +1,17 @@
+#!/bin/sh
+# Regenerates LLM_CONTEXT.md from what is being committed (the git index) and stages it: every commit carries a
+# fresh map for the next AI. Enable once per clone:  git config core.hooksPath .githooks
+root=$(git rev-parse --show-toplevel) || exit 1
+cd "$root" || exit 1
+for py in py python3 python; do
+  if command -v "$py" >/dev/null 2>&1 && "$py" -c "import sys; sys.exit(sys.version_info < (3, 9))" >/dev/null 2>&1; then
+    if ! "$py" scripts/llm_context.py --index --quiet; then
+      echo "pre-commit: LLM_CONTEXT.md — fix the broken anchor(s) above in scripts/llm_context.core.md" >&2
+      exit 1
+    fi
+    git add LLM_CONTEXT.md
+    exit 0
+  fi
+done
+echo "pre-commit: no Python 3.9+ found — LLM_CONTEXT.md not regenerated (CI will say so)" >&2
+exit 0
