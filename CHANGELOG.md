@@ -63,4 +63,4 @@ the measured template pool).
   4 licensed ones → keep → type-check clean.
 - Suites: 32 node (try-on) · 21 unittest (dh) · 40 pytest (ops clients) — green on Ubuntu and Windows CI.
 
-v1 history: see the git log of `main` up to 6832e0f.
+v1 history (the five-skill pack, last release v0.19.0 "try-on grows up"): see the git log up to d079a14.
