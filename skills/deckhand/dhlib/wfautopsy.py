@@ -15,7 +15,7 @@ import json
 import re
 from pathlib import Path
 
-from .util import DhError, home, now, read_json, read_jsonl, redact_obj, today, write_json
+from .util import DhError, read_json, read_jsonl, redact_obj, today, write_json
 from . import state as STATE
 from . import workflow as WF
 
@@ -34,7 +34,8 @@ def _ts(v) -> float | None:
 
 
 def _short(t: str, n: int = 160) -> str:
-    t = re.sub(r"\s+", " ", str(t or "")).strip()
+    from .util import mask_tokens
+    t = mask_tokens(re.sub(r"\s+", " ", str(t or "")).strip())          # a key pasted in chat never reaches a report
     return t if len(t) <= n else t[: n - 1] + "…"
 
 
@@ -69,7 +70,7 @@ def _source(root: Path, source: str | None, latest: bool, session: str | None):
 # ------------------------------------------------------------------ sections
 
 def timeline(root: Path, hist: list, runs: list) -> dict:
-    marks, out, gates = [], [], []
+    marks, out, gates, reopens = [], [], [], []
     for h in hist:
         t = _ts(h.get("at"))
         e = h.get("event")
@@ -85,6 +86,7 @@ def timeline(root: Path, hist: list, runs: list) -> dict:
         elif e == "reopen":
             marks.append((t, h.get("phase")))
             out.append({"at": h.get("at"), "event": f"REOPENED {h.get('phase')}: {_short(h.get('reason'), 100)}"})
+            reopens.append({"at": h.get("at"), "phase": h.get("phase"), "reason": _short(h.get("reason"), 200)})
         elif e in ("init", "workflow", "base"):
             out.append({"at": h.get("at"), "event": {"init": "project started", "workflow": f"workflow pinned: {h.get('id')}@{h.get('version')}",
                                                      "base": f"base recorded ({h.get('kind')})"}[e]})
@@ -101,7 +103,7 @@ def timeline(root: Path, hist: list, runs: list) -> dict:
         if b - a <= PAUSE_S:
             ph = _phase_at(a, marks)
             per_phase[ph] = per_phase.get(ph, 0) + (b - a)
-    return {"events": out, "gates": gates, "active_minutes": round(active / 60), "pauses": pauses,
+    return {"events": out, "gates": gates, "reopens": reopens, "active_minutes": round(active / 60), "pauses": pauses,
             "active_by_phase": {k: round(v / 60) for k, v in per_phase.items()}, "_marks": marks}
 
 
@@ -232,6 +234,13 @@ def proposals(tl: dict, qs: dict, dv: dict, er: dict, dl: dict) -> tuple[list, l
         elif "LATE" in q["flags"]:
             add("ask_upfront", f"consider asking at define: \"{_short(q['asked'], 140)}\"", f"asked during {q['phase']}; nothing re-opened, so it may belong there",
                 f"question {q['n']} ({q['at']})", "pitfall", question=q["asked"], weak=True)
+    asked = {_short(q["answer"], 80) for q in qs["ledger"] if "DIRECTION-CHANGE" in q["flags"]}
+    for r in tl.get("reopens", []):                      # work re-opened = a question that belonged up front (even without a transcript)
+        if _short(r["reason"], 80) in asked:
+            continue
+        add("ask_upfront", f"ask at define what re-opened {r['phase']}: \"{r['reason']}\"",
+            f"{r['phase']} was re-opened after it was done — asked up front, it costs one line", f"reopen {r['at']}", "reorder",
+            question=f"Settle up front: {r['reason']}", answer_example=r["reason"])
     for g in tl["gates"]:
         if g["flag"]:
             maint.append({"what": f"gate {g['gate']} passed without the owner's words", "why": "phased gates need `--quote` since 2.2.0 — an older dh, or an auto run",
@@ -243,6 +252,10 @@ def proposals(tl: dict, qs: dict, dv: dict, er: dict, dl: dict) -> tuple[list, l
         elif d.get("kind") == "not-run":
             add("step", f"mark {d.get('step')} optional (or remove it)", f"{d.get('phase')} finished green without it", f"deviation {d.get('at')}", "eliminate",
                 step=d.get("step"))
+        elif d.get("kind") == "phase-skipped":
+            add("phase", f"{d.get('phase')} was skipped (\"{_short(d.get('why'), 80)}\") — mark it optional for this kind of project?",
+                "the owner chose to skip it; if that is usual here, the workflow should say so", f"deviation {d.get('at')}", "eliminate",
+                phase=d.get("phase"), weak=True)
         elif d.get("kind") == "skipped":
             add("step", f"review {d.get('step')}: skipped — \"{_short(d.get('why'), 100)}\"", "a step the run chose to skip", f"deviation {d.get('at')}", "pitfall",
                 step=d.get("step"), weak=True)
@@ -253,7 +266,9 @@ def proposals(tl: dict, qs: dict, dv: dict, er: dict, dl: dict) -> tuple[list, l
             continue
         if e.get("known"):
             continue                                        # a seeded lesson already prints its fix at the moment it happens
-        fix = " → ".join(f"{k} {v}" for k, v in (e.get("recipe") or [])[:4]) or "not resolved in this run — add a preflight once the cause is known"
+        fix = " → ".join(f"{k} {v}" for k, v in (e.get("recipe") or [])[:4]) or \
+            ("resolved, but no fixing step was recorded — note what fixed it (`dh learn from-failure`)" if e["resolved"]
+             else "not resolved in this run — add a preflight once the cause is known")
         add("pitfall", f"at {e['step'] or 'the step that runs `' + _short(e['first_cmd'], 60) + '`'}: when `{_short(e['signature'], 80)}` → {fix}",
             f"cost {e['attempts']} attempts" + (f" and {e['minutes']} min" if e.get("minutes") else "") + (", resolved" if e["resolved"] else ", NOT resolved"),
             f"episode {e['id']}", e["rung"], step=e["step"], sig=e["signature"], fix=fix)
@@ -442,4 +457,6 @@ def workflow_save(root: Path, aid: str, accepted: list, public: bool = False, wi
     wf.setdefault("changelog", []).append({"version": wf["version"], "date": today(), "change": "; ".join(a["change"] for a in applied) or "a run added as proof",
                                            "why": "; ".join(a["why"] for a in applied) or "evidence", "evidence": f"workflow autopsy {aid}"})
     res = WF.save(wf, "public" if public else "mine")
+    STATE.log(root, {"event": "workflow_saved", "autopsy": aid, "id": wf["id"], "version": wf["version"], "where": "public" if public else "mine",
+                     "accepted": accepted})
     return {**res, "applied": applied, "version": wf["version"], "run_added": {"complete": complete, "errors": unresolved}}

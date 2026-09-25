@@ -116,7 +116,7 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
 
 | intent | command |
 |---|---|
-| what now? | `dh next` · `dh status` |
+| what now? | `dh next` · `dh status` · `dh suggest [--all]` (what the owner could do next, by importance) · `dh suggest dismiss ID [--days N]` |
 | start / brief | `dh init --name N --mode phased\|auto --path pool\|mine\|existing\|scratch --for me\|client --project DIR` · `dh brief set k=v …` (`deliverable=own\|client\|product`, `category="3–5 words"`) |
 | proven paths | `dh workflow query [--industry --deliverable --features --min-level]` (top 3) · `dh workflow use REF [--set k=v] [--accept]` · `dh workflow status\|todo [--format md]\|step ID done\|skip --why` · `dh workflow show\|list\|lint\|sync` · `dh workflow new --from-run` · `dh workflow save --from-autopsy ID --proposals P1,P3 [--public]` · `dh workflow publish REF` |
 | gates | `dh gate pass Gx --quote "the owner's words"` · `dh reopen PHASE --reason "…"` |
@@ -180,7 +180,13 @@ route matrix and the acceptance rows before `phase done`. Full procedure: `refer
   from me?") was written wrong: re-issue it as one labeled line with steps and WHERE.
 - A human task is written the moment it appears (`dh pending add`, same message as the ask): this project's items in
   its PENDING.md, the owner's own accounts and infrastructure in `~/.deckhand/pending.md` (`--machine`).
-- Reports end with the open items of both (age in days — `dh next` returns them as `pending`) and the WORKFLOW line.
+- Every report ends, in this order, with:
+  1. **Waiting on you** — the open items of both ledgers, with their age (`dh next` → `pending`);
+  2. **Next (optional)** — the `suggest` lines of `dh next`, as they come: importance (NOW · SOON · LATER), what, why,
+     the exact command. They are computed from the project's files (a failure that keeps coming back, a checkpoint to
+     review, work proposals waiting for a choice, a deferred item that is now due…), never invented; the owner decides,
+     and `dh suggest dismiss ID` quiets one;
+  3. the `WORKFLOW …` line when a workflow is pinned.
 - At each gate: show the artifact (PLAN.md, the local URL + logins, the design, VERIFY.md), ask ONE question.
 
 ## 8. Harness notes

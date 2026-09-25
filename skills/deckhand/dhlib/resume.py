@@ -25,7 +25,7 @@ import sys
 import time
 from pathlib import Path
 
-from .util import DhError, SKILL, append_jsonl, ensure_gitignore, now, read_json, read_jsonl, redact, run, write_json
+from .util import is_guard, DhError, SKILL, append_jsonl, ensure_gitignore, now, read_json, read_jsonl, redact, run, write_json
 from . import state as STATE
 
 KINDS = ("decision", "doing", "next")
@@ -98,7 +98,7 @@ def _last_failure(root: Path) -> dict | None:
     runs = read_jsonl(_dk(root) / "runs.jsonl")
     for i in range(len(runs) - 1, -1, -1):
         r = runs[i]
-        if r.get("exit", 0):
+        if r.get("exit", 0) and not is_guard(r):
             cmd = r.get("cmd", "")
             if any(x.get("cmd") == cmd and not x.get("exit") for x in runs[i + 1:]):
                 return None                             # the same command succeeded later: resolved
@@ -199,6 +199,7 @@ def gather(root: Path) -> dict | None:
                   for g, v in s.get("gates", {}).items() if v.get("status") == "passed"],
         "services": _services(root),
         "workflow": (nxt.get("workflow") or {}).get("line"),
+        "suggest": nxt.get("suggest") or {"items": [], "more": 0},
         **safety_facts(root), "head": _git(root, "log", "-1", "--format=%h %s (%cr)"),
         "sessions": _sessions(root),
         "doing": last["doing"], "note_next": last["next"],
@@ -293,6 +294,13 @@ def render(st: dict) -> str:
           + (" · yours, all projects" if i.get("from") == "machine" else "") for i in st["pending"]["items"][:8]] or ["- nothing"]
     if st["pending"].get("deferred"):
         L.append(f"- (+{st['pending']['deferred']} deferred until their trigger — `dh pending list --all`)")
+    from . import suggest as SUG
+    sug = st.get("suggest") or {}
+    if sug.get("items"):
+        L += ["", "## Next (optional — by importance; say these after the pending list)"]
+        L += [f"- {x}" for x in SUG.lines(sug)]
+        if sug.get("more"):
+            L.append(f"- (+{sug['more']} more: `dh suggest`)")
     if st.get("workflow"):
         L += ["", f"`{st['workflow']}` — the last line of every report (`dh workflow todo` for the checklist)"]
     L += ["", "## Recent"]

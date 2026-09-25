@@ -70,6 +70,30 @@ became the first workflow.
   re-cut at the artifact seam, trust only what you re-ran, panels on demand). `docs/FIELD-TESTS.md`: how to test the
   skill itself with a team of agents.
 
+### What to do next — suggested, never guessed
+- **`dh suggest`**: after the pending list, every report ends with a few optional suggestions ranked NOW · SOON · LATER,
+  each with its reason and the exact command. Twenty rules read the project's files: unsaved work, the owner's turn at a
+  gate, a deferred item now due, a service down, the same command failing again, research changed after its verify, the
+  plan edited after approval, code changed since verify, failures worth an autopsy, a checkpoint to review, workflow
+  proposals waiting for a choice, a finished run to keep (as a workflow, a base, a handoff), old pending items, a fresh
+  session that is safe, monthly SEO, bots, the maintainer report. The autopsy command is the right one for the harness
+  (`--latest` inside Hermes and Claude Code). `dh next` never suggests what it already says; `dh suggest dismiss ID`
+  quiets one for a week; the same files give the same list. RESUME shows them after "Waiting on the owner".
+
+### Audit fixes (edge cases found walking a full run)
+- Deckhand's own guard refusals (a gate refused on a change request, a missing quote, a secret in a pending item…) are
+  decisions, not failures: they no longer block "safe to start fresh", never become autopsy episodes or proposals.
+- A skipped phase is one recorded fact, not a list of not-run steps; a gate step is ticked by `dh gate pass`, never
+  marked not-run when its phase ends; brief changes, gates and re-opens are not path deviations.
+- A re-opened phase becomes a proposal for a question to ask up front, even without a chat transcript.
+- Workflow ask steps carry their questions and defaults (they survive a compaction); pinning the same workflow again keeps
+  its progress.
+- Moving Deckhand's files aside rolls back when a file is locked (Windows), and never overwrites an interrupted hold.
+- A community index row must carry a safe id, an integer version, a plain file name and a sha — anything else is ignored.
+- A key pasted in chat is masked in every autopsy report; a pending item refuses a secret (it names where the secret goes);
+  a hand-closed SEO pending line explains how it closes itself; a CRLF ledger edited by hand still reads and writes.
+- Hermes compaction summaries are not counted as the owner's messages.
+
 ### The owner's own files (the v1 `deckhand-profile` skill, fully absorbed)
 - **`dh pending add|decide|done|drop|wait|list`**: this project's `PENDING.md` or the owner's cross-project
   `~/.deckhand/pending.md` (`--machine`), same line format as before; HOW and WHERE required; `when:` deferrals are not

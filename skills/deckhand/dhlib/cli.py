@@ -167,6 +167,9 @@ def build_parser():
     p.add_argument("--cmd", dest="svc_cmd", help="add: the command that starts the service")   # dest: `cmd` is the subcommand
     p.add_argument("--ready", help="add: regex of the log line that says it is up")
     p.add_argument("--env-file", help="add: KEY=VALUE file loaded into the service's environment (e.g. .env)")
+    p = sub.add_parser("suggest", help="what the owner could do next, by importance (optional) · dismiss ID [--days N]")
+    p.add_argument("action", nargs="?", choices=["list", "dismiss"], default="list"); p.add_argument("id", nargs="?")
+    p.add_argument("--all", action="store_true", help="every suggestion, dismissed ones included"); p.add_argument("--days", type=int, default=7)
     p = sub.add_parser("workflow", help="proven paths: query (top 3) · use · next steps · todo · step · show · list · lint · new --from-run · save · publish · sync")
     p.add_argument("action", choices=["query", "use", "show", "todo", "step", "list", "lint", "new", "save", "publish", "sync", "status"])
     p.add_argument("target", nargs="?", help="a workflow ref (id, id@v, mine:|base:|community:id, or a .json file) · a step id for `step`")
@@ -374,6 +377,14 @@ def dispatch(a):
                 raise DhError("USAGE", "dh dev remove NAME")
             return B.service_remove(root, a.name)
         return {"start": lambda: B.dev_start(root, a.port), "stop": lambda: B.dev_stop(root), "status": lambda: B.dev_status(root)}[a.action]()
+    if c == "suggest":
+        from . import suggest as SUG
+        if a.action == "dismiss":
+            if not a.id:
+                raise DhError("USAGE", "dh suggest dismiss ID [--days N]")
+            return SUG.dismiss(root, a.id, a.days)
+        r = SUG.compute(root, limit=0 if a.all else 10, include_dismissed=a.all)
+        return {**r, "lines": SUG.lines(r)}
     if c == "workflow":
         return cmd_workflow(a, root)
     if c == "base":
@@ -517,7 +528,7 @@ def dispatch(a):
 
 def _log(a, shown: str, code: int, out: str = "") -> None:
     """Every dh call lands in .deckhand/runs.jsonl (phase transitions make the playbooks `dh autopsy` learns)."""
-    if a.cmd in ("run", "autopsy", "next", "status", "resume", "note"):
+    if a.cmd in ("run", "autopsy", "next", "status", "resume", "note", "suggest"):
         return                                           # `run` logs itself; read-only calls are noise; notes have their own file
     try:
         from . import learn as LE
@@ -560,7 +571,7 @@ def main(argv=None) -> int:
 
 def _observe(a, root: Path, shown: str) -> None:
     """A pinned workflow ticks the step this command completes (or records a deviation)."""
-    if a.cmd in ("next", "status", "resume", "note", "workflow", "autopsy"):
+    if a.cmd in ("next", "status", "resume", "note", "workflow", "autopsy", "suggest"):
         return
     from . import workflow as WF
     WF.observe(root, shown, 0)

@@ -90,10 +90,25 @@ def _hold(to: Path) -> Path | None:
         raise DhError("DEST_NOT_EMPTY", f"{to} holds files that are not Deckhand's: {', '.join(other[:8])} — pick a new folder, "
                       "or `dh adopt` it if it is the owner's project")
     held = to.parent / f".{to.name}.deckhand-hold"
+    if held.exists() and any(held.iterdir()):
+        raise DhError("HOLD_EXISTS", f"{held} holds Deckhand files from an interrupted clone/scaffold — move them back into {to}, "
+                      "delete the hold folder, then run the command again")
     rmtree(held)
     held.mkdir(parents=True)
-    for p in list(to.iterdir()):
-        shutil.move(str(p), str(held / p.name))
+    moved = []
+    try:
+        for p in list(to.iterdir()):
+            shutil.move(str(p), str(held / p.name))
+            moved.append(p.name)
+    except OSError as e:                                   # a locked file (Windows: a shell or server inside): put everything back
+        for name in moved:
+            try:
+                shutil.move(str(held / name), str(to / name))
+            except OSError:
+                pass
+        if not any(held.iterdir()):
+            rmtree(held)
+        raise DhError("DEST_BUSY", f"{to}: could not move Deckhand's own files aside ({e}) — close shells and servers using that folder, then retry")
     return held
 
 

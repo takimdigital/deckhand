@@ -164,14 +164,15 @@ class Use(Base):
         code, nxt = self.dh("next")
         self.assertEqual(nxt["do"][0][:2], "D2")                       # the next open step of the workflow, not generic steps
         self.assertIn("WORKFLOW tiny-flow@1", nxt["workflow"]["line"])
-        self.dh("brief", "set", "audience=bakers")                    # state-changing and not in the workflow: a deviation
+        self.dh("brief", "set", "audience=bakers")                    # an owner decision: not a path deviation
+        self.dh("dev", "add", "db", "--cmd", "echo db", "--port", "5999")   # building, and not in the workflow: a deviation
         write_json(self.root / ".deckhand" / "brief.json", {"business": "b", "shape": "booking", "languages": ["en"], "audience": "a"})
         self.dh("phase", "done", "define")
         pin = state.load(self.root)["workflow"]
         self.assertEqual(pin["done"][:2], ["D1", "D3"])
         self.assertIn("D2", pin["done"])                              # an ask step closes with its phase (the Q&A ledger judges it)
         self.assertEqual([d["kind"] for d in pin["deviations"]], ["unplanned"])
-        self.assertIn("brief set", pin["deviations"][0]["cmd"])
+        self.assertIn("dev add", pin["deviations"][0]["cmd"])
         text = (self.root / ".deckhand" / "RESUME.md").read_text(encoding="utf-8")
         self.assertIn("WORKFLOW tiny-flow@1", text)
 

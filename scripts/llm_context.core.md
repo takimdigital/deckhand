@@ -69,6 +69,7 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
 | .deckhand/sitemap.json | the agent, after [[dhlib/plan.py#init]] | [[dhlib/plan.py#lint]], render, split, sitelinks, verify routes | pages, actions with typed targets, nav, forms, features, entities ([[templates/sitemap.json]]) |
 | .deckhand/PLAN.md · work/WP-*.md · work/AGENT-n.md · work/CONVENTIONS.md · blackboard.jsonl · work/state/<flag> | [[dhlib/plan.py#render]] · [[dhlib/plan.py#split]] · [[dhlib/plan.py#bb_post]] · [[dhlib/plan.py#bb_flag]] | owner · sub-agents ([[dhlib/plan.py#bb_wait]]) | the plan for G1; one WP per bounded context; exactly N agent packages grouped by owned route prefixes ([[dhlib/plan.py#_groups]]) + the shared rules; progress/contract/done/blocker posts; handoff flags |
 | .deckhand/services.json | [[dhlib/build.py#service_add]] (`dh dev add`) | [[dhlib/build.py#dev_start]] (services first), dev_status, [[dhlib/resume.py#_services]] | services the app needs {name, cmd, port or ready regex, env_file} — committed config |
+| .deckhand/suggest.json (gitignored) | [[dhlib/suggest.py#dismiss]] (`dh suggest dismiss ID --days N`) | [[dhlib/suggest.py#compute]] | {dismissed: {id: until date}} — a quieted suggestion comes back after the date |
 | .deckhand/workflow.json | [[dhlib/workflow.py#use]] (a copy of the pinned workflow) | [[dhlib/workflow.py#progress]], observe, todo, autopsy | the workflow this run follows; run.json `workflow` = {id, version, source, sha, params, done[], skipped[], deviations[]} — a changed file is refused (sha) |
 | .deckhand/copy.json | the agent | [[tryon/compose.mjs]] | section copy (schema in compose.mjs header; footer.columns/social, navbar.links) |
 | .deckhand/dev.json · dev.log · svc-<name>.log | [[dhlib/build.py#dev_start]] | checks.build, verify, dev_status | url, pid, services{name: pid, up, log} · the dev server log · each service's log |
@@ -458,6 +459,16 @@ F22 OWNER'S TASKS (pending)
   ([[!NEED_HOW_WHERE]]); `when:` = a deferral (not listed until `--all`); the checkbox is the state of record.
 - [[dhlib/pending.py#summary]] (project + machine, ages) → `dh next` pending → RESUME "Waiting on the owner".
 
+F23 SUGGEST (what the owner could do next)
+- [[dhlib/guide.py#next_step]] → [[dhlib/guide.py#_suggest]] (the `do` commands passed as exclude_cmds: never said twice)
+  → [[dhlib/suggest.py#compute]] → [[dhlib/suggest.py#facts]] (run state, history, the run-log tail, notes-based safety,
+  both pending ledgers, report dates, verify/seo/deploy, HEAD — no network) → every rule in [[dhlib/suggest.py#RULES]]
+  (a failing rule is skipped) → dismissed ids hidden until their date → sorted by (-score, id) → top 3 + `more`.
+  Levels: now ≥ 80 · soon 50–79 · later < 50. Guard refusals ([[dhlib/util.py#GUARD_CODES]], [[dhlib/util.py#is_guard]])
+  are decisions: not failures here, not in RESUME's verdict, not autopsy episodes.
+- [[dhlib/resume.py#render]] prints [[dhlib/suggest.py#lines]] under "Next (optional)" after "Waiting on the owner".
+- The autopsy command follows the harness ([[dhlib/suggest.py#autopsy_cmd]]: `--latest` inside Hermes / Claude Code).
+
 F19 RESEARCH EVIDENCE
 - `dh research brief --focus F --agent ID` ([[dhlib/research.py#brief]]): questions from [[data/research.json]] filled
   from the brief (business, audience, market, language), budget, pages already read, vocabulary so far, the card
@@ -511,6 +522,7 @@ F19 RESEARCH EVIDENCE
 | workflows: format, lint, query, pools, observe, todo, extraction, publish | [[dhlib/workflow.py]] · [[data/industries.json]] · skills/deckhand/workflows/*.json · [[scripts/workflows_index.py]] | [[skills/deckhand/tests/test_workflow.py]] |
 | workflow autopsy, session loaders (Hermes, chat) | [[dhlib/wfautopsy.py]] · [[dhlib/autopsy.py#load]] | test_workflow.py |
 | gate quotes, services, ports, split into N agents, product deliverable, pending ledger (field fixes) | [[dhlib/state.py#gate_pass]] · [[dhlib/build.py]] · [[dhlib/util.py#free_port]] · [[dhlib/plan.py#split]] · [[dhlib/verify.py#product_kit]] · [[dhlib/pending.py]] | [[skills/deckhand/tests/test_field.py]] |
+| suggestions after PENDING (rules, scores, dismissals) | [[dhlib/suggest.py]] · [[dhlib/guide.py#_suggest]] · [[dhlib/resume.py#render]] | [[skills/deckhand/tests/test_suggest.py]] |
 | harness syntax `dh next` prints | [[data/harness.json]] · [[dhlib/guide.py#harness_notes]] · [[references/harness.md]] | test_workflow.py / manual |
 | research evidence: labels, quote check, sources, brief questions, scoring | [[dhlib/research.py]] · [[data/research.json]] · [[references/research-card.md]] | [[skills/deckhand/tests/test_research.py]] |
 | SEO rules, owner facts, crawler lists | [[data/seo.json]] · [[dhlib/seo.py]] (checks, PENDING block, ping) · [[tryon/lib/seo.mjs]] (writes) | [[skills/deckhand/tests/test_seo.py]], [[skills/deckhand/tryon/test/seo.test.mjs]] |

@@ -3,6 +3,7 @@ the lessons that apply, and what makes the phase done. The agent never re-reads 
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 from .util import SKILL, read_json
@@ -103,6 +104,16 @@ def harness_notes(phase: str) -> dict | None:
     return {"name": name, **notes} if notes else None
 
 
+def _suggest(root: Path, do=()) -> dict:
+    """After PENDING: what the owner could do next, by importance — computed, optional (dhlib/suggest.py)."""
+    from . import suggest as SUG
+    try:
+        cmds = [re.sub(r"^[A-Z]+\d*(-\d+)? (do|check|gate): ", "", x.split("  →")[0]).split("  #")[0].strip() for x in do]
+        return SUG.compute(root, exclude_cmds=cmds)
+    except Exception:  # noqa: BLE001 — guidance never breaks on a suggestion
+        return {"items": [], "more": 0}
+
+
 def _workflow(root: Path) -> dict | None:
     from . import workflow as WF
     try:
@@ -139,6 +150,7 @@ def next_step(root: Path) -> dict:
         wfp = _workflow(root)
         if wfp:
             out["workflow"] = wfp
+        out["suggest"] = _suggest(root, out["do"])
         seo = read_json(root / ".deckhand" / "seo.json", None)
         if gate == "G4" and seo:
             out["seo"] = {"score": seo.get("score"), "launch_breakers": len(seo.get("blockers", [])), "agent_fixable": seo.get("auto_fixable", [])}
@@ -166,6 +178,7 @@ def next_step(root: Path) -> dict:
     h = harness_notes(cur["id"])
     if h:
         out["harness"] = h
+    out["suggest"] = _suggest(root, out["do"])
     books = _playbook(cur["id"])
     if books:
         out["worked_before"] = books

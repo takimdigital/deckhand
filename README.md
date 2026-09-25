@@ -120,6 +120,12 @@ fixes to the workflow, each with the reason and the evidence, and asks you where
 own workflows, the community's, or nowhere. It reads Claude Code sessions, Hermes' own session store, or any chat
 log, and it never edits Deckhand itself: Deckhand's own bugs go into a separate report for its maintainer.
 
+**It tells you what to do next, and why.** After the list of what waits on you, every report ends with a few
+optional suggestions, ranked NOW · SOON · LATER: a failure that keeps coming back, a checkpoint worth reviewing, workflow
+improvements waiting for your choice, a deferred task that is now due, a finished run worth keeping as a workflow. Each
+one comes with its reason and the exact command. None of it is guessed: every suggestion is computed from the project's
+own files, the same files give the same list, and one you don't want goes quiet for a week.
+
 **Parallel builders that don't collide.** For a bigger app, the plan is cut into exactly as many packages as your
 agent can run in parallel, grouped so two builders never touch the same folder, with one shared rules file. The
 agent builds the foundation first, dispatches the builders, then re-checks their work itself instead of trusting
@@ -203,7 +209,7 @@ Run for real in this release:
   in code, each with a test: a gate passed on the agent's paraphrase of a change request, a base that could not land
   in the planning folder, a database kept alive by hand for hours, ports Windows reserves, 22 work packages for 4
   builders, and a Windows `HOSTNAME` trap.
-- CI on every push, Ubuntu and Windows: 46 try-on + 118 control-plane + 40 server-client + 17 repo tests.
+- CI on every push, Ubuntu and Windows: 46 try-on + 139 control-plane + 40 server-client + 17 repo tests.
 
 Not yet proven live: a full `dh deploy ship` against a real server (it uses the same Coolify client that
 was proven live in v1), the first real run of the $0 Oracle track, and the Claude Code session hook inside a

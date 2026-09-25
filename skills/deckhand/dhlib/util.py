@@ -103,6 +103,34 @@ def redact(text: str, values=()) -> str:
     return text
 
 
+# Deckhand refusing on purpose (a guardrail doing its job) — never a failure to explain, learn from or retry
+# (a red check, a busy folder, a step out of order or past a gate is the agent's work to fix: those stay failures)
+GUARD_CODES = ("CHANGE_REQUEST", "NEED_QUOTE", "NEEDS_ACCEPT", "NEED_REASON", "NEED_HOW_WHERE", "SECRET_IN_TEXT", "SEO_ITEM",
+               "NOTE_TOO_THIN")
+GUARD_RX = re.compile(r"^(" + "|".join(GUARD_CODES) + r"):")
+
+
+def is_guard(run_row: dict) -> bool:
+    """A logged dh call that ended on a guard code (runs.jsonl `out` starts with it)."""
+    return bool(GUARD_RX.match(str(run_row.get("out") or "").strip()))
+
+
+TOKENISH = re.compile(r"(?<![\w/.-])[A-Za-z0-9_-]{24,}(?![\w/.-])")
+
+
+def _keylike(m) -> str:
+    """A key has a long unbroken run mixing digits and letters (sk-or-v1-9f3c…); a slug has words between dashes."""
+    w = m.group(0)
+    run_ = max(re.findall(r"[A-Za-z0-9]{20,}", w), key=len, default="")
+    return "***" if len(re.findall(r"\d", run_)) >= 3 and len(re.findall(r"[A-Za-z]", run_)) >= 3 else w
+
+
+def mask_tokens(text: str) -> str:
+    """What people paste in chat that no pattern knows (a provider's API key) becomes ***.
+    Used on free text from conversations (autopsy ledgers, pending items); commands and paths keep their own redaction."""
+    return TOKENISH.sub(_keylike, text) if text else text
+
+
 def redact_obj(obj, values=()):
     """redact() over every string of a JSON-like structure (a report before it is written anywhere)."""
     if isinstance(obj, str):
@@ -120,7 +148,7 @@ GITIGNORE_MARK = "# deckhand: run logs and local state"
 # run logs hold command output; RESUME/notes/project profile/vault are this machine's own (never pushed)
 GITIGNORE_LINES = (".deckhand/runs.jsonl", ".deckhand/failures.jsonl", ".deckhand/*.log", ".deckhand/dev.json",
                    ".deckhand/autopsy/", ".deckhand/tryon/", ".deckhand/RESUME.md", ".deckhand/notes.jsonl",
-                   ".deckhand/profile.json", ".deckhand/vault.env", ".deckhand/research/cache/")
+                   ".deckhand/profile.json", ".deckhand/vault.env", ".deckhand/research/cache/", ".deckhand/suggest.json")
 GITIGNORE_BLOCK = GITIGNORE_MARK + " (they can hold command output — never commit them)\n" + "\n".join(GITIGNORE_LINES) + "\n"
 # probe path -> what to show (a directory is probed through a file inside it)
 RUNTIME_STATE = {".deckhand/runs.jsonl": ".deckhand/runs.jsonl", ".deckhand/failures.jsonl": ".deckhand/failures.jsonl",
@@ -128,7 +156,7 @@ RUNTIME_STATE = {".deckhand/runs.jsonl": ".deckhand/runs.jsonl", ".deckhand/fail
                  ".deckhand/autopsy/r.md": ".deckhand/autopsy/", ".deckhand/tryon/s.json": ".deckhand/tryon/",
                  ".deckhand/RESUME.md": ".deckhand/RESUME.md", ".deckhand/notes.jsonl": ".deckhand/notes.jsonl",
                  ".deckhand/profile.json": ".deckhand/profile.json", ".deckhand/vault.env": ".deckhand/vault.env",
-                 ".deckhand/research/cache/p.txt": ".deckhand/research/cache/"}
+                 ".deckhand/research/cache/p.txt": ".deckhand/research/cache/", ".deckhand/suggest.json": ".deckhand/suggest.json"}
 
 
 def ensure_gitignore(root: Path) -> bool:

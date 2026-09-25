@@ -90,7 +90,14 @@ def _community_rows(refresh: bool = False) -> list:
     if not os.environ.get("DECKHAND_OFFLINE") and (refresh or cur is None or str(cur.get("fetched", ""))[:10] != today()):
         sync()                                          # once a day at most; unreachable = the cached copy
         cur = read_json(target, None)
-    return [{**r, "source": "community"} for r in (cur or {}).get("workflows", [])]
+    return [{**r, "source": "community"} for r in (cur or {}).get("workflows", []) if _row_ok(r)]
+
+
+def _row_ok(r: dict) -> bool:
+    """An index row names files we fetch and cache: only a safe id, an integer version, a plain file name and a sha."""
+    return (isinstance(r, dict) and bool(re.match(r"^[a-z0-9][a-z0-9-]{2,63}$", str(r.get("id", "")))) and isinstance(r.get("version"), int)
+            and bool(re.match(r"^[a-z0-9][a-z0-9-]{2,63}\.json$", str(r.get("file", f"{r.get('id')}.json"))))
+            and bool(re.match(r"^[0-9a-f]{16}$", str(r.get("sha", "")))))
 
 
 def _files(d: Path) -> list:
@@ -142,8 +149,8 @@ def load(ref: str, refresh: bool = False) -> tuple[dict, str]:
                         f.write_bytes(_fetch(_community_base() + hit.get("file", f"{wid}.json")))
                     except Exception as e:  # noqa: BLE001
                         raise DhError("UNREACHABLE", f"community workflow {wid}: {e}")
-                wf = read_json(f)
-                if hit.get("sha") and _sha(wf) != hit["sha"]:
+                wf = read_json(f, None)
+                if not isinstance(wf, dict) or _sha(wf) != hit["sha"]:
                     f.unlink()
                     raise DhError("SHA_MISMATCH", f"community workflow {wid}: the file does not match its index entry — refused")
                 return wf, "community"
@@ -406,15 +413,27 @@ def fill(text: str, vals: dict) -> str:
     return PLACEHOLDER.sub(lambda m: str(vals.get(m.group(1))) if vals.get(m.group(1)) not in (None, "") else f"[{m.group(1)}]", str(text))
 
 
-def step_line(st: dict, vals: dict) -> str:
+def step_line(st: dict, vals: dict, qs: dict | None = None) -> str:
+    """One step as a line. An ask step carries its questions and defaults (they must survive a compaction)."""
     k = next(k for k in STEP_KINDS if k in st)
-    body = st[k] if k != "ask" else "ask the owner (one message, defaults proposed): " + ", ".join(st["ask"] if isinstance(st["ask"], list) else [st["ask"]])
+    if k == "ask":
+        ids = st["ask"] if isinstance(st["ask"], list) else [st["ask"]]
+        qs = qs or {}
+        body = "ask the owner in ONE message, defaults proposed: " + " ".join(
+            f"{n}) {qs[q]['q']}" + (f" [default: {qs[q]['default']}]" if qs[q].get("default") else "") if q in qs else f"{n}) {q}"
+            for n, q in enumerate(ids, 1))
+    else:
+        body = st[k]
     line = f"{st['id']} {k}: {fill(body, vals)}"
     if st.get("expect"):
         line += f"  → expect: {fill(st['expect'], vals)}"
     if st.get("optional"):
         line += "  (optional)"
     return line
+
+
+def _qs(wf: dict) -> dict:
+    return {q["id"]: q for q in wf.get("ask_upfront", []) if q.get("id")}
 
 
 def render_md(wf: dict, vals: dict, phase: str | None = None) -> str:
@@ -427,7 +446,7 @@ def render_md(wf: dict, vals: dict, phase: str | None = None) -> str:
         if phase and ph["id"] != phase:
             continue
         L += [f"## {ph['id']}" + (f" — {ph['goal']}" if ph.get("goal") else ""), ""]
-        L += [f"- [ ] {step_line(st, vals)}" for st in ph.get("steps", [])]
+        L += [f"- [ ] {step_line(st, vals, _qs(wf))}" for st in ph.get("steps", [])]
         pits = [p for p in wf.get("pitfalls", []) if p.get("at") in {s["id"] for s in ph.get("steps", [])}]
         L += [f"  - pitfall {p['id']} at {p['at']}" + (f" ({', '.join(f'{k}={v}' for k, v in (p.get('when') or {}).items())})" if p.get("when") else "")
               + f": {fill(p['fix'], vals)}" for p in pits]
@@ -469,8 +488,11 @@ def use(root: Path, ref: str, accept: bool = False, sets: dict | None = None) ->
         raise DhError("NEEDS_ACCEPT", "this workflow runs commands besides dh: show them to the owner; on their OK, re-run with --accept",
                       commands=other)
     s = STATE.load(root)
-    s["workflow"] = {"id": wf["id"], "version": wf.get("version", 1), "source": src, "sha": _sha(wf), "at": now(),
-                     "params": {**(s.get("workflow") or {}).get("params", {}), **(sets or {})}, "done": [], "skipped": [], "deviations": []}
+    old = s.get("workflow") or {}
+    same = old.get("id") == wf["id"] and old.get("sha") == _sha(wf)       # pinned again (after a compaction…): keep the progress
+    s["workflow"] = {"id": wf["id"], "version": wf.get("version", 1), "source": src, "sha": _sha(wf), "at": old.get("at") if same else now(),
+                     "params": {**old.get("params", {}), **(sets or {})}, "done": old.get("done", []) if same else [],
+                     "skipped": old.get("skipped", []) if same else [], "deviations": old.get("deviations", []) if same else []}
     STATE.save(root, s)
     write_json(Path(root) / ".deckhand" / "workflow.json", wf)
     STATE.log(root, {"event": "workflow", "id": wf["id"], "version": wf.get("version", 1), "source": src})
@@ -478,6 +500,7 @@ def use(root: Path, ref: str, accept: bool = False, sets: dict | None = None) ->
     unset = sorted({m.group(1) for ph in wf.get("phases", []) for st in ph.get("steps", []) for k in STEP_KINDS if isinstance(st.get(k), str)
                     for m in PLACEHOLDER.finditer(st[k]) if vals.get(m.group(1)) in (None, "")})
     return {"pinned": f"{src}:{wf['id']}@{wf.get('version', 1)}", "level": level(wf), "steps": lt["steps"],
+            **({"kept_progress": len(s["workflow"]["done"])} if same else {}),
             "ask_upfront": [{"id": q["id"], "q": fill(q["q"], vals), "default": fill(q.get("default", ""), vals)} for q in wf.get("ask_upfront", [])
                             if q.get("ask_at", "define") == "define"],
             **({"params_unset": unset, "set_them": "dh workflow use " + ref + " " + " ".join(f"--set {u}=…" for u in unset)} if unset else {}),
@@ -506,8 +529,9 @@ def progress(root: Path) -> dict | None:
     line = (f"WORKFLOW {pin['id']}@{pin['version']} ({level(wf)}) · {cur} {len(here) - len(todo_here)}/{len(here)} · "
             f"{len([1 for _, st in all_steps if st['id'] in done])}/{len(all_steps)} steps · {len(pin.get('deviations', []))} deviations"
             + (f" · {props} proposals waiting (dh autopsy --workflow)" if props else ""))
-    return {"ref": f"{pin['source']}:{pin['id']}@{pin['version']}", "phase": cur, "next_step": step_line(nxt, vals) if nxt else None,
-            "remaining_here": [step_line(st, vals) for st in todo_here[:8]], "line": line,
+    qs = _qs(wf)
+    return {"ref": f"{pin['source']}:{pin['id']}@{pin['version']}", "phase": cur, "next_step": step_line(nxt, vals, qs) if nxt else None,
+            "remaining_here": [step_line(st, vals, qs) for st in todo_here[:8]], "line": line,
             "pitfalls": [f"{p['id']}: {fill(p['fix'], vals)}" for p in wf.get("pitfalls", []) if nxt and p.get("at") == nxt["id"] and _when(p)]}
 
 
@@ -530,7 +554,7 @@ def todo(root: Path, fmt: str = "json", phase: str | None = None) -> dict:
             status = "completed" if st["id"] in done | skipped else ("in_progress" if first_open and ph["id"] == cur else "pending")
             if status == "in_progress":
                 first_open = False
-            items.append({"id": st["id"], "phase": ph["id"], "content": step_line(st, vals), "status": status,
+            items.append({"id": st["id"], "phase": ph["id"], "content": step_line(st, vals, _qs(wf)), "status": status,
                           "activeForm": f"{ph['id']} {st['id']}"})
     md = "\n".join(f"- [{'x' if i['status'] == 'completed' else ' '}] {i['content']}" for i in items)
     out = {"workflow": f"{pin['id']}@{pin['version']}", "count": len(items), "open": len([i for i in items if i["status"] != "completed"])}
@@ -568,8 +592,10 @@ def _norm(cmd: str) -> str:
     return " ".join(toks[:2])
 
 
-STATEFUL = re.compile(r"^dh (init|brief set|phase|gate|reopen|clone|adopt|scaffold|compose|base record|dev (start|add)|rebrand apply|seo apply|"
-                      r"plan (init|split|render)|research (verify|merge)|verify|deploy|handoff|harvest|tryon)")
+# building commands no step named = a deviation. Owner-driven moves (brief, gates, reopen, phase skip) are decisions,
+# weighed by the autopsy's question ledger, not path deviations.
+STATEFUL = re.compile(r"^dh (clone|adopt|scaffold|compose|base record|dev (start|add)|rebrand apply|seo apply|"
+                      r"plan (init|split|render)|research (verify|merge)|verify|deploy (ship|target)|handoff|harvest|tryon)")
 
 
 def observe(root: Path, shown: str, code: int) -> None:
@@ -599,18 +625,25 @@ def observe(root: Path, shown: str, code: int) -> None:
             w["done"].append(cands[0][1]["id"])
         elif STATEFUL.match(cmd) and n not in exits:
             w["deviations"].append({"at": now(), "kind": "unplanned", "phase": cur, "cmd": cmd[:160]})
-        m = re.match(r"^dh phase (done|skip) (\w+)", cmd)
-        if m:                                           # a finished phase leaves no silent gap: open steps become skips
+        m = re.match(r"^dh phase (done|skip) (\w+)(?:.*--reason\s+(.+))?", cmd)
+        if m:                                           # a finished phase leaves no silent gap
             for ph in wf.get("phases", []):
-                if ph["id"] == m.group(2):
-                    for st in ph.get("steps", []):
-                        if st["id"] in set(w["done"]) | set(w["skipped"]):
-                            continue
-                        if any(k in st for k in ("ask", "write", "delegate")) or st.get("optional"):
-                            w["done"].append(st["id"])       # not observable from commands: the Q&A ledger and the checks judge them
-                        else:
-                            w["skipped"].append(st["id"])
-                            w["deviations"].append({"at": now(), "kind": "not-run", "step": st["id"], "phase": ph["id"]})
+                if ph["id"] != m.group(2):
+                    continue
+                open_ = [st for st in ph.get("steps", []) if st["id"] not in set(w["done"]) | set(w["skipped"])]
+                if m.group(1) == "skip":                # the owner skipped the phase: one fact, not a step-by-step list
+                    w["skipped"] += [st["id"] for st in open_ if "gate" not in st]
+                    if [st for st in open_ if not st.get("optional") and "gate" not in st]:
+                        w["deviations"].append({"at": now(), "kind": "phase-skipped", "phase": ph["id"], "why": (m.group(3) or "")[:160]})
+                    continue
+                for st in open_:
+                    if "gate" in st:
+                        continue                         # the gate comes after the phase: `dh gate pass` ticks it
+                    if any(k in st for k in ("ask", "write", "delegate")) or st.get("optional"):
+                        w["done"].append(st["id"])       # not observable from commands: the Q&A ledger and the checks judge them
+                    else:
+                        w["skipped"].append(st["id"])
+                        w["deviations"].append({"at": now(), "kind": "not-run", "step": st["id"], "phase": ph["id"]})
         if json.dumps(w, sort_keys=True) != before:          # read-only commands leave run.json untouched
             STATE.save(root, s)
     except Exception:  # noqa: BLE001 — observing never breaks a command

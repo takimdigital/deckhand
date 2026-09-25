@@ -26,6 +26,7 @@ Install once first ([README](../README.md#-start-in-2-minutes)). In any case, th
 | 12 | start a fresh session (or switch AI) without losing anything | [→](#12-start-a-fresh-session-or-switch-ai-without-losing-anything) |
 | 13 | build a product to sell, then reuse the path for the next trade | [→](#13-build-a-product-to-sell-then-reuse-the-path-for-the-next-trade) |
 | 14 | find out what went wrong (and what I should have been asked) | [→](#14-ask-what-went-wrong-and-what-i-should-have-been-asked) |
+| 15 | know what to do next | [→](#15-know-what-to-do-next) |
 
 ---
 
@@ -323,6 +324,28 @@ changes Deckhand itself.
 
 **Under the hood:** `dh autopsy --workflow [--part questions]` (reads Claude Code sessions, Hermes' `state.db` or any
 chat log) · `dh workflow save --from-autopsy W-… --proposals P1,P3 [--public]` · `.deckhand/autopsy/W-….maintainer.md`.
+
+## 15. Know what to do next
+
+**Say:**
+> What should I do next?
+
+**What happens:** after the list of what waits on you, the agent reads out a few suggestions, most important first:
+
+```text
+NOW   · Stop retrying: the same command failed 3 times — `npm run build` → dh learn match --text "npm run build"
+SOON  · Decide on 2 workflow improvements: keep them for next time, share them, or skip → dh workflow save --from-autopsy W-… --proposals P1,P2
+LATER · A fresh session is safe now (and sharper) → dh resume
+```
+
+They're computed from your project's files: a failure that keeps coming back, a plan changed after you approved it, a
+checkpoint worth reviewing, a task you deferred that is now due, a finished run worth keeping as a workflow. Every
+report ends with them. They're optional: say *"not now"* and that one goes quiet for a week.
+
+**You do:** pick one, or ignore them.
+
+**Under the hood:** `dh suggest [--all]` · `dh suggest dismiss ID [--days N]` · the `suggest` field of `dh next` ·
+the "Next" section of `.deckhand/RESUME.md`.
 
 Stuck, or found a better way? [Open an issue](https://github.com/takimdigital/deckhand-skill/issues).
 That's how this gets better for everyone.

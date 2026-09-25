@@ -32,7 +32,7 @@ import re
 import shlex
 from pathlib import Path
 
-from .util import DhError, append_jsonl, home, now, read_jsonl, redact_obj, write_json
+from .util import DhError, append_jsonl, is_guard, home, now, read_jsonl, redact_obj, write_json
 
 RUNG_ORDER = ("pitfall", "gate", "reorder", "preflight", "eliminate")
 READ_ONLY = {"cd", "echo", "ls", "cat", "head", "tail", "grep", "rg", "egrep", "fgrep", "sed", "awk", "wc", "sort", "uniq", "cut",
@@ -84,7 +84,8 @@ def _epoch(v) -> float | None:
         return None
 
 
-INJECTED = re.compile(r"^(ASYNC DELEGATION BATCH COMPLETE|\[SYSTEM|<system-reminder>|<command-|Caveat:|\[Request interrupted)", re.I)
+INJECTED = re.compile(r"^(ASYNC DELEGATION BATCH COMPLETE|\[SYSTEM|<system-reminder>|<command-|Caveat:|\[Request interrupted|\[?CONTEXT COMPACTION|"
+                      r"⟪?HERMES-CONTEXT-COMPRESSION|This session is being continued|Summary of (the )?earlier conversation)", re.I)
 
 
 def load_claude(path: Path) -> tuple[list, dict]:
@@ -145,6 +146,8 @@ def load_runs(path: Path) -> tuple[list, dict]:
             continue
         cmd = r.get("cmd") or ""
         code = r.get("exit", r.get("code"))
+        if is_guard(r):
+            continue                                        # Deckhand refusing on purpose (a gate, a quote): a decision, not a failure
         events.append({"i": len(events), "kind": "cmd", "cmd": cmd, "exit": code if isinstance(code, int) else (0 if code is None else 1),
                        "out": r.get("out") or r.get("tail") or "", "trusted": True, "ts": _epoch(r.get("at"))})
     return events, {"cwd": str(path.parent.parent) if path.parent.name == ".deckhand" else None, "session": path.stem}
@@ -836,6 +839,7 @@ def autopsy(root: Path | None, source: str | None = None, latest: bool = False, 
            "episodes": [{k: e[k] for k in ("id", "owner", "rung", "attempts", "resolved", "signature")} for e in rep["episodes"]][:12]}
     if apply:
         res["applied"] = apply_report(root, rep, rid)
+        write_json(out / "applied.json", {"id": rid, "at": now()})
     else:
         res["next"] = "read the report; `dh autopsy … --apply` writes the lessons (with recipes), skill proposals and playbooks"
     return res

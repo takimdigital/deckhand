@@ -106,6 +106,11 @@ def add(root: Path | None, what: str, why: str = "", how: str = "", where: str =
     if not decide and not (how and where):
         raise DhError("NEED_HOW_WHERE", "a human task needs HOW (the action) and WHERE (the exact place: a path, a URL or a menu chain) — "
                       "the owner has no idea where to look; that is the point of the field")
+    from .util import SECRET_RX, mask_tokens
+    blob = " ".join(x or "" for x in (what, why, how, where, when, project, rec))
+    if SECRET_RX.search(blob) or mask_tokens(blob) != blob:
+        raise DhError("SECRET_IN_TEXT", "a pending item names WHERE a secret goes, never the secret itself — "
+                      "store it with `dh vault set NAME` and write the name")
     p = path_for(root, machine)
     text = _read(p)
     pid = _next_id(text)
@@ -139,6 +144,9 @@ def _insert_open(text: str, line: str) -> str:
 
 
 def close(root: Path | None, pid: str, machine: bool = False, drop_reason: str | None = None) -> dict:
+    if pid.startswith("P-SEO-"):
+        raise DhError("SEO_ITEM", f"{pid} closes itself: put the fact in the brief (`dh brief set seo.…=…`) or record the action, "
+                      "then `dh seo audit` — a hand-closed SEO line would come back at the next audit")
     p = path_for(root, machine)
     text = _read(p)
     hit = next((it for it in items(p) if it["id"] == pid), None)

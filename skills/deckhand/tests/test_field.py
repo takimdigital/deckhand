@@ -5,7 +5,6 @@ import json
 import os
 import shutil
 import socket
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -15,7 +14,7 @@ from pathlib import Path
 SKILL = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SKILL))
 
-from dhlib import brand, build, learn, plan, pool, research, resume, seo, state, util, verify  # noqa: E402
+from dhlib import brand, build, learn, pool, research, resume, seo, state, util, verify  # noqa: E402
 from dhlib.cli import main  # noqa: E402
 from dhlib.util import DhError, read_json, write_json  # noqa: E402
 
