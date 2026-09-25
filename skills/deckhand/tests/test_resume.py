@@ -255,6 +255,17 @@ class LocalOnly(Base):
         for f in (".deckhand/vault.env", ".deckhand/profile.json", ".deckhand/RESUME.md", ".deckhand/notes.jsonl"):
             self.assertEqual(subprocess.run(["git", "check-ignore", "-q", f], cwd=a).returncode, 0, f)
 
+    def test_the_app_folder_made_from_a_client_plan_stays_a_client_project(self):
+        self.dh("init", "--name", "Client plan", "--for", "client")
+        app = self.tmp / "client-app"
+        app.mkdir()
+        (app / "package.json").write_text('{"name": "client-app"}', encoding="utf-8")
+        code, out = self.dh("adopt", str(app))
+        self.assertEqual(code, 0, out)
+        profile.use_project(app)
+        self.assertEqual(profile.scope(), "client")
+        self.assertEqual(profile.vault_set("DH_TEST_CLIENT_KEY", "client-app-secret-789")["scope"], "project")
+
     def test_personal_projects_write_to_the_machine_unless_told_here(self):
         self.dh("init", "--name", "Mine")
         code, out = self.dh("profile", "set", "defaults.hosting=vps")

@@ -68,7 +68,8 @@ itself says where it stands.
   in a deckhand project start from the RESUME; elsewhere it prints nothing.
 - **Per-project profile and vault** (`.deckhand/profile.json`, `.deckhand/vault.env`, gitignored, never pushed):
   a project's layer overrides the machine's. `dh init --for client` keeps that client's settings and secrets in
-  its own project by default, so client A's keys are never visible in client B. `--here` / `--machine` choose
+  its own project by default (the app folder made by clone, adopt or scaffold inherits it), so client A's keys
+  are never visible in client B. `--here` / `--machine` choose
   the layer explicitly. Older projects get the new gitignore lines added to their existing block.
 
 ### Security (final audit)

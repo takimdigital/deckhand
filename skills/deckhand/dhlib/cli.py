@@ -211,14 +211,20 @@ def dispatch(a):
                 raise DhError("USAGE", "--msg required")
             return PL.bb_post(root, a.wp, a.kind, a.msg)
         return {"entries": PL.bb_read(root, None if a.wp == "all" else a.wp, None if a.kind == "note" else a.kind, a.last)}
-    if c in ("clone", "adopt", "scaffold", "compose", "dev"):
-        from . import build as B
+    if c in ("clone", "adopt", "scaffold"):
+        from . import build as B, profile as PR
+        who = PR.scope()                                 # the planning folder's: for me, or for a client
         if c == "clone":
-            return B.clone(a.template, Path(a.to), do_install=not a.no_install)
-        if c == "adopt":
-            return B.adopt(a.source, Path(a.to) if a.to else None, do_install=a.install)
-        if c == "scaffold":
-            return B.scaffold(Path(a.to), a.pm)
+            out = B.clone(a.template, Path(a.to), do_install=not a.no_install)
+        elif c == "adopt":
+            out = B.adopt(a.source, Path(a.to) if a.to else None, do_install=a.install)
+        else:
+            out = B.scaffold(Path(a.to), a.pm)
+        if who == "client":                              # the app folder keeps the client's own layer too
+            PR.set_scope(out["project"], "client")
+        return out
+    if c in ("compose", "dev"):
+        from . import build as B
         if c == "compose":
             return B.compose(root, a.page, [s.strip() for s in a.sections.split(",")], a.copy)
         return {"start": lambda: B.dev_start(root, a.port), "stop": lambda: B.dev_stop(root), "status": lambda: B.dev_status(root)}[a.action]()

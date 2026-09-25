@@ -161,7 +161,7 @@ Run for real in this release:
     business details for search engines;
   - unknown pages answered 404;
   - preview mode served noindex.
-- CI on every push, Ubuntu and Windows: 46 try-on + 66 control-plane + 40 server-client + 17 repo tests.
+- CI on every push, Ubuntu and Windows: 46 try-on + 67 control-plane + 40 server-client + 17 repo tests.
 
 Not yet proven live: a full `dh deploy ship` against a real server (it uses the same Coolify client that
 was proven live in v1), and the first real run of the $0 Oracle track. I'd rather tell you than let you
