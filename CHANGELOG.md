@@ -46,6 +46,23 @@ the measured template pool).
   images, side effects; it is labelled AI-generated in the bar, session, file header and keep result; no
   third-party notice is written for it; its own words are recorded `ai: true` (rebrand warns, never blocks).
   `tryon draft / drafts [--wait] / draft-check / draft-done`; serve prints one `draft_request` line.
+- **Autopsy v2 — deterministic** (`dh autopsy [transcript | --latest] [--apply]`): reads a Claude Code
+  transcript or deckhand's own run log (every `dh` call and `dh run` is logged — any harness); finds failures
+  including those a pipe hid, groups retries and recurrences, extracts the recipe that actually fixed each,
+  assigns an owner and a fix-ladder rung from evidence; `--apply` writes lessons with recipes (`dh run --fix`
+  replays auto-safe ones), skill-fix proposals with repro + regression-test check, and playbooks (`dh next`
+  shows twice-confirmed ones as `worked_before`). Never edits the skill; same session → same bytes.
+- **Vetting gate** (`data/licenses.json`, one policy): `dh pool vet|add` and `tryon registry vet|add|list|remove`
+  refuse copyleft, custom or missing licences, paywalls, paid packages, committed secrets, dead or
+  non-runnable repos — with the reasons and what would be accepted. Permissive family accepted (MIT,
+  Apache-2.0, BSD-2/3, ISC, 0BSD, Unlicense).
+- **Personal boilerplate library on the owner's GitHub**: `dh harvest --push` (secret scan first, private
+  repo, `deckhand-library` index + README, "verified + live" badge), `dh pool sync`, `dh clone` from private bases.
+- **Tune it + Site** (try-on): deterministic knobs for any element (spacing, headlines, weight, corners,
+  depth, contrast, width; presets quieter/bolder/airy/compact/clarity/softer/sharper) and the whole look
+  (accent, neutrals, radius, density, headline scale, next/font body + heading fonts) — previewed with the
+  exact values applied, reversible byte-exact.
+- `docs/USE-CASES.md`: ten scenarios, each with the sentence to say, what happens, and what you do.
 - `dh verify` proves routes on the production build it just made (served on a free port, stopped after).
 - Kokonut UI items fall back to the project's GitHub mirror when kokonutui.com is unreachable.
 - No-domain preview: `dh deploy smoke` warns on plain http / generated `sslip.io` URLs; HANDOFF.md is
@@ -61,6 +78,10 @@ the measured template pool).
 - AI draft end to end in Chromium: request from the variant bar (with a note) → agent `drafts --wait` →
   draft written → gates passed (4/4, one AI line flagged) → the page switched to the labelled variant beside
   4 licensed ones → keep → type-check clean.
-- Suites: 32 node (try-on) · 21 unittest (dh) · 40 pytest (ops clients) — green on Ubuntu and Windows CI.
+- Tune + Site in Chromium on Next 16: airy 96→144px, bolder 48→60px / 700→800, reset exact; accent, radius,
+  Manrope body and Fraunces headings applied after a reload, undo restored both files.
+- Autopsy on this project's own 369-command development session: 23 pipe-hidden failures, one trap that
+  recurred 3×, the README badge edit that fixed the version check.
+- Suites: 38 node (try-on) · 35 unittest (dh) · 40 pytest (ops clients) — green on Ubuntu and Windows CI.
 
 v1 history (the five-skill pack, last release v0.19.0 "try-on grows up"): see the git log up to d079a14.

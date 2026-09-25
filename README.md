@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Bring a $5 server and a $10 domain (or $0).<br>
-  Your agent turns them into a live business. You go find the clients.</b>
+  Your AI agent turns them into a live business. You go find the clients.</b>
 </p>
 
 <p align="center">
@@ -18,86 +18,21 @@
 
 ---
 
-Deckhand is **one skill folder** you drop into your AI coding agent (Claude Code, Codex, Cursor, Hermes,
-OpenCode, Gemini CLI…). It takes your agent from *"a bakery that delivers sourdough in Lyon"* to a site
-that is **live on your own server**. It researches your market, plans every page and every click, builds
-from licensed human-made designs, puts your brand on it, lets you **click any section and swap it live**,
-verifies everything, deploys it and keeps it running.
+Most "AI website builders" hand you a zip file, a demo page that says *"Build faster with Acme"*, and a
+prayer. Then the deploy fails, the agent apologizes, tries the same thing again, and bills you for it.
 
-The agent doesn't improvise the plumbing. A control plane called **`dh`** holds the process: nine phases,
-hard gates, and a script for every deterministic step. The model writes words (your copy, research, plans)
-and app logic. Scripts do the rest, and every "done" is a command's output, never a claim.
+**Deckhand is the opposite.** One skill folder for your AI agent (Claude Code, Codex, Cursor, Hermes,
+OpenCode, Gemini CLI…). The agent plans every page and every click, builds from real human-designed
+components, puts **your** words and **your** brand on them, and ships the site to **your** server. Then it
+keeps it running. Scripts do the boring parts, so you don't pay AI tokens for boilerplate. Every "done" is a
+command's output, never a promise.
 
 > **You:** *"Build my bakery's ordering site and put it online."*
-> **Agent:** runs `dh next`, asks you three things, shows you a plan, shows you the site running locally,
-> lets you swap sections until you love it, ships it, and hands you the URL, the logins and the evidence.
+> **Agent:** asks you 3 things → shows you the plan → shows you the site running → lets you click any section
+> and try other designs → ships it → hands you the URL, where the logins live, and the proof.
 
-## 🧭 How a run goes
-
-```text
-define → research → plan ─G1→ build ─G2→ brand → try-on ─G3→ review ─G4→ deploy → operate
-```
-
-| phase | what happens | proof it's done |
-|---|---|---|
-| **define** | your business, audience, languages, and how you want to work: **phased** (it stops for your OK at 4 gates, recommended) or **auto** (it only stops for real decisions) | the brief is complete |
-| **research** | round 1: the business, your top 3 competitors (what they do well, where they're weak), your audience, conversion plays, day-one features | 3 competitors with URLs, strengths and gaps |
-| **plan** | round 2: every page, every button and every form, wired as a graph. **No dead ends**: a lint refuses a plan with an orphan page, a link to nowhere, a form without success and error states, or a login-only page with no way to log in. Split into work packages for parallel agents that share one blackboard | `dh plan lint` = 0 errors → **G1: you approve the plan** |
-| **build** | four paths: a **vetted open-source base** (MIT/Apache, measured through the GitHub API), **your own** saved base, **your existing project**, or **from scratch** (pages composed from licensed blocks carrying your copy). Then it starts the app for you | the app answers locally → **G2: you tested it** |
-| **brand** | your name, colours, icon and metadata in, the template's out. A leak check then proves it | 0 blocking findings (template names, lorem, demo companies, fake logos, demo copy) |
-| **try-on** | click any section of your running site and flip through designs **in your colours, with your text** (below) | no open session → **G3: you approve the design** |
-| **review** | typecheck, build, secrets, `.env` hygiene, every route answers, honesty, no dev tooling in the build, a11y basics, dependency audit | `dh verify` all blocking rows green → **G4: go live** |
-| **deploy** | Coolify on your VPS (or the $0 track), wait for *this* commit, smoke-test, write `HANDOFF.md` (what you own, where the logins are, how to get in; never the secrets themselves) | live URL + smoke OK |
-| **operate** | change → verify → ship loop, rollback, **business bots** (uptime watchdog, broken-link audit, backup proof, weekly KPIs, lead digest, payment-failed and booking reminders…), and turning the finished site into **your own reusable base** | continuous |
-
-Changed your mind? `dh reopen plan` and it continues from there.
-
-## 🪄 Try-on: click a section, swap it, keep your words
-
-Most "swap a component" tools paste a demo block with someone else's colours and someone else's copy
-("Build faster with Acme"). Deckhand's try-on is built on the opposite rule: **a variant must look like
-your site and say what your site says**.
-
-1. `tryon setup` → `tryon serve` → open the printed URL. A **Try-on** button sits on your real, running site.
-2. Click anything: the hero, the pricing table, a button. Say what it is (it guesses).
-3. Deckhand writes 4 licensed variants into your code **once**. Then ← → flips between them instantly, with
-   **zero AI calls per click**.
-4. Every variant:
-   - **wears your theme.** Palette classes become your site's colour tokens, and missing tokens are derived from your own colours.
-   - **carries your content.** Headings (including your accent words), text, prices, buttons *and where they link*, images, list items card by card, FAQ questions, footer menus from your plan, your socials.
-   - **is honest about the rest.** Demo stock photos become a neutral placeholder. Fake "trusted by" logo rows, extra demo buttons and newsletter forms that post nowhere are hidden. Any leftover demo sentence is underlined, and the gate won't let it ship.
-   - **shows a fit badge** ("your content 4/4"). Designs that would throw away most of your words aren't offered.
-5. **Keep** bakes your text in, deletes unused files, and records the MIT licence in
-   `THIRD_PARTY_NOTICES.md`. **Discard** restores your file byte for byte. **Save** puts the design in your
-   personal library, and it ranks first next time.
-
-**Nothing in the catalog fits?** Click **Ask AI to draft one** (or **AI draft** in the variant bar, with an
-optional "what should it look like?" note). Your own AI agent writes one version for that element, once,
-and Deckhand checks it before you see it. All your words and links must be there, only your colours are
-allowed, nothing new gets installed, and no invented facts are passed off as yours. It then appears
-beside the other designs with a purple **AI-generated** label. Any words the AI added are listed so you
-can confirm or rewrite them.
-
-The catalog holds **738 MIT-licensed items**: 300 Tailark OSS blocks, 197 shadcn/ui, 113 Smooth UI,
-57 Magic UI, 36 basecn and 35 Kokonut UI. They are matched to your stack (Radix vs Base UI, Tailwind 4,
-your aliases), and licence-unclear sources are refused, never scraped. No browser in your harness? The same
-engine runs headless: `tryon try / show / keep`.
-
-## 💡 Why it costs so little
-
-- **The door costs a lunch.** A real online business = **~$5/month for a server + ~$10/year for a domain**.
-  What stops people isn't money. It's servers, DNS, SSL, deploys and databases. That pile is what Deckhand absorbs.
-- **Start at $0, for real.** The free track: an Oracle Cloud Always Free server, a free domain (or just
-  the Coolify-provided URL), automatic HTTPS. When the business earns, a runbook moves you to a paid host.
-  Paying is an offer, never a gate.
-- **Token-cheap by construction.** `dh next` hands the agent *one* instruction and *one* reference file
-  per step. Data is queried, not read. Composition, swapping, rebranding, linting, verifying and deploying
-  are scripts. Try-on runs with no model in the loop.
-- **Failures are paid once.** Risky commands run through `dh run`. A known error prints its fix
-  immediately, and every new failure becomes a lesson that's promoted into a pre-flight check, so the
-  same mistake doesn't come back.
-- **Yours, forever.** MIT, self-hosted, your code, your data, your server. Nothing rented that a script
-  didn't flag first (`dh swap check` finds Clerk/Neon/Resend/Sentry… and proves them replaced).
+**New here and not technical? → [Use cases, step by step](docs/USE-CASES.md).** Copy a sentence, paste it to
+your agent, done.
 
 ## ☕ The uncomfortable math
 
@@ -107,116 +42,135 @@ engine runs headless: `tryon try / show / keep`.
 | --- | --- |
 | one $5 drink | one month of a real server |
 | one $10 drink | a real domain, for a whole year |
-| three drinks | your entire business, live and running, for a month |
+| three drinks | your entire business, live, for a month |
 
-**Broke? Keep the coffee.** The $0 track is real: free server, free domain or URL, HTTPS, in production.
+You're not broke. You've been paying for the wrong thing. **Actually broke? Keep the coffee.** The $0 track
+is real: a free Oracle server, and a domain is optional. It's live in production, and paying stays an
+offer, never a gate.
 
-## 🚀 Install
-
-Needs Python 3.9+ (standard library only) and Node 18+ (for try-on and compose). There's nothing else to install.
+## 🚀 Start in 2 minutes
 
 ```bash
 git clone https://github.com/takimdigital/deckhand-skill.git
-cd deckhand-skill
-./install.sh            # every harness it finds: Claude Code, Codex, Cursor, Hermes, OpenCode, Gemini CLI, ~/.agents
-./install.sh --link     # or symlink, so `git pull` updates every harness at once
+cd deckhand-skill && ./install.sh        # Windows: powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-Windows: `powershell -ExecutionPolicy Bypass -File install.ps1` (use `py` where the docs say `python3`).
-The installer also puts a `dh` command in `~/.deckhand/bin`. Harness that doesn't load skill folders? Point
-it at [`AGENTS.md`](AGENTS.md).
+The installer finds your agents (Claude Code, Codex, Cursor, Hermes, OpenCode, Gemini CLI) and installs into
+each one. You need Python 3.9+ and Node 18+, and nothing else. Then open your agent and say what you want.
 
-Then just talk to your agent.
-
-## 🗣️ Things you can say
+## 🧭 What happens when you ask
 
 ```text
-Build me a booking site for my barbershop. Phased — show me the plan first.
-Start from my own saved base "levain-v1" and make it a pastry shop.
-Take my existing repo and redesign the landing page — let me try sections on.
-Deploy it on the free Oracle server first; I'll pay once it makes money.
-Add a weekly KPI email and a bot that checks the server is up.
-Something broke in production — check the logs and roll back.
-Turn this site into a reusable base for my next client.
+define → research → plan ─✋→ build ─✋→ brand → try-on ─✋→ review ─✋→ deploy → operate
 ```
 
-## ✅ What is proven (and what isn't yet)
+✋ = it **stops and waits for your OK** (phased mode, the default). Prefer it hands-off? Say *"auto mode"*.
 
-Verified in this release, by running it:
+| step | what the agent does | how you know it's really done |
+|---|---|---|
+| define | asks what you sell, to whom, in which languages | a brief |
+| research | your top 3 competitors: what they do well, where they're weak | 3 real links with strengths and gaps |
+| plan | every page, button and form, wired. **No dead ends allowed** | a checker refuses orphan pages, links to nowhere, forms with no success or error state |
+| build | from a vetted open-source base, **your own** past site, your existing site, or from scratch | the site runs on your computer, and you click around |
+| brand | your name, colours, icon; the template's traces out | a leak check finds no leftovers |
+| try-on | you click sections and swap or tune them (below) | nothing open, nothing half-done |
+| review | build, types, secrets, every link answers, honesty | a green report |
+| deploy | your server via Coolify, then a smoke test | a live URL, and `HANDOFF.md` with everything you own |
+| operate | changes, rollbacks, bots that watch the site and the business | the bots report to you |
 
-- [x] **Try-on in a real browser** (Chromium, Next.js 16.3.6, Turbopack): pick the hero → variants carry
-  the owner's copy 4/4 (including an accent-coloured word) → flip → keep (baked, pruned, licence recorded)
-  → save to library; a CTA try → discard restores the file **byte-exact**; no console errors.
-- [x] **From scratch, composed**: 6 sections (hero, features, pricing, FAQ, CTA, footer) from live Tailark
-  blocks in ~6 s, **34/34 of the owner's words placed**, footer menu built from the plan, typecheck clean;
-  the honesty gate blocked the one demo sentence left, and passed once it was rewritten.
-- [x] **AI draft in a real browser**: the owner asked for another hero (with a note); the agent picked the
-  request up with one blocking `drafts --wait`, wrote it, and the gates passed it (4/4 of the owner's
-  content, its one added line flagged). The page switched to it by itself, labelled AI-generated, beside
-  the 4 licensed variants. Keep → the site type-checks, and no licence notice was written for AI code.
-- [x] **Production build** after keep: 0 dev stamps in the output (`prod-clean` row).
-- [x] **Suites** (offline, in CI on every push, Ubuntu **and Windows**): 32 try-on (node) ·
-  21 control plane (unittest) · 40 ops clients (pytest).
+## 🪄 The parts nobody else does
 
-Carried over from v1, where they were proven live on a real Coolify server and ported unchanged with their
-tests: deploy (image, public repo, private repo via deploy key), smoke test → rollback, Postgres via API,
-backups + restore drill, offsite backups (B2/Tigris).
+**Try-on: click any section of your site and swap it.** Four licensed designs appear **in your colours,
+with your text, your links and your photos**, and ← → flips between them instantly. Fake "trusted by"
+logos, stock photos and newsletter boxes that post nowhere are hidden. Keep bakes it in, Discard puts your
+file back byte for byte. Catalog: 738 MIT components (Tailark, shadcn, Magic UI, Smooth UI, Kokonut, basecn).
 
-Not yet proven live in v2: `dh deploy ship` end to end against a real server (it drives the same client
-as above) and the first live run of the $0 Oracle track.
+**Tune it: don't replace it, adjust it.** Pick a section and choose *quieter · bolder · airier · clearer ·
+softer · sharper*, or dial spacing, headline size, weight, corners, depth, contrast and width. What you see
+is exactly what gets kept. **Site** does the same for the whole look: accent colour, warm or cool
+neutrals, corners, density, headline scale, fonts. No AI is needed for any of it, so none is charged.
 
-## 🔒 Principles
+**Nothing fits? Ask the AI, labelled.** Your agent writes one version, once. Deckhand checks it before you
+see it: all your words and links, only your colours, no invented facts, nothing to install. It shows up
+with a purple **AI-generated** badge. You always know what a human designed and what a model wrote.
 
-- **Your facts are never invented.** Prices, reviews, addresses, client logos: if the agent doesn't know,
-  it goes in `PENDING.md` and gets asked once, batched, with click-by-click steps.
-- **Licences are enforced.** Bases and components are MIT/Apache only. `NOTICE` and
-  `THIRD_PARTY_NOTICES.md` are never removed. AGPL and "free with attribution to a paid tier" sources
-  stay refused.
-- **Evidence over assertion.** A check that cannot fail isn't a check; fixes go into scripts and tests,
-  not prose.
-- **Dev tooling never ships.** Try-on stamps are dev-only and verified absent from production builds.
-- **Secrets stay secret.** `~/.deckhand/vault.env` (0600) or your platform's env store. Never in chat,
-  commits, logs or the handoff.
+**It learns from its mistakes, without guessing.** `dh autopsy` reads the session log with no AI involved.
+It finds every failure (including the ones hidden behind `| tail`), what actually fixed each one, and how
+often it came back. The next session gets the fix before the error happens, and a safe fix can replay
+itself (`dh run --fix`). Workflows that worked twice show up as *"this worked last time"*.
 
-## 📁 Repository layout
+**Nothing joins on trust.** A template or component library someone found is checked first. Copyleft,
+no licence, paywalls, paid packages, committed passwords and dead repos are refused, with the reason and
+what would be accepted instead.
 
-```text
-skills/deckhand/
-├── SKILL.md          # the operating spec the agent reads (state machine, invariants, command surface)
-├── dh.py + dhlib/    # control plane (stdlib Python): phases, gates, plan lint, pool, build, rebrand,
-│                     #   verify, deploy, ops bots, lessons, harvest, handoff
-├── tryon/            # try-on + compose engine (zero-dependency Node; vendored @babel/parser, MIT)
-├── ops/              # Coolify / Hostinger / backup clients + tests (from v1, live-proven)
-├── references/       # one short file per phase (00-define … 80-operate) + ops runbooks
-├── data/             # component catalog, base pool, bots, seed lessons, registries (+ refused list)
-├── templates/        # brief, research, sitemap, work package, scaffold, bots, OPS handoff
-└── tests/
-install.sh · install.ps1 · AGENTS.md · CHANGELOG.md
-```
+**Your own library of starting points.** A site you shipped becomes a private base on **your** GitHub
+(`dh harvest --push`): brand removed, secret scan first, marked "verified + live". Next client: one command
+to start from it, from any computer.
+
+**It runs the business, not just the website.** An uptime watchdog and a broken-link audit run on a
+schedule from day one, and backups and dependencies are checked too. Business bots (weekly KPIs, lead digest,
+failed payments, booking reminders, review requests, low stock) come as ready specs and skeletons that your
+agent wires to your app.
+
+## 🪙 Why it costs so few tokens
+
+- **Scripts do the deterministic work**: planning checks, building, swapping, tuning, rebranding, verifying,
+  deploying, autopsy. The model writes words and your app's logic, not boilerplate.
+- **One instruction at a time.** `dh next` tells the agent exactly one thing to do and which short page to read.
+- **Zero AI calls per click** in try-on and tune.
+- **Failures are paid once**: a known error prints its proven fix instantly, instead of 20 minutes of re-debugging.
+
+## ✅ Proven, and what isn't yet
+
+Run for real in this release:
+
+- In a browser, on a real Next.js 16 site:
+  - try-on variants carried the owner's text 4/4;
+  - an AI draft appeared, passed its checks and was labelled;
+  - Tune changed the page exactly (spacing 96→144px, headline 48→60px) and reset exactly;
+  - Site changes were applied and undone after a reload.
+- A landing page composed from scratch in about 6 seconds, with 34 of 34 of the owner's words placed.
+- The autopsy on a real 369-command session found:
+  - 23 failures a pipe had hidden;
+  - a trap that recurred 3 times;
+  - the exact edit that fixed a failed check.
+- CI on every push, Ubuntu and Windows: 38 try-on + 35 control-plane + 40 server-client tests.
+
+Not yet proven live: a full `dh deploy ship` against a real server (it uses the same Coolify client that
+was proven live in v1), and the first real run of the $0 Oracle track. I'd rather tell you than let you
+find out.
+
+## 🔒 Rules it never breaks
+
+Your facts are never invented: unknown prices, reviews or addresses go in a *"still needed from you"*
+list. Secrets live in a private vault, never in chat or git. Only permissive licences are used, and their
+notices are kept. Dev tools never ship to production. Your code, your server, your data. Stop using Deckhand
+tomorrow and everything keeps running.
+
+## 🙏 A note from me
+
+I'm building this with my own money: the servers, the AI tokens, the test runs. I want one tool that works
+for **everyone**, not just developers: the baker, the barber, the freelancer who froze at the word "DNS".
+I'm not a big company, and I'll get things wrong. When it breaks, [open an issue](https://github.com/takimdigital/deckhand-skill/issues):
+that's worth as much to me as a thank-you.
+
+If it saved you time or made you money: **[☕ buy me a coffee](https://buymeacoffee.com/takimdigital)** or
+⭐ star the repo. Both keep it going and free, forever.
 
 ## ❓ FAQ
 
-**Do I need to code?** No. You answer a few questions, approve four checkpoints (or choose auto), and do
-the few things only you can do, like creating an account. Each of those comes with exact click paths.
+**Do I need to code?** No. You answer questions, approve 4 checkpoints, and do the few things only you can
+do (like creating an account), each with exact click paths. → [Use cases](docs/USE-CASES.md)
 
-**Will it look AI-generated?** No. Sections come from human-designed, MIT-licensed blocks, restyled to your
-colours and filled with your words. You pick them by clicking through them on your own site.
+**Will it look AI-generated?** No. Sections are human-designed and MIT-licensed, restyled to your brand and
+filled with your words, and you pick them by clicking. When the AI does write a design, it's labelled.
 
-**I already have a site.** Use the `existing` path: Deckhand adopts it, and try-on works on it directly.
+**I already have a site.** Say *"take my existing site and make it look premium."* Try-on, Tune and Site work
+on it directly.
 
-**Is anything paid required?** No. Open-source bases and components, Coolify (Apache-2.0) on your own
-server, and a real $0 track.
+**Is anything paid required?** No. Open-source parts, Coolify on your own server, and a real $0 track.
 
-**Am I locked in?** No. It's your code on your server. Stop using Deckhand any time and everything keeps running.
-
-**Coming from v1?** The five v1 skills (buildout, vps-ops, component-library, session-autopsy,
-deckhand-profile) are now one: `skills/deckhand`. See [CHANGELOG.md](CHANGELOG.md) for why try-on didn't
-work in v1 and what replaced it.
-
-## ☕ Support Deckhand
-
-Free forever. MIT, no tiers, no paywalls. If it saved you time or made you money:
-**[☕ Buy me a coffee →](https://buymeacoffee.com/takimdigital)**, or ⭐ star the repo.
+**Coming from v1?** The five skills are now one (`skills/deckhand`). See the [changelog](CHANGELOG.md).
 
 ## 📄 License
 
