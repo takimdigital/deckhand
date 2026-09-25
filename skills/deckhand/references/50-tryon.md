@@ -24,6 +24,26 @@ $T keep --id <S> --idx 2      # or: discard --id <S>   (byte-exact restore)
 ```
 `--no-install` refuses candidates needing new npm packages instead of installing them.
 
+## No licensed design fits? The AI draft (labelled, gated)
+The owner can ask for an AI-written variant: "Ask AI to draft one" appears when a slot has no licensed
+design, when none can hold their content (`NO_CANDIDATES` / `NO_VARIANTS`), and as **AI draft** in the
+variant bar (it then joins the licensed variants being compared). You are called once per request, never per click:
+```bash
+$T drafts --project .            # pending requests; `--wait` blocks until one exists (background it, no polling)
+# read brief_file → "brief": the owner's exact content (text, markup, links, images, lists), the note,
+# the project's primitives/packages and the rules. Write the component into write_to/draft.tsx, then:
+$T draft-check --id <D>          # optional dry run of the gates
+$T draft-done  --id <D>          # gate → staged beside the other variants → the owner's page switches to it
+```
+Gates (a failure lists every problem; fix and re-run `draft-done`): every owner word, link target, image
+and bullet present · token colour classes only (no hex/rgb/hsl/oklch, no `bg-[#…]`) · imports = react,
+next/*, the project's ui primitives/utils, installed packages · images = the owner's or the placeholder ·
+links = the owner's hrefs only · no fetch / env · `.tsx`/`.ts` files only. Words you add beyond the
+owner's are allowed only as short UI copy, and are shown as "its own words" and recorded with `ai: true`;
+`dh rebrand check` warns (does not block) until the owner confirms or rewrites them. Never invent facts
+(prices, numbers, names, reviews, logos, dates). The variant is labelled AI-generated in the bar; its file
+header says so on keep; no third-party licence notice is written for it.
+
 ## What the engine guarantees
 - Location: every JSX element carries `data-dh="file:line:col"` in dev (AST, vendored parser — works with
   TypeScript 7 projects); the overlay resolves the clicked node and its owners.
@@ -53,4 +73,5 @@ $T keep --id <S> --idx 2      # or: discard --id <S>   (byte-exact restore)
 | no stamps (`doctor: stampsInHtml false`) | dev server not restarted after `setup` |
 | HMR blocked / "Blocked cross-origin request" | open the helper URL (it rewrites Origin to localhost), not 127.0.0.1:3000 |
 | `NO_CANDIDATES` | slot mislabeled, or base mismatch (`hidden` count) — pick the right slot |
-| `POOR_FIT` skips | the design cannot hold ≥50% of the owner's content — honest skip, try More |
+| `POOR_FIT` skips | the design cannot hold ≥50% of the owner's content — honest skip, try More, or the AI draft |
+| `DRAFT_REJECTED` | read `problems`, fix the draft files, run `draft-done` again (the owner's page is untouched until it passes) |

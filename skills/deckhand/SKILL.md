@@ -85,7 +85,7 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
 | plan | `dh plan init\|lint\|render\|split --agents N` · `dh bb post\|read` (shared memory for parallel agents) |
 | build | `dh clone T --to DIR` · `dh adopt PATH\|URL` · `dh scaffold --to DIR` · `dh compose --sections … --copy .deckhand/copy.json` · `dh swap scan\|check` · `dh dev start\|stop\|status` |
 | brand | `dh rebrand scan\|apply\|check` |
-| try-on | `node <skill>/tryon/cli.mjs setup\|serve\|try\|show\|keep\|discard\|save\|query\|doctor\|clean` (or `dh tryon …`) |
+| try-on | `node <skill>/tryon/cli.mjs setup\|serve\|try\|show\|keep\|discard\|save\|query\|doctor\|clean` (or `dh tryon …`) · AI draft: `drafts [--wait]\|draft-check\|draft-done --id D` |
 | review | `dh verify [--url U]` |
 | deploy | `dh deploy target --app UUID --url U` · `dh deploy ship` · `dh deploy smoke` · `dh deploy raw <coolify args>` · `dh handoff` |
 | operate | `dh ops suggest` · `dh ops add BOT --runner github\|cron` |
@@ -100,7 +100,10 @@ colour tokens and carrying the owner's own copy, links, images and list data** (
 plan; demo logos, stock photos and unwired forms hidden); ←/→ compares instantly;
 Keep bakes the copy in, prunes unused files, records the licence. Launch: `tryon setup` → restart dev →
 `tryon serve` → give the owner the printed URL. No browser in this harness? Use `tryon try/show/keep`
-headless. The agent is NOT in the click loop — do not poll. Details: `references/50-tryon.md`.
+headless. The agent is NOT in the click loop — do not poll. **No licensed design fits?** The owner can ask
+for an AI draft: you write it ONCE from the brief (`tryon drafts` → write → `tryon draft-done`); scripts gate
+it (every owner word and link, token colours, installed imports, no invented facts) and it is labelled
+AI-generated everywhere. Details: `references/50-tryon.md`.
 
 ## 6. Delegation protocol (parallel agents)
 

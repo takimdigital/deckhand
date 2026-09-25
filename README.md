@@ -71,6 +71,13 @@ your site and say what your site says**.
    `THIRD_PARTY_NOTICES.md`. **Discard** restores your file byte for byte. **Save** puts the design in your
    personal library, and it ranks first next time.
 
+**Nothing in the catalog fits?** Click **Ask AI to draft one** (or **AI draft** in the variant bar, with an
+optional "what should it look like?" note). Your own AI agent writes one version for that element, once,
+and Deckhand checks it before you see it. All your words and links must be there, only your colours are
+allowed, nothing new gets installed, and no invented facts are passed off as yours. It then appears
+beside the other designs with a purple **AI-generated** label. Any words the AI added are listed so you
+can confirm or rewrite them.
+
 The catalog holds **738 MIT-licensed items**: 300 Tailark OSS blocks, 197 shadcn/ui, 113 Smooth UI,
 57 Magic UI, 36 basecn and 35 Kokonut UI. They are matched to your stack (Radix vs Base UI, Tailwind 4,
 your aliases), and licence-unclear sources are refused, never scraped. No browser in your harness? The same
@@ -143,9 +150,13 @@ Verified in this release, by running it:
 - [x] **From scratch, composed**: 6 sections (hero, features, pricing, FAQ, CTA, footer) from live Tailark
   blocks in ~6 s, **34/34 of the owner's words placed**, footer menu built from the plan, typecheck clean;
   the honesty gate blocked the one demo sentence left, and passed once it was rewritten.
+- [x] **AI draft in a real browser**: the owner asked for another hero (with a note); the agent picked the
+  request up with one blocking `drafts --wait`, wrote it, and the gates passed it (4/4 of the owner's
+  content, its one added line flagged). The page switched to it by itself, labelled AI-generated, beside
+  the 4 licensed variants. Keep → the site type-checks, and no licence notice was written for AI code.
 - [x] **Production build** after keep: 0 dev stamps in the output (`prod-clean` row).
-- [x] **Suites** (offline, in CI on every push, Ubuntu **and Windows**): 26 try-on (node) ·
-  20 control plane (unittest) · 40 ops clients (pytest).
+- [x] **Suites** (offline, in CI on every push, Ubuntu **and Windows**): 32 try-on (node) ·
+  21 control plane (unittest) · 40 ops clients (pytest).
 
 Carried over from v1, where they were proven live on a real Coolify server and ported unchanged with their
 tests: deploy (image, public repo, private repo via deploy key), smoke test → rollback, Postgres via API,

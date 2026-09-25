@@ -15,6 +15,12 @@
  *   node tryon/cli.mjs save     --id S [--name n]                  kept component -> personal library
  *   node tryon/cli.mjs status   [--project .]
  *   node tryon/cli.mjs clean    [--project .]                      discard open sessions, unwire
+ *
+ * AI draft (no licensed design fits, or the owner asks) — the agent writes ONE variant, scripts gate it:
+ *   node tryon/cli.mjs draft      --file f --line n --col c --slot s [--note "…"]  |  --session S
+ *   node tryon/cli.mjs drafts     [--wait [--timeout 1800]]          pending requests (+ each brief path)
+ *   node tryon/cli.mjs draft-check --id D                            run the gates, write nothing
+ *   node tryon/cli.mjs draft-done  --id D                            gate + show it (labelled AI-generated)
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,6 +30,7 @@ import { detectProject } from './lib/project.mjs';
 import { loadCatalog, rank, slotsSummary } from './lib/catalog.mjs';
 import { saveToLibrary, listLibrary } from './lib/library.mjs';
 import { startServer, detectTarget } from './server.mjs';
+import * as draft from './lib/draft.mjs';
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -46,7 +53,8 @@ async function main() {
     case 'serve': {
       const target = flags.target || await detectTarget(project);
       if (!target) out({ ok: false, code: 'NO_DEV_SERVER', hint: 'start the dev server first (npm run dev), or pass --target http://127.0.0.1:<port>' }, 1);
-      const s = await startServer({ root: project, port: Number(flags.port || 3999), target, log: flags.verbose ? (e) => console.error(JSON.stringify(e)) : () => {} });
+      const s = await startServer({ root: project, port: Number(flags.port || 3999), target, log: flags.verbose ? (e) => console.error(JSON.stringify(e)) : () => {},
+        onDraft: (r) => process.stdout.write(JSON.stringify({ event: 'draft_request', id: r.id, slot: r.slot, brief_file: r.brief_file, do: r.tell_agent }) + '\n') });
       process.stdout.write(JSON.stringify({ ok: true, open: s.url, proxying: target, note: 'open the URL, click Try-on (bottom right). Ctrl+C stops.' }) + '\n');
       return;
     }
@@ -83,6 +91,29 @@ async function main() {
       const r = await engine.open(project, { ...flags, install: flags.install !== false, onProgress: flags.verbose ? (p) => console.error(JSON.stringify(p)) : undefined });
       return out({ ok: true, ...r, next: `compare in the browser (←/→) or \`show --id ${r.id} --idx N\`; then \`keep --id ${r.id} --idx N\` or \`discard --id ${r.id}\`` });
     }
+    case 'draft': {
+      if (!flags.session) need('file', 'line', 'col', 'slot');
+      const r = draft.requestDraft(project, { ...flags, note: typeof flags.note === 'string' ? flags.note : null });
+      const d = draft.loadDraft(project, r.id);
+      return out({ ok: true, ...r, brief: d.brief });
+    }
+    case 'drafts': {
+      // --wait: ONE blocking call for harnesses that can run it in the background (no polling by the model)
+      const t0 = Date.now(), limit = Number(flags.timeout || 1800) * 1000;
+      let pending = draft.listDrafts(project, { state: ['pending', 'rejected'] });
+      while (flags.wait && !pending.length && Date.now() - t0 < limit) {
+        await new Promise((r) => setTimeout(r, 1500));
+        pending = draft.listDrafts(project, { state: ['pending', 'rejected'] });
+      }
+      return out({ ok: true, pending: pending.map((d) => ({ ...draft.publicDraft(d), brief_file: path.posix.join('.deckhand/tryon/drafts', d.id + '.json') })),
+        next: pending.length ? 'read the brief_file "brief", write the component into write_to, run `then`' : 'no request — the owner asks from the try-on panel ("Ask AI to draft one")' });
+    }
+    case 'draft-check': { need('id'); const r = draft.checkDraft(project, flags.id); return out(r, r.ok ? 0 : 1); }
+    case 'draft-done': {
+      need('id');
+      const r = await draft.completeDraft(project, flags.id, { install: false });
+      return out({ ok: true, ...r, next: `the owner compares it in the browser (labelled AI-generated) — or \`show --id ${r.id} --idx ${r.ai_variant}\`, then keep/discard` });
+    }
     case 'show': need('id', 'idx'); return out({ ok: true, ...engine.show(project, flags.id, flags.idx) });
     case 'keep': need('id'); return out(engine.keep(project, flags.id, flags.idx));
     case 'discard': need('id'); return out(engine.discard(project, flags.id));
@@ -102,8 +133,9 @@ async function main() {
       return out({ ok: true, discarded, ...r, restartDevServer: true });
     }
     default:
-      return out({ ok: false, code: 'USAGE', commands: ['setup', 'serve', 'doctor', 'slots', 'query', 'inspect', 'try', 'show', 'keep', 'discard', 'save', 'library', 'status', 'clean'] }, 2);
+      return out({ ok: false, code: 'USAGE', commands: ['setup', 'serve', 'doctor', 'slots', 'query', 'inspect', 'try', 'show', 'keep', 'discard', 'save', 'library', 'status', 'clean', 'draft', 'drafts', 'draft-check', 'draft-done'] }, 2);
   }
 }
 
-main().catch((e) => out({ ok: false, code: e.code || 'ERROR', message: String(e.message || e).slice(0, 3000), skipped: e.skipped }, 1));
+main().catch((e) => out({ ok: false, code: e.code || 'ERROR', message: String(e.message || e).slice(0, 3000), skipped: e.skipped, problems: e.problems,
+  ...(e.draft ? { next: `no licensed design fits — an AI draft is possible (labelled AI-generated for the owner): draft --file ${e.draft.file} --line ${e.draft.line} --col ${e.draft.col} --slot ${e.draft.slot}` } : {}) }, 1));

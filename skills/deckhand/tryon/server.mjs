@@ -4,8 +4,12 @@
  *   http://127.0.0.1:<port>  ->  reverse proxy of the dev server (HMR websockets included)
  *                                with the overlay injected into every HTML page;
  *   /__dh/overlay.js           the picker UI;
- *   /__dh/api/*                inspect · open · show · keep · discard · more · save · state
- *                              (token-gated; the engine does every write itself).
+ *   /__dh/api/*                inspect · open · show · keep · discard · more · save · state ·
+ *                              draft · draft-status (token-gated; the engine does every write itself).
+ *
+ * AI drafts: the owner's request is written to .deckhand/tryon/drafts/ and printed on stdout as ONE
+ * JSON line ({"event":"draft_request",…}) for an agent watching this process; the overlay polls only
+ * the local draft-status endpoint (no model involved) until the agent's gated draft appears.
  *
  * Security: binds loopback only; API calls need the per-run token header (a cross-site page can
  * neither read it nor send the custom header without a CORS preflight, which is never granted).
@@ -20,6 +24,8 @@ import * as engine from './lib/engine.mjs';
 import { detectProject } from './lib/project.mjs';
 import { loadCatalog, slotsSummary } from './lib/catalog.mjs';
 import { saveToLibrary } from './lib/library.mjs';
+import * as draft from './lib/draft.mjs';
+import { BLOCK_SLOTS, UI_SLOTS, EFFECT_SLOTS } from './lib/slots.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,7 +57,7 @@ function readBody(req, limit = 1 << 20) {
   });
 }
 
-export function startServer({ root: rootIn, port = 3999, target, host = '127.0.0.1', log = () => {} }) {
+export function startServer({ root: rootIn, port = 3999, target, host = '127.0.0.1', log = () => {}, onDraft = () => {} }) {
   const root = path.resolve(rootIn);
   const token = crypto.randomBytes(16).toString('hex');
   const upstream = new URL(target);
@@ -72,7 +78,8 @@ export function startServer({ root: rootIn, port = 3999, target, host = '127.0.0
       case 'state': {
         const prof = detectProject(root);
         return { project: path.basename(root), framework: prof.framework, base: prof.base, tailwind: prof.tailwind,
-          tokens: prof.tokens.primary, slots: slotsSummary(loadCatalog(), prof),
+          tokens: prof.tokens.primary, slots: slotsSummary(loadCatalog(), prof), allSlots: [...BLOCK_SLOTS, ...UI_SLOTS, ...EFFECT_SLOTS],
+          drafts: draft.listDrafts(root, { state: ['pending', 'rejected'] }).map(draft.publicDraft),
           open: engine.listSessions(root).filter((s) => s.state === 'open').map(engine.publicSession) };
       }
       case 'inspect': return engine.inspect(root, body);
@@ -86,6 +93,20 @@ export function startServer({ root: rootIn, port = 3999, target, host = '127.0.0
         return engine.open(root, { file: s.file, line: s.line, col: s.col, slot: body.slot || s.slot, count: body.count || s.variants.length, exclude: s.tried, probe: body.probe, onProgress: (p) => emit({ type: 'progress', ...p }) });
       });
       case 'save': return serial(() => saveToLibrary(root, body.id, { name: body.name }));
+      case 'draft': {
+        // the owner asks for an AI variant: one request for the agent (it is not in the click loop)
+        const r = draft.requestDraft(root, body);
+        onDraft(r);
+        return r;
+      }
+      case 'draft-status': {
+        const d = draft.loadDraft(root, body.id);
+        let session = null;
+        if (d.state === 'done' && d.session) {
+          try { const s = engine.loadSession(root, d.session); if (s.state === 'open') session = engine.publicSession(s); } catch { /* closed */ }
+        }
+        return { draft: draft.publicDraft(d), session };
+      }
       default: throw Object.assign(new Error('NO_SUCH_API ' + name), { code: 'NO_SUCH_API', status: 404 });
     }
   }
@@ -147,7 +168,7 @@ export function startServer({ root: rootIn, port = 3999, target, host = '127.0.0
       } catch (e) {
         log({ api: name, ok: false, code: e.code, message: e.message });
         res.writeHead(e.status || 400, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, code: e.code || 'ERROR', message: String(e.message).slice(0, 2000), skipped: e.skipped }));
+        res.end(JSON.stringify({ ok: false, code: e.code || 'ERROR', message: String(e.message).slice(0, 2000), skipped: e.skipped, problems: e.problems, draft: e.draft }));
       }
       return;
     }

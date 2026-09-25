@@ -37,6 +37,7 @@ STEPS = {
     "tryon": ["{tryon} setup --project . && restart the dev server",
               "{tryon} serve --project .           # the owner opens that URL, clicks Try-on, compares, keeps",
               "no browser? {tryon} try --file <f> --line <n> --col <c> --slot hero   then show / keep / discard",
+              "AI draft asked (overlay, serve's draft_request line, or the owner says so): {tryon} drafts → write the brief's component into write_to → run its `then` (gated; labelled AI-generated)",
               "{dh} phase done tryon  (or skip it) → wait for the owner's go on the design (G3)"],
     "review": ["{tryon} clean --project .          # unwire try-on (kept sections stay)",
                "{dh} verify                         # builds, serves the build, checks every row; red rows are fixed, not argued with",

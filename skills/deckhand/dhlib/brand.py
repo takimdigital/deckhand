@@ -4,7 +4,8 @@ apply: package name, metadata title/description, site config names, template dis
 source/docs, the primary colour token, a monogram icon when there is no logo. LICENSE / NOTICE /
 THIRD_PARTY_NOTICES are never touched (they are the legal condition of reuse).
 check: the honesty + leak gate — template names, demo companies, lorem ipsum, example contacts,
-placeholder images, demo-copy markers, third-party brand logos presented as social proof.
+placeholder images, demo-copy markers, third-party brand logos presented as social proof; words an AI
+try-on draft wrote (labelled for the owner) are a warning until confirmed or rewritten.
 """
 from __future__ import annotations
 
@@ -167,6 +168,10 @@ def check(root: Path, allow: tuple = ()) -> dict:
         if e["file"] not in cache:
             cache[e["file"]] = norm(fp.read_text(encoding="utf-8", errors="ignore"))
         if norm(e["text"]) in cache[e["file"]]:
-            add(e["file"], 1, "demo-copy", f"design demo text still on the page: \"{e['text'][:80]}\" — rewrite for the owner or delete")
+            if e.get("ai"):
+                # an AI draft the owner saw labelled and kept: its own words are flagged for review, not blocked
+                add(e["file"], 1, "ai-copy", f"AI-written text on the page: \"{e['text'][:80]}\" — owner confirms or rewrites", "warn")
+            else:
+                add(e["file"], 1, "demo-copy", f"design demo text still on the page: \"{e['text'][:80]}\" — rewrite for the owner or delete")
     blocking = [f for f in findings if f["severity"] == "block"]
     return {"ok": not blocking, "blocking": len(blocking), "warnings": len(findings) - len(blocking), "findings": findings[:300]}

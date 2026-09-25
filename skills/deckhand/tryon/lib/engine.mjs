@@ -215,8 +215,12 @@ export async function open(rootIn, opts) {
   const origShape = shapeOf(orig);
   const origCount = contentCount(orig);
   const catalog = loadCatalog();
-  const ranked = rank(catalog, { slot, prof, exclude: opts.exclude || [], registry: opts.registry || null });
-  if (!ranked.items.length) throw new TryonError('NO_CANDIDATES', `no licensed ${slot} candidates for a ${prof.base} project` + (ranked.hidden ? ` (${ranked.hidden} hidden: other primitive base)` : ''));
+  // opts.candidates: an explicit list (an AI draft, alone or beside the registry variants it joins)
+  const ranked = opts.candidates ? { items: opts.candidates, hidden: 0 } : rank(catalog, { slot, prof, exclude: opts.exclude || [], registry: opts.registry || null });
+  if (!ranked.items.length) {
+    throw new TryonError('NO_CANDIDATES', `no licensed ${slot} candidates for a ${prof.base} project` + (ranked.hidden ? ` (${ranked.hidden} hidden: other primitive base)` : ''),
+      { draft: { file: rel, line: Number(opts.line), col: Number(opts.col), slot } });
+  }
 
   if (kind === 'block' || opts.tokens !== false) {
     const t = ensureTokens(prof, opts.probe || {});
@@ -252,7 +256,15 @@ export async function open(rootIn, opts) {
     const local = uniqueName('Dh' + pascal(cand.n).slice(0, 40), taken);
     const entryAbs = path.join(root, stage.entry);
     const entryCode = fs.readFileSync(entryAbs, 'utf8');
-    if (kind === 'block') {
+    if (cand.ai) {
+      // an AI draft already holds the owner's words (its gate proved it): measured, never transplanted
+      const lf = literalFit(root, stage.relDir, orig, cand.dynamic || []);
+      fit = { carried: lf.carried, dropped: lf.dropped, demo: lf.invented.map((t) => ({ text: 'AI-written: ' + t })), hidden: [], demoVisual: lf.invented.length };
+      const props = (cand.dynamic || []).map((d) => [d.key, `<>${d.src}</>`]);
+      usage = kind === 'block' ? `<${local}${contentProp('content', props)} />` : primitiveUsage(code, el, local, entryCode);
+      stage.prop = props.length ? 'content' : null;
+      stage.ownerTexts = orig.units.map((x) => x.text).concat(orig.lists.flatMap((l) => l.items.flatMap((it) => it.units.map((u) => u.text).concat(it.bullets || []))));
+    } else if (kind === 'block') {
       const logoLocals = logoLocalsFor(stage, entryCode, slot);
       let p;
       try { p = parameterize(stage.entry, entryCode, stage.export, { stripChrome, logoLocals, forms: FORM_SLOTS.has(slot) || orig.inputs.length ? 'keep' : 'hide' }); } catch (e) {
@@ -281,7 +293,7 @@ export async function open(rootIn, opts) {
       usage = primitiveUsage(code, el, local, entryCode);
     }
     variants.push({
-      idx: variants.length + 1, id: cand.id, r: cand.r, n: cand.n, t: cand.t, lic: cand.lic || 'MIT', slot: cand.slot,
+      idx: variants.length + 1, id: cand.id, r: cand.r, n: cand.n, t: cand.t, lic: cand.lic || 'MIT', slot: cand.slot, generated: !!cand.ai, draft: cand.draft || null,
       slug: stage.slug, dir: stage.relDir, entry: stage.entry, spec: stage.spec, export: stage.export, local, usage,
       deps: stage.deps, missingDeps: stage.missingDeps, sourceUrl: stage.sourceUrl, prop: stage.prop || null,
       css: itemCss({ css: stage.css, cssVars: stage.cssVars }, id + '-' + stage.slug) || null,
@@ -290,7 +302,7 @@ export async function open(rootIn, opts) {
       removedChrome: stage.removedChrome || [],
     });
   }
-  if (!variants.length) throw new TryonError('NO_VARIANTS', 'no candidate could be staged', { skipped });
+  if (!variants.length) throw new TryonError('NO_VARIANTS', 'no candidate could be staged', { skipped, draft: { file: rel, line: Number(opts.line), col: Number(opts.col), slot } });
 
   // one batched install for everything the batch needs
   const need = [...new Set(variants.flatMap((v) => v.missingDeps))];
@@ -354,7 +366,7 @@ export function publicSession(s) {
   return {
     id: s.id, state: s.state, file: s.file, line: s.line, slot: s.slot, shown: s.shown, hidden: s.hidden,
     variants: [{ idx: 0, t: 'Original', r: 'yours' }].concat(s.variants.map((v) => ({
-      idx: v.idx, id: v.id, t: v.t, r: v.r, lic: v.lic, fit: v.fit, deps: v.deps, source: v.sourceUrl, removedChrome: v.removedChrome,
+      idx: v.idx, id: v.id, t: v.t, r: v.r, lic: v.lic, fit: v.fit, deps: v.deps, source: v.sourceUrl, removedChrome: v.removedChrome, generated: !!v.generated,
     }))),
     skipped: s.skipped, installed: s.installed,
   };
@@ -683,6 +695,39 @@ export function bake(root, fileRel, local, variant) {
 /** Static prose a design ships (JSX text + prose strings in its data arrays), minus the owner's words
  *  and minus fallbacks of live slots. Used to rank (mockup-heavy designs lose) and to ledger what the
  *  owner still has to replace before launch. */
+const ENT = { '&apos;': "'", '&#39;': "'", '&quot;': '"', '&amp;': '&', '&lt;': '<', '&gt;': '>', '&nbsp;': ' ' };
+/** Text reduced to letters and digits (markup, quotes, punctuation and spacing never decide a match). */
+export const flatText = (s) => String(s || '').replace(/&[#\w]+;/g, (m) => ENT[m] || ' ').replace(/<[^>]*>/g, '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+/**
+ * How much of the owner's content a hand-written (AI) component really holds: every text unit, link
+ * target, image and bullet is looked up in its source. `invented` = words on it the owner never wrote.
+ */
+export function literalFit(root, dirRel, orig, dynamic = []) {
+  const dir = path.join(root, dirRel);
+  const code = fs.readdirSync(dir).filter((f) => /\.(tsx|jsx|ts|js)$/.test(f)).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
+  const hay = flatText(code);
+  const dynKey = new Map(dynamic.map((d) => [d.src, d.key]));
+  const lit = (src) => { try { const v = JSON.parse(src); return typeof v === 'string' ? v : null; } catch { return null; } };
+  const has = (v) => code.includes(JSON.stringify(v)) || code.includes(`'${v}'`) || code.includes('`' + v + '`');
+  const carried = [], dropped = [];
+  for (const u of orig.units) {
+    let ok = u.dynamic ? new RegExp(`content\\??\\.${dynKey.get(u.src)}\\b`).test(code) : !flatText(u.text) || hay.includes(flatText(u.text));
+    let text = u.text;
+    const href = u.role === 'action' && u.href ? lit(u.href) : null;
+    if (ok && href && !has(href)) { ok = false; text += ` (link ${href})`; }
+    (ok ? carried : dropped).push({ role: u.role, text });
+  }
+  for (const im of orig.images) {
+    const src = lit(im.src);
+    if (src) (has(src) ? carried : dropped).push({ role: 'image', text: src });
+  }
+  for (const l of orig.lists) for (const it of l.items) for (const b of it.bullets || []) (hay.includes(flatText(b)) ? carried : dropped).push({ role: 'item', text: b });
+  const own = orig.units.map((u) => flatText(u.text)).concat(orig.lists.flatMap((l) => l.items.flatMap((it) => (it.bullets || []).map(flatText)))).filter(Boolean);
+  const invented = demoTexts(root, dirRel, []).map((e) => e.text).filter((t) => !own.some((o) => o.includes(flatText(t))));
+  return { carried, dropped, invented: [...new Set(invented)], of: carried.length + dropped.length };
+}
+
 export function demoTexts(root, dirRel, ownerTexts = []) {
   const brand = brandName(root);   // the owner's own name is never demo copy
   const own = new Set(ownerTexts.concat(brand ? [brand, `© ${brand}`] : []).map((t) => String(t).replace(/\s+/g, ' ').trim().toLowerCase()));
@@ -767,7 +812,7 @@ export function keep(rootIn, id, idx) {
   const entryFinal = path.posix.join(final, path.posix.basename(v.entry));
   const newSpec = specFor(prof, entryFinal) || './' + entryFinal;
   // a clean local name for the kept component
-  const cleanLocal = uniqueName(pascal(v.n).slice(0, 48), identifiers(code.replace(new RegExp(`\\b${v.local}\\b`, 'g'), '')));
+  const cleanLocal = uniqueName((v.generated ? pascal(s.slot) + 'AiDraft' : pascal(v.n)).slice(0, 48), identifiers(code.replace(new RegExp(`\\b${v.local}\\b`, 'g'), '')));
   inner = inner.replace(new RegExp(`\\b${v.local}\\b`, 'g'), cleanLocal);
   code = code.slice(0, w.start) + inner + code.slice(w.end);
   code = removeMarkedImports(code, id, v.local, newSpec).replace(new RegExp(`\\b${v.local}\\b`, 'g'), cleanLocal);
@@ -790,8 +835,12 @@ export function keep(rootIn, id, idx) {
   const stageRoot = path.join(root, prof.componentsDir, 'dh-tryon');
   if (fs.existsSync(stageRoot) && !fs.readdirSync(stageRoot).length) fs.rmdirSync(stageRoot);
   v.finalDir = final;
-  recordNotice(root, v);
-  const leftovers = demoTexts(root, final, v.ownerTexts || []);
+  if (!v.generated) recordNotice(root, v);             // AI-written code is the owner's: provenance lives in its header
+  let leftovers = demoTexts(root, final, v.ownerTexts || []);
+  if (v.generated) {
+    const own = (v.ownerTexts || []).map(flatText);
+    leftovers = leftovers.filter((e) => !own.some((o) => o.includes(flatText(e.text)))).map((e) => ({ ...e, ai: true }));
+  }
   if (leftovers.length) recordDemoCopy(root, leftovers);
   s.state = 'kept';
   s.chosen = i;
@@ -799,8 +848,10 @@ export function keep(rootIn, id, idx) {
   s.final = { dir: final, entry: entryFinal, spec: newSpec, local: cleanLocal, baked };
   saveSession(root, s);
   return { ok: true, id, kept: v.t, file: s.file, component: entryFinal, local: cleanLocal, baked, fit: v.fit, notice: NOTICE_FILE,
+    generated: !!v.generated,
     demo_copy_to_replace: leftovers.map((e) => e.text).slice(0, 20),
-    next: leftovers.length ? 'replace or delete the design\'s demo copy listed above (dh rebrand check blocks until then)' : null };
+    next: v.generated ? (leftovers.length ? 'the AI wrote the words listed above — the owner confirms or rewrites them (dh rebrand check warns until then)' : null)
+      : leftovers.length ? 'replace or delete the design\'s demo copy listed above (dh rebrand check blocks until then)' : null };
 }
 
 export function discard(rootIn, id, { reason } = {}) {

@@ -132,18 +132,19 @@ export function entryExport(file, code) {
 /** Fetch (cached) the normalized bundle for a catalog item. */
 export async function fetchBundle(prof, item) {
   const errors = [];
-  if (item.local) {
-    // a personal-library item: files on disk, exactly as the owner kept them
-    const dir = path.join(libraryDir(), 'components', item.local);
-    const files = fs.readdirSync(dir).filter((f) => /\.(tsx|ts|jsx|js|css)$/.test(f)).map((f) => ({ path: 'mine/' + item.local + '/' + f, content: fs.readFileSync(path.join(dir, f), 'utf8').replace(/^\/\* .*? \*\/\n/, '') }));
-    const entry = 'mine/' + item.local + '/' + item.entry;
+  if (item.local || item.draftDir) {
+    // a personal-library item (files as the owner kept them) or an AI draft (files as the agent wrote them)
+    const dir = item.draftDir || path.join(libraryDir(), 'components', item.local);
+    const ns = item.draftDir ? 'ai/' + item.n : 'mine/' + item.local;
+    const files = fs.readdirSync(dir).filter((f) => /\.(tsx|ts|jsx|js|css)$/.test(f)).map((f) => ({ path: ns + '/' + f, content: fs.readFileSync(path.join(dir, f), 'utf8').replace(/^\/\* .*? \*\/\n/, '') }));
+    const entry = ns + '/' + item.entry;
     const deps = new Set(item.deps || []);
     const external = {};
     for (const f of files) for (const imp of importsOf(f.path, f.content)) {
       const prov = projectProvides(prof, imp.spec);
       if (prov) external[imp.spec] = prov;
     }
-    return { origin: 'library', sourceUrl: item.source || 'library:' + item.local, entry, files, deps: [...deps], external, css: null, cssVars: null };
+    return { origin: item.draftDir ? 'ai' : 'library', sourceUrl: item.source || (item.draftDir ? 'ai-draft:' + item.n : 'library:' + item.local), entry, files, deps: [...deps], external, css: null, cssVars: null };
   }
   if (item.gh) {
     try {
@@ -278,7 +279,9 @@ export function writeBundle(prof, item, bundle, { baseDir } = {}) {
     return null;
   };
 
-  const header = (p) => `/* ${item.t || item.n} — ${item.r}/${item.n} (${item.lic || 'MIT'}) · source: ${bundle.sourceUrl}${p !== bundle.entry ? ' · ' + p : ''} · staged by deckhand try-on */\n`;
+  const header = item.ai
+    ? (p) => `/* AI-generated — ${item.t} · written by this project's AI agent for the owner (deckhand try-on draft ${item.n}); not a third-party design, no licence notice applies; review the wording before launch${p !== bundle.entry ? ' · ' + path.posix.basename(p) : ''} · staged by deckhand try-on */\n`
+    : (p) => `/* ${item.t || item.n} — ${item.r}/${item.n} (${item.lic || 'MIT'}) · source: ${bundle.sourceUrl}${p !== bundle.entry ? ' · ' + p : ''} · staged by deckhand try-on */\n`;
   const written = [];
   const problems = [];
   for (const f of bundle.files) {

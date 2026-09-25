@@ -173,6 +173,13 @@ class Brand(Base):
         left = {f["kind"] for f in brand.check(self.root)["findings"] if f["severity"] == "block"}
         self.assertEqual(left, {"demo-content", "lorem"})                                 # lorem ipsum is content work, not a rename
 
+    def test_demo_copy_blocks_but_ai_written_copy_the_owner_saw_labelled_only_warns(self):
+        (self.root / "app" / "page.tsx").write_text("export default function P(){return <main><h1>Maison Levain</h1><p>Talk to Sales</p><p>Fresh every morning</p></main>}\n")
+        write_json(self.root / ".deckhand" / "demo-copy.json", {"entries": [
+            {"file": "app/page.tsx", "text": "Talk to Sales"}, {"file": "app/page.tsx", "text": "Fresh every morning", "ai": True}]})
+        f = {x["kind"]: x["severity"] for x in brand.check(self.root, allow=("template-name",))["findings"] if x["file"] == "app/page.tsx"}
+        self.assertEqual(f, {"demo-copy": "block", "ai-copy": "warn"})
+
 
 class Learn(Base):
     def test_seed_lessons_match_real_errors_and_run_records_failures(self):

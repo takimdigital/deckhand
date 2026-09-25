@@ -40,6 +40,12 @@ the measured template pool).
   headings, footer/navbar menus from the plan (`lib/sitelinks.mjs`), social rows filtered to the owner's
   networks, design forms hidden unless wired, one `<h1>` per page, design-family coherence, and a
   demo-copy ledger (`.deckhand/demo-copy.json`) that `dh rebrand check` enforces.
+- **AI draft fallback for try-on** (`lib/draft.mjs`): when no licensed design fits, or on request from the
+  variant bar, the owner asks for an AI-written variant; the agent writes it once from a brief (the owner's
+  exact content, note, primitives, packages, rules); gates check content, links, token colours, imports,
+  images, side effects; it is labelled AI-generated in the bar, session, file header and keep result; no
+  third-party notice is written for it; its own words are recorded `ai: true` (rebrand warns, never blocks).
+  `tryon draft / drafts [--wait] / draft-check / draft-done`; serve prints one `draft_request` line.
 - `dh verify` proves routes on the production build it just made (served on a free port, stopped after).
 - Kokonut UI items fall back to the project's GitHub mirror when kokonutui.com is unreachable.
 - No-domain preview: `dh deploy smoke` warns on plain http / generated `sslip.io` URLs; HANDOFF.md is
@@ -52,6 +58,9 @@ the measured template pool).
   placed, footer menu from the plan, typecheck clean; `dh rebrand check` blocked the one leftover demo
   sentence and passed after it was rewritten.
 - `next build` after keep: type-check passes; 0 stamped files in the production output.
-- Suites: 26 node (try-on) · 20 unittest (dh) · 40 pytest (ops clients) — green on Ubuntu and Windows CI.
+- AI draft end to end in Chromium: request from the variant bar (with a note) → agent `drafts --wait` →
+  draft written → gates passed (4/4, one AI line flagged) → the page switched to the labelled variant beside
+  4 licensed ones → keep → type-check clean.
+- Suites: 32 node (try-on) · 21 unittest (dh) · 40 pytest (ops clients) — green on Ubuntu and Windows CI.
 
 v1 history: see the git log of `main` up to 6832e0f.

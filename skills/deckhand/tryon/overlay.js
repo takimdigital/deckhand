@@ -2,6 +2,8 @@
  * Deckhand try-on overlay — injected by the local helper into the owner's dev site (never prod).
  * Pick any element -> choose what it is -> N real, licensed variants appear IN the page, wearing the
  * site's colours and the owner's own words -> ←/→ to compare (instant, client-side) -> Keep / Discard.
+ * No licensed design fits (or the owner wants another)? "Ask AI to draft one": the agent writes it once,
+ * the engine gates it, and it appears here labelled AI-generated.
  * The page is never edited here: the helper writes source, the dev server's HMR re-renders.
  */
 (function () {
@@ -42,11 +44,15 @@
     '.err{margin-top:10px;padding:8px 10px;border-radius:8px;background:#fef2f2;color:#991b1b;white-space:pre-wrap;font-size:12px}',
     '.ok{margin-top:10px;padding:8px 10px;border-radius:8px;background:#ecfdf5;color:#065f46;font-size:12px}',
     '.bar{pointer-events:auto;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;border-radius:14px;background:rgba(17,17,19,.94);color:#fff;box-shadow:0 12px 40px rgba(0,0,0,.35);max-width:min(920px,calc(100vw - 24px))}',
-    '.bar button{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.14);color:#fff;padding:6px 10px}',
+    '.bar button{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.14);color:#fff;padding:6px 10px;white-space:nowrap;flex:none}',
     '.bar button.keep{background:#16a34a;border-color:#16a34a}.bar .meta{display:flex;flex-direction:column;min-width:0}',
     '.bar .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar .sub{font-size:11.5px;color:#a1a1aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.fit{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;margin-left:6px}.fit.g{background:#14532d;color:#bbf7d0}.fit.y{background:#713f12;color:#fde68a}',
     '.count{font-variant-numeric:tabular-nums;color:#d4d4d8;min-width:44px;text-align:center}',
+    '.fit.ai{background:#4c1d95;color:#ede9fe}.ai-box{margin-top:10px;padding:10px;border-radius:10px;background:#f5f3ff;border:1px solid #ddd6fe;color:#3b0764;font-size:12px}',
+    'textarea{font:inherit;width:100%;min-height:54px;border:1px solid #d4d4d8;border-radius:8px;padding:6px 8px;resize:vertical;margin-top:6px}',
+    'button.ai{background:#6d28d9;color:#fff;border-color:#6d28d9}.bar button.ai{background:#6d28d9;border-color:#6d28d9}',
+    'code.say{display:block;margin-top:6px;padding:6px 8px;border-radius:6px;background:#ede9fe;color:#3b0764;font:12px ui-monospace,monospace;white-space:pre-wrap}',
     '.spin{width:14px;height:14px;border:2px solid #d4d4d8;border-top-color:#2563eb;border-radius:50%;animation:s .8s linear infinite;display:inline-block;vertical-align:-2px;margin-right:6px}@keyframes s{to{transform:rotate(360deg)}}',
   ].join('') + '</style>';
   (document.body || document.documentElement).appendChild(host);
@@ -198,12 +204,17 @@
     var list = el('div');
     var slotSel = el('select');
     var slots = (state && state.slots) || {};
-    var names = Object.keys(slots).sort();
+    var names = ((state && state.allSlots) || Object.keys(slots)).slice().sort();
     function fillSlots(g) {
       slotSel.innerHTML = '';
       var ph = el('option', null, 'choose what this is…'); ph.value = ''; slotSel.appendChild(ph);
-      names.forEach(function (s) { var o = el('option', null, s + ' (' + slots[s] + ')'); o.value = s; if (s === g) o.selected = true; slotSel.appendChild(o); });
+      names.forEach(function (s) { var o = el('option', null, s + (slots[s] ? ' (' + slots[s] + ')' : ' — AI draft only')); o.value = s; if (s === g) o.selected = true; slotSel.appendChild(o); });
+      syncGo();
+    }
+    function syncGo() {
       go.disabled = !slotSel.value;
+      go.textContent = slotSel.value && !slots[slotSel.value] ? 'Ask AI to draft one' : 'Show variants';
+      go.className = slotSel.value && !slots[slotSel.value] ? 'ai' : 'primary';
     }
     var go = el('button', 'primary', 'Show variants');
     cr.forEach(function (c, i) {
@@ -239,22 +250,101 @@
     panel.appendChild(msg);
     root.appendChild(panel);
     fillSlots(guessSlot(cr[sel].el));
-    slotSel.addEventListener('change', function () { go.disabled = !slotSel.value; });
+    slotSel.addEventListener('change', syncGo);
     cancel.addEventListener('click', closePanel);
     go.addEventListener('click', function () {
       var m = /^(.*):(\d+):(\d+)$/.exec(cr[sel].stamp);
       if (!m || busy) return;
+      var where = { file: m[1], line: +m[2], col: +m[3], slot: slotSel.value };
+      if (!slots[slotSel.value]) { draftForm(panel, where, 'No licensed ' + slotSel.value + ' designs exist for this site yet.'); return; }
       busy = true; go.disabled = true;
       msg.className = 'small';
       msg.innerHTML = '<span class="spin"></span>Fetching, theming and filling variants with your content…';
-      api('open', { file: m[1], line: +m[2], col: +m[3], slot: slotSel.value, count: +cnt.value, probe: probe() }).then(function (r) {
+      api('open', { file: where.file, line: where.line, col: where.col, slot: where.slot, count: +cnt.value, probe: probe() }).then(function (r) {
         busy = false;
-        if (!r.ok) { go.disabled = false; msg.className = 'err'; msg.textContent = (r.code || 'ERROR') + ': ' + r.message + skippedText(r.skipped); return; }
+        if (!r.ok) {
+          go.disabled = false; msg.className = 'err'; msg.textContent = (r.code || 'ERROR') + ': ' + r.message + skippedText(r.skipped);
+          if (r.draft) draftForm(panel, r.draft, 'None of the licensed designs could hold your content.');
+          return;
+        }
         closePanel();
         startSession(r, 1);
       }).catch(function (e) { busy = false; go.disabled = false; msg.className = 'err'; msg.textContent = String(e); });
     });
   }
+  /* ------------------------------------------------------------ AI draft (the fallback, labelled) */
+  function draftForm(container, where, why) {
+    var old = container.querySelector('.ai-box'); if (old) old.remove();
+    var box = el('div', 'ai-box');
+    box.appendChild(el('div', null, why + ' Your AI agent can write one for this element.'));
+    var how = el('div', 'small');
+    how.style.marginTop = '6px';
+    how.textContent = 'It will be labelled AI-generated. Deckhand checks it before you see it: your colours, all your words and links, no invented facts, nothing to install.';
+    box.appendChild(how);
+    var note = el('textarea');
+    note.placeholder = 'What should it look like? (optional) e.g. "image on the left, big serif title"';
+    box.appendChild(note);
+    var row = el('div', 'row');
+    var ask = el('button', 'ai', 'Ask AI to draft one');
+    row.appendChild(ask);
+    box.appendChild(row);
+    container.appendChild(box);
+    ask.onclick = function () {
+      ask.disabled = true;
+      api('draft', { file: where.file, line: where.line, col: where.col, slot: where.slot, session: where.session, note: note.value.trim() || null }).then(function (r) {
+        if (!r.ok) { ask.disabled = false; box.appendChild(el('div', 'err', (r.code || 'ERROR') + ': ' + r.message)); return; }
+        waitDraft(r);
+      });
+    };
+  }
+  function waitDraft(d) {
+    closePanel();
+    panel = el('div', 'panel');
+    panel.appendChild(el('p', 'h', 'AI draft requested'));
+    var st = el('div', 'small');
+    st.innerHTML = '<span class="spin"></span>Waiting for your AI agent to write it…';
+    panel.appendChild(st);
+    var tip = el('div', 'small muted');
+    tip.style.marginTop = '8px';
+    tip.textContent = 'If your agent is not watching try-on, tell it:';
+    panel.appendChild(tip);
+    panel.appendChild(el('code', 'say', 'Write the try-on AI draft ' + d.id));
+    var row = el('div', 'row');
+    var close = el('button', null, 'Hide');
+    close.onclick = closePanel;
+    row.appendChild(close);
+    panel.appendChild(row);
+    root.appendChild(panel);
+    try { sessionStorage.setItem(SS + '-draft', d.id); } catch (e) { /* private mode */ }
+    (function poll() {
+      api('draft-status', { id: d.id }).then(function (r) {
+        if (!r.ok) { st.className = 'err'; st.textContent = r.code + ': ' + r.message; return; }
+        var x = r.draft;
+        if (x.state === 'done' && r.session) {
+          try { sessionStorage.removeItem(SS + '-draft'); } catch (e) { /* ignore */ }
+          closePanel();
+          session = null;
+          if (bar) { bar.remove(); bar = null; }
+          var ai = 1;
+          r.session.variants.forEach(function (v) { if (v.generated) ai = v.idx; });
+          startSession(r.session, ai);
+          return;
+        }
+        if (x.state === 'done' && !r.session) {
+          try { sessionStorage.removeItem(SS + '-draft'); } catch (e) { /* ignore */ }
+          st.className = 'small'; st.textContent = 'This AI draft was already shown and closed.';
+          return;
+        }
+        if (x.state === 'rejected') {
+          st.className = 'small';
+          st.innerHTML = '<span class="spin"></span>';
+          st.appendChild(document.createTextNode('The draft failed ' + x.problems.length + ' check(s); your agent is fixing it: ' + x.problems.slice(0, 3).map(function (p) { return p.detail; }).join(' · ')));
+        }
+        setTimeout(poll, 2000);
+      }).catch(function () { setTimeout(poll, 4000); });
+    })();
+  }
+
   function skippedText(sk) { return sk && sk.length ? '\n\nskipped: ' + sk.map(function (s) { return s.id + ' (' + s.why + ')'; }).join(', ') : ''; }
   function flash(n) { if (!n) return; var o = el('div', 'outline'); root.appendChild(o); place(o, n.getBoundingClientRect()); setTimeout(function () { o.remove(); }, 700); }
 
@@ -299,23 +389,35 @@
     if (idx === 0) count.textContent = 'original';
     var meta = el('div', 'meta');
     var name = el('div', 'name', v.t);
+    if (v.generated) name.appendChild(el('span', 'fit ai', 'AI-generated'));
     if (v.fit && v.fit.of) {
       var f = el('span', 'fit ' + (v.fit.carried >= v.fit.of ? 'g' : 'y'), 'your content ' + v.fit.carried + '/' + v.fit.of);
       name.appendChild(f);
     }
     meta.appendChild(name);
-    var sub = note ? '' : (v.r === 'yours' ? 'your current version' : (v.r + ' · ' + (v.lic || 'MIT') + (v.fit && v.fit.demo && v.fit.demo.length ? ' · demo copy (dashed): ' + v.fit.demo.slice(0, 2).join(' · ') : '')));
+    var sub = note ? '' : (v.r === 'yours' ? 'your current version'
+      : v.generated ? 'written by your AI agent, not a licensed human design' + (v.fit && v.fit.demo && v.fit.demo.length ? ' · its own words: ' + v.fit.demo.slice(0, 3).map(function (t) { return t.replace(/^AI-written: /, '“') + '”'; }).join(' ') : '')
+      : (v.r + ' · ' + (v.lic || 'MIT') + (v.fit && v.fit.demo && v.fit.demo.length ? ' · demo copy (dashed): ' + v.fit.demo.slice(0, 2).join(' · ') : '')));
     var subEl = el('div', 'sub'); if (note) subEl.innerHTML = note; else subEl.textContent = sub;
     meta.appendChild(subEl);
     var keep = el('button', 'keep', 'Keep'), orig = el('button', null, 'Original'), more = el('button', null, 'More'), disc = el('button', null, 'Discard');
-    [prev, count, next, meta, orig, keep, more, disc].forEach(function (x) { bar.appendChild(x); });
+    var aiBtn = el('button', 'ai', 'AI draft');
+    aiBtn.title = 'Ask your AI agent to write one more version for this element (labelled AI-generated)';
+    [prev, count, next, meta, orig, keep, more, aiBtn, disc].forEach(function (x) { bar.appendChild(x); });
+    aiBtn.onclick = function () {
+      closePanel();
+      panel = el('div', 'panel');
+      panel.appendChild(el('p', 'h', 'AI draft for this ' + session.slot));
+      root.appendChild(panel);
+      draftForm(panel, { session: session.id, slot: session.slot }, 'The licensed designs are shown.');
+    };
     prev.onclick = function () { apply((idx - 1 + vs.length) % vs.length); };
     next.onclick = function () { apply((idx + 1) % vs.length); };
     orig.onclick = function () { apply(0); };
     keep.onclick = doKeep;
     disc.onclick = doDiscard;
     more.onclick = doMore;
-    if (busy || note) [prev, next, orig, keep, more].forEach(function (b) { b.disabled = true; });
+    if (busy || note) [prev, next, orig, keep, more, aiBtn].forEach(function (b) { b.disabled = true; });
   }
   function endSession() {
     session = null;
@@ -393,6 +495,9 @@
     try { saved = JSON.parse(sessionStorage.getItem(SS) || 'null'); } catch (e) { /* ignore */ }
     var open = (r.open || [])[0];
     if (open) startSession(open, saved && saved.id === open.id ? saved.idx : open.shown || 1);
+    var waiting = null;
+    try { waiting = sessionStorage.getItem(SS + '-draft'); } catch (e) { /* ignore */ }
+    (r.drafts || []).forEach(function (d) { if (d.id === waiting) waitDraft(d); });
   });
   window.__dhTryon = { api: api, crumbsFor: crumbsFor, guessSlot: guessSlot, probe: probe };
 })();
