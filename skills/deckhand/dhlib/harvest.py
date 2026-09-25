@@ -18,7 +18,7 @@ import re
 import shutil
 from pathlib import Path
 
-from .util import DhError, git_files, home, now, read_json, run, slugify, write_json
+from .util import DhError, git_files, home, now, read_json, rmtree, run, slugify, write_json
 from . import pool as POOL
 from . import profile as PROFILE
 
@@ -30,7 +30,10 @@ def harvest(root: Path, name: str, to: Path | None = None, repo: str | None = No
     name = slugify(name)
     dest = Path(to) if to else home() / "bases" / name
     if dest.exists() and any(dest.iterdir()):
-        raise DhError("DEST_NOT_EMPTY", str(dest))
+        prev = read_json(dest / "deckhand.template.json", {}) or {}
+        if prev.get("from_project") != root.name:
+            raise DhError("DEST_NOT_EMPTY", f"{dest} holds something else — pick another --name or --to")
+        rmtree(dest)                                   # a new harvest of the same project replaces the previous one
     brief = read_json(root / ".deckhand" / "brief.json", {}) or {}
     brand = (brief.get("brand") or {}).get("name") or brief.get("name")
     display = name.replace("-", " ").title()

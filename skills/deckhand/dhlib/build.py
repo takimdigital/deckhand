@@ -21,7 +21,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from .util import DhError, SKILL, TEMPLATES, TRYON, now, package_json, package_manager, read_json, run, slugify, write_json
+from .util import DhError, SKILL, TEMPLATES, TRYON, now, package_json, package_manager, read_json, rmtree, run, slugify, write_json
 from . import pool as POOL
 from . import state as STATE
 
@@ -29,7 +29,7 @@ LOCAL_SECRET_KEYS = re.compile(r"^(BETTER_AUTH_SECRET|AUTH_SECRET|NEXTAUTH_SECRE
 
 
 def _fresh_git(dest: Path, message: str) -> None:
-    shutil.rmtree(dest / ".git", ignore_errors=True)
+    rmtree(dest / ".git")                                  # read-only git objects on Windows: really gone, or history leaks
     run(["git", "init", "-q"], cwd=dest)
     run(["git", "add", "-A"], cwd=dest)
     run(["git", "-c", "user.name=deckhand", "-c", "user.email=deckhand@localhost", "commit", "-qm", message], cwd=dest)

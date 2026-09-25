@@ -15,7 +15,7 @@ SKILL = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SKILL))
 
 from dhlib import build, harvest, pool, profile  # noqa: E402
-from dhlib.util import DhError, read_json, write_json  # noqa: E402
+from dhlib.util import DhError, read_json, rmtree, write_json  # noqa: E402
 
 
 class MockGitHub(http.server.BaseHTTPRequestHandler):
@@ -104,9 +104,10 @@ class Library(unittest.TestCase):
 
     def tearDown(self):
         self.srv.shutdown()
+        self.srv.server_close()
         for k, v in self.env0.items():
             os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
-        shutil.rmtree(self.tmp, ignore_errors=True)
+        rmtree(self.tmp)
 
     def test_secrets_block_the_push_then_a_clean_base_lands_private_indexed_syncable_clonable(self):
         (self.site / "lib").mkdir()
@@ -117,7 +118,6 @@ class Library(unittest.TestCase):
         self.assertEqual(e.exception.code, "SECRETS_IN_BASE")
         self.assertEqual(e.exception.extra["files"], ["lib/pay.ts:1"])
         self.assertEqual(MockGitHub.repos, {})                                  # nothing left the machine
-        shutil.rmtree(self.tmp / "home" / "bases")
         (self.site / "lib" / "pay.ts").write_text("export const key = process.env.STRIPE_KEY\n")
         subprocess.run(["git", "add", "-A"], cwd=self.site)
 

@@ -85,6 +85,24 @@ def which(cmd: str):
     return shutil.which(cmd)
 
 
+def rmtree(path) -> None:
+    """Delete a tree even where files are read-only (git objects on Windows); a no-op when missing."""
+    import stat
+
+    def fix(func, p, _):
+        try:
+            os.chmod(p, stat.S_IWRITE)
+            func(p)
+        except FileNotFoundError:
+            pass
+    if not Path(path).exists():
+        return
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=fix)
+    else:
+        shutil.rmtree(path, onerror=fix)
+
+
 def run(argv: list, cwd=None, timeout: int = 900, env=None, check=False) -> dict:
     exe = which(argv[0]) or argv[0]
     t0 = time.time()
