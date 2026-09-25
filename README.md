@@ -144,16 +144,15 @@ Verified in this release, by running it:
   blocks in ~6 s, **34/34 of the owner's words placed**, footer menu built from the plan, typecheck clean;
   the honesty gate blocked the one demo sentence left, and passed once it was rewritten.
 - [x] **Production build** after keep: 0 dev stamps in the output (`prod-clean` row).
-- [x] **Suites** (offline, in CI on every push): 26 try-on (node) · 19 control plane (unittest) ·
-  40 ops clients (pytest).
+- [x] **Suites** (offline, in CI on every push, Ubuntu **and Windows**): 26 try-on (node) ·
+  20 control plane (unittest) · 40 ops clients (pytest).
 
 Carried over from v1, where they were proven live on a real Coolify server and ported unchanged with their
 tests: deploy (image, public repo, private repo via deploy key), smoke test → rollback, Postgres via API,
 backups + restore drill, offsite backups (B2/Tigris).
 
 Not yet proven live in v2: `dh deploy ship` end to end against a real server (it drives the same client
-as above), the first live run of the $0 Oracle track, and Windows CI (it runs on every push but doesn't
-block yet).
+as above) and the first live run of the $0 Oracle track.
 
 ## 🔒 Principles
 

@@ -40,6 +40,8 @@ the measured template pool).
   headings, footer/navbar menus from the plan (`lib/sitelinks.mjs`), social rows filtered to the owner's
   networks, design forms hidden unless wired, one `<h1>` per page, design-family coherence, and a
   demo-copy ledger (`.deckhand/demo-copy.json`) that `dh rebrand check` enforces.
+- `dh verify` proves routes on the production build it just made (served on a free port, stopped after).
+- Kokonut UI items fall back to the project's GitHub mirror when kokonutui.com is unreachable.
 - No-domain preview: `dh deploy smoke` warns on plain http / generated `sslip.io` URLs; HANDOFF.md is
   labelled PREVIEW with the no-logins-over-http rule.
 
@@ -50,6 +52,6 @@ the measured template pool).
   placed, footer menu from the plan, typecheck clean; `dh rebrand check` blocked the one leftover demo
   sentence and passed after it was rewritten.
 - `next build` after keep: type-check passes; 0 stamped files in the production output.
-- Suites: 26 node (try-on) · 19 unittest (dh) · 40 pytest (ops clients).
+- Suites: 26 node (try-on) · 20 unittest (dh) · 40 pytest (ops clients) — green on Ubuntu and Windows CI.
 
 v1 history: see the git log of `main` up to 6832e0f.

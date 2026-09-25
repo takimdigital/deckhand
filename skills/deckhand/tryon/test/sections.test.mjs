@@ -118,6 +118,12 @@ test('footer menus come from the plan; social rows keep only the networks the ow
   // nobody on social media -> a typed empty row (a bare [] would be never[] in TypeScript)
   fs.writeFileSync(path.join(dir, '.deckhand/brief.json'), JSON.stringify({ brand: { name: 'Maison Levain' } }));
   assert.match(fillLinks('footer.tsx', FOOTER, siteLinks(dir), 'footer').code, /const community = \(\[\] as Array<\{ href: string; label: string; \[k: string\]: any \}>\)/);
+  // a navbar's flat menu gets the plan's header (home is the logo's job)
+  const NAV = `const menuItems = [{ name: 'Features', href: '#link' }, { name: 'Solution', href: '#link' }]\nexport default function H() { return <nav>{menuItems.map((m) => <a key={m.name} href={m.href}>{m.name}</a>)}</nav> }`;
+  const nav = fillLinks('h.tsx', NAV, links, 'navbar');
+  assert.deepEqual(nav.filled, [{ array: 'menuItems', kind: 'menu', count: 2 }]);
+  assert.match(nav.code, /const menuItems = \[\{ href: "\/menu", name: "Menu" \}, \{ href: "\/order", name: "Order" \}\]/);
+  assert.equal(fillLinks('h.tsx', NAV, links, 'hero').code, NAV, 'only footer/navbar menus are rewritten');
   // no plan, no brief -> nothing is invented
   assert.equal(siteLinks(tempSite()), null);
   assert.equal(fillLinks('footer.tsx', FOOTER, null, 'footer').code, FOOTER);

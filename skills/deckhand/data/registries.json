@@ -59,7 +59,8 @@
       "adapter": "shadcn-schema",
       "base": "any",
       "index": "https://kokonutui.com/r/registry.json",
-      "item": "https://kokonutui.com/r/{name}.json"
+      "item": "https://kokonutui.com/r/{name}.json",
+      "mirror": "https://raw.githubusercontent.com/kokonut-labs/kokonutui/main/public/r/{name}.json"
     },
     {
       "id": "smoothui",
