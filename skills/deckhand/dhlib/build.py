@@ -82,9 +82,13 @@ def clone(name: str, to: Path, do_install: bool = True) -> dict:
     if to.exists() and any(to.iterdir()):
         raise DhError("DEST_NOT_EMPTY", f"{to} is not empty — pick a new folder")
     to.parent.mkdir(parents=True, exist_ok=True)
-    if row.get("path"):                                   # a harvested local base
+    if row.get("path") and Path(row["path"]).exists():   # a harvested base on this machine
         shutil.copytree(row["path"], to, ignore=shutil.ignore_patterns("node_modules", ".git", ".next", ".deckhand", ".env", ".env.*"))
         commit = "local"
+    elif row.get("source") == "mine" and row.get("repo"):  # the owner's private library base, from their GitHub
+        from . import github as GH
+        GH.clone(row["repo"], to, branch=row.get("branch") or "main")
+        commit = run(["git", "rev-parse", "HEAD"], cwd=to)["out"].strip() or "library"
     else:
         url = f"https://github.com/{row['repo']}.git"
         r = run(["git", "clone", "--depth", "1", "--branch", row.get("branch") or "main", url, str(to)], timeout=900)

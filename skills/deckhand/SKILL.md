@@ -94,7 +94,7 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
 | deploy | `dh deploy target --app UUID --url U` · `dh deploy ship` · `dh deploy smoke` · `dh deploy raw <coolify args>` · `dh handoff` |
 | operate | `dh ops suggest` · `dh ops add BOT --runner github\|cron` |
 | learning | `dh run [--fix] -- CMD` · `dh autopsy [transcript \| --latest] [--apply]` · `dh learn match\|add\|from-failure\|preflight\|promote` |
-| reuse | `dh harvest --name BASE [--repo owner/name]` (private by default) |
+| reuse | `dh harvest --name BASE [--push] [--repo owner/name]` (private GitHub library) · `dh pool sync` · `dh clone BASE --to DIR` |
 
 ## 5. Try-on (live component swap) — zero model calls per click
 

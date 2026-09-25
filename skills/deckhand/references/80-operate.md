@@ -30,7 +30,15 @@ A schedule is live only after it fired once through its own trigger (the output 
   proposal, with its regression test, and bumps `CHANGELOG.md`.
 - `dh learn from-failure` / `dh learn promote` remain for a single fix recorded by hand.
 
-## Reuse
-Owner likes the result → `dh harvest --name <base> [--repo owner/name]` (private by default): the project
-becomes a base in the personal pool, brand-neutralised, with a manifest; `dh pool query` ranks it first
-when it fits. Kept sections can also be saved one by one from the try-on panel (**Save to my library**).
+## Reuse — the owner's own library of bases (on their GitHub)
+Owner likes the result → `dh harvest --name <base> --push`:
+1. the tracked files are copied (no `.env`, no `.deckhand/` state), the brand is neutralised to the base's
+   name, a manifest records pages, sections, stack and what proved it (last `dh verify`, live smoke);
+2. a secret scan must be clean — or nothing leaves the machine (`SECRETS_IN_BASE` lists file:line);
+3. a PRIVATE repo `<login>/deckhand-base-<name>` receives it; the library index `<login>/deckhand-library`
+   (`library.json` + a readable README table) gets its row. Token: `dh vault set GITHUB_TOKEN` (fine-grained,
+   Administration + Contents: read and write) — handed to git via the environment, never stored in a remote.
+On any machine / harness: `dh pool sync` pulls the index → `dh pool query` ranks the owner's bases first →
+`dh clone <base> --to <dir>` starts from it (private clone, fresh history, local secrets generated).
+Without `--push` the base stays local (`~/.deckhand/bases/`), registered the same way.
+Kept sections can also be saved one by one from the try-on panel (**Save to my library**).

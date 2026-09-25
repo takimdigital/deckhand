@@ -64,7 +64,7 @@ def build_parser():
     p = sub.add_parser("profile"); p.add_argument("action", choices=["show", "set", "doctor"]); p.add_argument("pairs", nargs="*"); p.add_argument("--offline", action="store_true")
     p = sub.add_parser("vault"); p.add_argument("action", choices=["set", "list"]); p.add_argument("name", nargs="?")
 
-    p = sub.add_parser("pool"); p.add_argument("action", choices=["query", "show", "vet", "add", "list"]); p.add_argument("target", nargs="?")
+    p = sub.add_parser("pool"); p.add_argument("action", choices=["query", "show", "vet", "add", "list", "sync"]); p.add_argument("target", nargs="?")
     p.add_argument("--shape"); p.add_argument("--features"); p.add_argument("--languages"); p.add_argument("--top", type=int, default=3); p.add_argument("--mine", action="store_true"); p.add_argument("--lane", default="web")
 
     p = sub.add_parser("plan"); p.add_argument("action", choices=["init", "lint", "render", "split"]); p.add_argument("--agents", type=int, default=3); p.add_argument("--force", action="store_true")
@@ -95,6 +95,7 @@ def build_parser():
     p.add_argument("--latest", action="store_true"); p.add_argument("--apply", action="store_true")
 
     p = sub.add_parser("harvest"); p.add_argument("--name", required=True); p.add_argument("--to"); p.add_argument("--repo"); p.add_argument("--public", action="store_true")
+    p.add_argument("--push", action="store_true", help="secret scan, then a private repo on your GitHub + your library index")
     sub.add_parser("handoff")
     p = sub.add_parser("tryon", help="passthrough to the try-on engine (node)"); p.add_argument("rest", nargs=argparse.REMAINDER)
     return ap
@@ -149,6 +150,9 @@ def dispatch(a):
             return POOL.query(brief, a.top)
         if a.action == "show":
             return POOL.show(a.target)
+        if a.action == "sync":
+            from . import harvest as H
+            return H.library_sync()
         if a.action in ("vet", "add") and not a.target:
             raise DhError("USAGE", f"dh pool {a.action} owner/repo")
         if a.action == "vet":
@@ -261,7 +265,7 @@ def dispatch(a):
         return AU.autopsy(root, a.source, latest=a.latest, apply=a.apply)
     if c == "harvest":
         from . import harvest as H
-        return H.harvest(root, a.name, Path(a.to) if a.to else None, a.repo, private=not a.public)
+        return H.harvest(root, a.name, Path(a.to) if a.to else None, a.repo, private=not a.public, push=a.push)
     if c == "handoff":
         from . import handoff as HO
         return HO.write(root)
