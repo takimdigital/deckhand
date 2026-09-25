@@ -7,8 +7,8 @@ Every case below has the same shape:
 - **You do:** the only things a human has to do (usually nothing, or one click).
 - **Under the hood:** the commands, for the technical readers. Skip it if you're not one.
 
-Install once first ([README](../README.md#-start-in-2-minutes)). In any case, the agent starts with `dh next`,
-and it stops at the ✋ checkpoints until you say go.
+Install once first ([README](../README.md#-start-in-2-minutes)). In any case, the agent starts with `dh next`
+(or `dh resume` in a project that's already under way), and it stops at the ✋ checkpoints until you say go.
 
 | # | I want to… | jump |
 |---|---|---|

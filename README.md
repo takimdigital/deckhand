@@ -80,6 +80,10 @@ define → research → plan ─✋→ build ─✋→ brand → try-on ─✋�
 | deploy | your server via Coolify, then a smoke test | a live URL, and `HANDOFF.md` with everything you own |
 | operate | changes, rollbacks, bots that watch the site and the business | the bots report to you |
 
+**Stop anywhere, continue anywhere.** Every step is saved in the project itself, so a fresh session (or another
+AI) picks up at the exact next step, with your decisions and your to-do list. The agent tells you when it's safe
+to start fresh.
+
 ## 🪄 The parts nobody else does
 
 **Try-on: click any section of your site and swap it.** Four licensed designs appear **in your colours,
@@ -140,6 +144,8 @@ agent wires to your app.
 - **One instruction at a time.** `dh next` tells the agent exactly one thing to do and which short page to read.
 - **Zero AI calls per click** in try-on and tune.
 - **Failures are paid once**: a known error prints its proven fix instantly, instead of 20 minutes of re-debugging.
+- **Fresh sessions start small.** A new session reads a one-page summary of the project (about 1,500 tokens)
+  instead of dragging a long, diluted chat along.
 
 ## ✅ Proven, and what isn't yet
 
@@ -161,18 +167,22 @@ Run for real in this release:
     business details for search engines;
   - unknown pages answered 404;
   - preview mode served noindex.
-- CI on every push, Ubuntu and Windows: 46 try-on + 67 control-plane + 40 server-client + 17 repo tests.
+- Session resume, tested in CI on Ubuntu and Windows: the summary is rebuilt after every command, the "safe to start fresh"
+  verdict turns NO on unexplained edits and failures, the re-check catches a stale verify or a plan edited after
+  approval, and one client's keys are invisible from another client's project.
+- CI on every push, Ubuntu and Windows: 46 try-on + 68 control-plane + 40 server-client + 17 repo tests.
 
 Not yet proven live: a full `dh deploy ship` against a real server (it uses the same Coolify client that
-was proven live in v1), and the first real run of the $0 Oracle track. I'd rather tell you than let you
+was proven live in v1), the first real run of the $0 Oracle track, and the Claude Code session hook inside a
+live Claude Code session (its output is tested, not yet watched in the app). I'd rather tell you than let you
 find out.
 
 ## 🔒 Rules it never breaks
 
 Your facts are never invented: unknown prices, reviews or addresses go in a *"still needed from you"*
-list. Secrets live in a private vault, never in chat or git. Only permissive licences are used, and their
-notices are kept. Dev tools never ship to production. Your code, your server, your data. Stop using Deckhand
-tomorrow and everything keeps running.
+list. Secrets live in a private vault, never in chat or git, and a client's keys stay in that client's
+project. Only permissive licences are used, and their notices are kept. Dev tools never ship to production.
+Your code, your server, your data. Stop using Deckhand tomorrow and everything keeps running.
 
 ## 🙏 A note from me
 
@@ -196,6 +206,11 @@ filled with your words, and you pick them by clicking. When the AI does write a 
 on it directly.
 
 **Is anything paid required?** No. Open-source parts, Coolify on your own server, and a real $0 track.
+
+**My chat got long. Can I start over without losing anything?** Yes. Ask *"can I start a fresh session now?"*
+The agent answers from a check, not a guess (and writes down what's missing if the answer is no). Then open a
+new session, with any AI, and say *"continue my site"*. →
+[Use case 12](docs/USE-CASES.md#12-start-a-fresh-session-or-switch-ai-without-losing-anything)
 
 **Working on Deckhand with an AI?** Tell it to read [`LLM_CONTEXT.md`](LLM_CONTEXT.md) first. It's the whole repo
 in one file, written for a model and regenerated from the code on every change, so a brand-new session starts

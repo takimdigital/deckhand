@@ -1,0 +1,47 @@
+# Publishes the GitHub release for a version tag from docs/releases/<tag>.md (RELEASING.md step 7).
+# Runs when a v* tag is pushed, or on demand (Actions → release → Run workflow), which creates the tag on the
+# selected branch's head when it does not exist yet. Re-running updates the release instead of failing.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "version tag to publish, e.g. v2.0.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: the tag is a version
+        run: '[[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::not a version tag: $TAG"; exit 1; }'
+      - name: README badge, SKILL.md and CHANGELOG match the tag
+        run: python scripts/version_check.py --tag "$TAG"
+      - name: release notes exist
+        run: test -s "docs/releases/$TAG.md" || { echo "::error::write docs/releases/$TAG.md first (RELEASING.md step 6)"; exit 1; }
+      - name: publish
+        run: |
+          f="docs/releases/$TAG.md"
+          title=$(head -n 1 "$f" | sed 's/^# *//')
+          tail -n +2 "$f" > "$RUNNER_TEMP/notes.md"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$title" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$TAG" --title "$title" --notes-file "$RUNNER_TEMP/notes.md" --target "$GITHUB_SHA" --latest
+          fi
+          gh release view "$TAG" --json url,tagName,name --jq '"\(.tagName) \(.name) \(.url)"'

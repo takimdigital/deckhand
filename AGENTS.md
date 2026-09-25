@@ -8,7 +8,8 @@ This repository is an agent skill. If your harness does not load `SKILL.md` fold
 
 1. Read `skills/deckhand/SKILL.md` (the operating specification, ~160 lines).
 2. Run `python3 skills/deckhand/dh.py next` (`py` on Windows) and do what it prints — it names the single
-   reference file to load for the current phase.
+   reference file to load for the current phase. In a project that is already under way, run `dh resume` first
+   (where it stands, the owner's decisions, the exact next command).
 
 Working ON this repository (not with it):
 - Tests: `python3 -m unittest discover -s skills/deckhand/tests` · `python3 -m pytest skills/deckhand/ops/tests -q`

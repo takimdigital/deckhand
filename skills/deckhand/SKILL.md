@@ -1,12 +1,12 @@
 ---
 name: deckhand
-description: "Idea → live, owned web business on a $5 VPS (or $0): define, research, plan the page/feature graph, build from a vetted MIT base or scratch, rebrand, live-swap sections for licensed designs (try-on), verify, deploy to Coolify, operate with bots, learn from every failure. Use for building, launching, redesigning, deploying or maintaining a website/SaaS/booking/catalogue/lead-gen business, for component try-on/swap, for ops bots/crons, or to turn a project into a reusable base."
+description: "Idea → live, owned web business on a $5 VPS (or $0): define, research, plan the page/feature graph, build from a vetted MIT base or scratch, rebrand, live-swap sections for licensed designs (try-on), verify, deploy to Coolify, operate with bots, learn from every failure, resume any project from any fresh session or AI. Use for building, launching, redesigning, deploying or maintaining a website/SaaS/booking/catalogue/lead-gen business, for component try-on/swap, for ops bots/crons, or to turn a project into a reusable base."
 version: 2.0.0
 license: MIT
 compatibility: "Any agent harness that can run shell commands (Claude Code, Codex, Cursor, Hermes, OpenCode, Gemini CLI …). Needs Python 3.9+ (stdlib) and Node 18+ for try-on/compose. Windows: `py` instead of `python3`."
 metadata:
   hermes:
-    tags: [business, saas, landing, build, deploy, vps, coolify, rebrand, tryon, components, shadcn, bots, ops, autopsy, harvest]
+    tags: [business, saas, landing, build, deploy, vps, coolify, rebrand, tryon, components, shadcn, bots, ops, autopsy, harvest, seo, resume]
 ---
 
 # Deckhand v2 — operating specification

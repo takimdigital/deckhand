@@ -22,8 +22,9 @@ PATHS A path starting with dhlib/ tryon/ data/ references/ templates/ ops/ tests
       Every other path is from the repo root (scripts/ docs/ .github/ README.md AGENTS.md …).
       "<project>" = the owner's app folder; "~/.deckhand" = the owner's home state (DECKHAND_HOME overrides).
 YOU ARE EITHER
-  (a) USING the skill for an owner → run `dh next` and do exactly what it prints: one instruction, one reference to read,
-      the lessons that apply. The owner-facing rules are [[skills/deckhand/SKILL.md]] (register, invariants,
+  (a) USING the skill for an owner → in a project already under way, `dh resume` first (where it stands, the owner's
+      decisions, what waits on the owner). Then run `dh next` and do exactly what it prints: one instruction, one
+      reference to read, the lessons that apply. The owner-facing rules are [[skills/deckhand/SKILL.md]] (register, invariants,
       command surface).
   (b) WORKING ON this repo → the DEV section. Tests are offline. Every behaviour change ships with a test. Regenerate this file
       (a stale file fails CI).
@@ -465,6 +466,8 @@ F18 RESUME (any session, any AI)
 - Release: [[RELEASING.md]].
   - [[scripts/version_check.py]]: README badge = SKILL.md version = CHANGELOG top.
   - [[scripts/leak_sweep.py]]: private terms list, refuses to pass without it.
+  - [[docs/releases]]/vX.Y.Z.md (first line = title, ≤ 8 bullets) → push the tag (or run the workflow) →
+    [[.github/workflows/release.yml]] re-runs version_check --tag and publishes the GitHub release from that file.
 - Style:
   - terse docstrings/headers that state the contract (they are copied into MODULES, so write them for a model);
   - JSON-first outputs; error codes UPPER_SNAKE;

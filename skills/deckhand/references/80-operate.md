@@ -4,6 +4,8 @@
 `OPS.md` / `.deckhand/deploy.json` present ⇒ this is a live app: edit → `dh verify` → commit (conventional
 message) → `dh deploy ship` → report with the smoke evidence. Content/design changes may use try-on first.
 Never edit production directly; never "quick fix" on the server.
+Weeks later, in a new session or another AI: `dh resume` first (and `dh resume --check` before shipping: it says
+whether the last verify and the live commit still match the code).
 
 ## Bots and crons
 `dh ops suggest` ranks bots for this business (shape, features, deployed?). Install the top ones the owner

@@ -71,6 +71,10 @@ itself says where it stands.
   its own project by default (the app folder made by clone, adopt or scaffold inherits it), so client A's keys
   are never visible in client B. `--here` / `--machine` choose
   the layer explicitly. Older projects get the new gitignore lines added to their existing block.
+- **`HANDOFF.md`** lists `dh resume` among the everyday commands and says where the Coolify token really lives
+  (the client's project vault when it is there).
+- **Releases** are published by `.github/workflows/release.yml` from `docs/releases/<tag>.md` after the version
+  check (RELEASING.md).
 
 ### Security (final audit)
 - **One secret policy** (`data/secrets.json`) for every scanner: verify, harvest, vet, tryon save. Now also

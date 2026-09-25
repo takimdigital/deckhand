@@ -266,6 +266,16 @@ class LocalOnly(Base):
         self.assertEqual(profile.scope(), "client")
         self.assertEqual(profile.vault_set("DH_TEST_CLIENT_KEY", "client-app-secret-789")["scope"], "project")
 
+    def test_handoff_points_to_where_the_key_really_is_and_to_dh_resume(self):
+        self.dh("init", "--name", "Client", "--for", "client")
+        profile.use_project(self.root)
+        profile.vault_set("COOLIFY_TOKEN", "coolify-client-token-123")               # client default: the project layer
+        self.dh("handoff")
+        h = (self.root / "HANDOFF.md").read_text(encoding="utf-8")
+        self.assertIn("`.deckhand/vault.env` in this project", h)
+        self.assertNotIn("coolify-client-token-123", h)                               # locations, never values
+        self.assertIn("dh resume", h)
+
     def test_personal_projects_write_to_the_machine_unless_told_here(self):
         self.dh("init", "--name", "Mine")
         code, out = self.dh("profile", "set", "defaults.hosting=vps")
