@@ -14,12 +14,21 @@ Generic bots are real scripts (`watchdog`: uptime, TLS expiry, container health,
 skeleton: implement against THIS app's tables with a read-only DB user, idempotent, one message.
 A schedule is live only after it fired once through its own trigger (the output prints the command).
 
-## The learning loop (autopsy)
-- Every failing command runs through `dh run -- …`; known signatures print their fix instantly.
-- After fixing a new failure: `dh learn from-failure --fix "…" --cause "…" [--rung preflight|gate|eliminate]`.
-- `dh learn promote` turns lessons seen twice into patch proposals for this skill (fix ladder: eliminate the
-  wrong path > pre-flight check > reorder > gate > pitfall line). Apply with the owner's OK, add a test when
-  it is a script change, bump `CHANGELOG.md`. Pitfall lines are debt, not solutions.
+## The learning loop (autopsy — deterministic, evidence only)
+- Risky commands run through `dh run -- …`: every run (and every `dh` call) lands in `.deckhand/runs.jsonl`;
+  a known signature prints its proven fix at once; `dh run --fix -- …` replays a recipe made only of safe,
+  repeatable steps (installs, cache clears, codegen) and retries once.
+- After a session (or a hard one): `dh autopsy [transcript.jsonl | --latest]` → `.deckhand/autopsy/<id>.md`.
+  No model reads the log: failures (including those a `| tail` hid), their retries, **the recipe that
+  actually fixed each one** (the edits and state-changing commands between the last failed attempt and the
+  success), the owner (skill · environment · project), the fix-ladder rung the evidence supports, recurring
+  signatures, blind retries, tool errors, and the workflows that finished a phase. Same session → same bytes.
+- `dh autopsy … --apply` writes: lessons with recipes (global ledger — every future project gets them in
+  `dh next` and `dh run`), skill-fix proposals in `~/.deckhand/autopsy/proposals/` (repro + the fix that
+  worked + whether a regression test exists), and playbooks (a phase's working steps; after two sessions
+  `dh next` shows them as `worked_before`). It never edits the skill: a person or a reviewed PR applies a
+  proposal, with its regression test, and bumps `CHANGELOG.md`.
+- `dh learn from-failure` / `dh learn promote` remain for a single fix recorded by hand.
 
 ## Reuse
 Owner likes the result → `dh harvest --name <base> [--repo owner/name]` (private by default): the project

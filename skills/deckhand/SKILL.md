@@ -67,8 +67,9 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
    The model writes words (copy, research, plans) and app-specific logic — not boilerplate.
 7. **Gates are hard** in phased mode: no clone before G1, no rebrand/extra work before G2, no deploy
    before G4, "even when the work looks obviously right".
-8. **Failures are paid once.** Run risky commands via `dh run -- <cmd>`; a known error prints its fix.
-   After fixing an unknown one: `dh learn from-failure --fix "…" --cause "…"`.
+8. **Failures are paid once.** Run risky commands via `dh run -- <cmd>`; a known error prints its fix
+   (`--fix` replays a proven safe recipe). After a hard session: `dh autopsy --latest --apply` (deterministic:
+   recipes, preflights, skill-fix proposals, playbooks — it never edits the skill itself).
 9. **Dev-only tooling never ships.** Try-on stamps must be absent from production builds (verify row
    `prod-clean`); `tryon clean` before release.
 10. **Production changes follow the pipeline** (`references/80-operate.md`): edit → verify → commit →
@@ -89,7 +90,7 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
 | review | `dh verify [--url U]` |
 | deploy | `dh deploy target --app UUID --url U` · `dh deploy ship` · `dh deploy smoke` · `dh deploy raw <coolify args>` · `dh handoff` |
 | operate | `dh ops suggest` · `dh ops add BOT --runner github\|cron` |
-| learning | `dh run -- CMD` · `dh learn match\|add\|from-failure\|preflight\|promote` |
+| learning | `dh run [--fix] -- CMD` · `dh autopsy [transcript \| --latest] [--apply]` · `dh learn match\|add\|from-failure\|preflight\|promote` |
 | reuse | `dh harvest --name BASE [--repo owner/name]` (private by default) |
 
 ## 5. Try-on (live component swap) — zero model calls per click

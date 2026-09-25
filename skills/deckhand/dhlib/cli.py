@@ -88,7 +88,11 @@ def build_parser():
     p.add_argument("--phase", default="build"); p.add_argument("--symptom"); p.add_argument("--cause", default=""); p.add_argument("--fix", default="")
     p.add_argument("--signature"); p.add_argument("--command"); p.add_argument("--rung", default="pitfall"); p.add_argument("--scope", default="global")
     p.add_argument("--log"); p.add_argument("--text"); p.add_argument("--stack", default="")
-    p = sub.add_parser("run"); p.add_argument("argv", nargs=argparse.REMAINDER); p.add_argument("--phase")
+    p = sub.add_parser("run"); p.add_argument("--phase"); p.add_argument("--fix", action="store_true", help="replay a proven auto-safe recipe, retry once")
+    p.add_argument("argv", nargs=argparse.REMAINDER)
+    p = sub.add_parser("autopsy", help="deterministic session analysis: failures -> recipes, lessons, skill proposals, playbooks")
+    p.add_argument("source", nargs="?", help="a Claude Code transcript .jsonl or a run log (default: .deckhand/runs.jsonl, else the latest transcript)")
+    p.add_argument("--latest", action="store_true"); p.add_argument("--apply", action="store_true")
 
     p = sub.add_parser("harvest"); p.add_argument("--name", required=True); p.add_argument("--to"); p.add_argument("--repo"); p.add_argument("--public", action="store_true")
     sub.add_parser("handoff")
@@ -244,10 +248,13 @@ def dispatch(a):
     if c == "run":
         from . import learn as LE
         argv = a.argv[1:] if a.argv and a.argv[0] == "--" else a.argv
-        r = LE.run_cmd(root, argv, a.phase)
+        r = LE.run_cmd(root, argv, a.phase, fix=a.fix)
         if not r["ok"]:
             raise DhError("COMMAND_FAILED", f"exit {r['code']}", **r)
         return r
+    if c == "autopsy":
+        from . import autopsy as AU
+        return AU.autopsy(root, a.source, latest=a.latest, apply=a.apply)
     if c == "harvest":
         from . import harvest as H
         return H.harvest(root, a.name, Path(a.to) if a.to else None, a.repo, private=not a.public)
@@ -265,6 +272,17 @@ def dispatch(a):
     raise DhError("USAGE", c)
 
 
+def _log(a, shown: str, code: int, out: str = "") -> None:
+    """Every dh call lands in .deckhand/runs.jsonl (phase transitions make the playbooks `dh autopsy` learns)."""
+    if a.cmd in ("run", "autopsy", "next", "status"):
+        return                                           # `run` logs itself; read-only calls are noise
+    try:
+        from . import learn as LE
+        LE.log_run(_root(a), shown, code, out)
+    except Exception:  # noqa: BLE001 — logging never breaks a command
+        pass
+
+
 def main(argv=None) -> int:
     try:
         sys.stdout.reconfigure(encoding="utf-8")        # Windows consoles default to cp1252
@@ -272,12 +290,16 @@ def main(argv=None) -> int:
         pass
     ap = build_parser()
     a = ap.parse_args(argv)
+    shown = "dh " + " ".join(argv if argv is not None else sys.argv[1:])
     try:
         out = dispatch(a)
         if a.cmd == "tryon":
+            _log(a, shown, out.get("exit", 0))
             return out.get("exit", 0)
+        _log(a, shown, 0)
         return emit({"ok": True, **out} if isinstance(out, dict) else {"ok": True, "result": out})
     except DhError as e:
+        _log(a, shown, 1, f"{e.code}: {e.message}")
         return emit({"ok": False, "code": e.code, "message": e.message, **e.extra}, 1)
     except KeyboardInterrupt:
         return emit({"ok": False, "code": "INTERRUPTED"}, 130)

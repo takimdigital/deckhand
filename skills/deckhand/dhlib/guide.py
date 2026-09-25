@@ -52,6 +52,16 @@ STEPS = {
 }
 
 
+def _playbook(phase: str) -> list:
+    """The steps that finished this phase in at least two past sessions (from `dh autopsy --apply`)."""
+    from .util import home, read_jsonl
+    rows = [r for r in read_jsonl(home() / "playbooks.jsonl") if r.get("phase") == phase and r.get("seen", 1) >= 2]
+    if not rows:
+        return []
+    best = max(rows, key=lambda r: (r.get("seen", 1), r.get("last_seen", "")))
+    return best["steps"][:10]
+
+
 def next_step(root: Path) -> dict:
     root = Path(root)
     s = STATE.load(root, required=False)
@@ -68,6 +78,9 @@ def next_step(root: Path) -> dict:
     out = {"phase": cur["id"], "n": f"{STATE.PHASE_IDS.index(cur['id']) + 1}/{len(STATE.PHASES)}", "title": cur["title"],
            "mode": s["mode"], "path": s["path"], "read": str(SKILL / cur["ref"]), "do": steps,
            "lessons": LEARN.preflight(root, cur["id"]), "dh": DH}
+    books = _playbook(cur["id"])
+    if books:
+        out["worked_before"] = books
     if cur["id"] == "plan":
         brief = read_json(root / ".deckhand" / "brief.json", {}) or {}
         if s["path"] in ("pool", "mine") and brief:

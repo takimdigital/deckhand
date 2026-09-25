@@ -11,6 +11,7 @@ Global lessons live in ~/.deckhand/lessons.jsonl (every project benefits); proje
 """
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -58,7 +59,8 @@ def _stack(root: Path | None) -> set:
 
 
 def add(root: Path | None, phase: str, symptom: str, cause: str, fix: str, signature: str | None = None,
-        command: str | None = None, rung: str = "pitfall", scope: str = "global", stack: list | None = None) -> dict:
+        command: str | None = None, rung: str = "pitfall", scope: str = "global", stack: list | None = None,
+        extra: dict | None = None) -> dict:
     if rung not in RUNGS:
         raise DhError("BAD_RUNG", f"rung: {RUNGS}")
     sig = signature or re.escape(symptom.strip()[:120])
@@ -72,12 +74,14 @@ def add(root: Path | None, phase: str, symptom: str, cause: str, fix: str, signa
         if l.get("signature") == sig:
             l["seen"] = l.get("seen", 1) + 1
             l["last_seen"] = now()
-            l.update({"fix": fix, "cause": cause, **({"command": command} if command else {})})
+            l.update({"fix": fix, "cause": cause, **({"command": command} if command else {}), **(extra or {})})
+            if RUNGS.index(rung) < RUNGS.index(l.get("rung", "pitfall")):
+                l["rung"] = rung                                   # evidence can only move a lesson UP the ladder
             target.write_text("".join(__import__("json").dumps(x, ensure_ascii=False) + "\n" for x in existing), encoding="utf-8")
             return {"updated": l["id"], "seen": l["seen"]}
     n = len(all_lessons(root)) + 1
     lesson = {"id": f"L-{n:04d}", "at": now(), "phase": phase, "signature": sig, "symptom": symptom, "cause": cause, "fix": fix,
-              **({"command": command} if command else {}), "rung": rung, "stack": stack or [], "seen": 1, "last_seen": now()}
+              **({"command": command} if command else {}), "rung": rung, "stack": stack or [], "seen": 1, "last_seen": now(), **(extra or {})}
     append_jsonl(target, lesson)
     return {"added": lesson["id"], "to": str(target)}
 
@@ -87,7 +91,7 @@ def match(root: Path | None, text: str) -> list:
     for l in all_lessons(root):
         try:
             if re.search(l["signature"], text, re.I | re.M):
-                hits.append({k: l.get(k) for k in ("id", "symptom", "cause", "fix", "command", "seen")})
+                hits.append({k: l.get(k) for k in ("id", "symptom", "cause", "fix", "command", "seen", "recipe", "auto") if l.get(k) is not None})
         except re.error:
             continue
     return sorted(hits, key=lambda h: -(h.get("seen") or 1))
@@ -104,13 +108,23 @@ def preflight(root: Path | None, phase: str, limit: int = 8) -> list:
             continue
         out.append(l)
     out.sort(key=lambda l: (-(l.get("seen") or 1), l.get("id", "")))
-    return [f"[{l['id']} ×{l.get('seen', 1)}] {l['symptom']} → {l['fix']}" + (f"  ⟶ `{l['command']}`" if l.get("command") else "") for l in out[:limit]]
+    return [f"[{l['id']} ×{l.get('seen', 1)}] {l['symptom']} → {l['fix']}" + (f"  ⟶ `{l['command']}`" if l.get("command") else "")
+            + ("  (auto: dh run --fix replays it)" if l.get("auto") else "") for l in out[:limit]]
 
 
-def run_cmd(root: Path | None, argv: list, phase: str | None = None) -> dict:
+def log_run(root: Path | None, cmd: str, code: int, out: str = "", phase: str | None = None) -> None:
+    """Every command, success or not, in .deckhand/runs.jsonl — the harness-neutral source `dh autopsy` reads."""
+    if not root or not (Path(root) / ".deckhand").is_dir():
+        return
+    append_jsonl(Path(root) / ".deckhand" / "runs.jsonl", {"at": now(), "cmd": cmd, "exit": code, "out": out[-1500:] if code else out[-200:],
+                                                           **({"phase": phase} if phase else {})})
+
+
+def run_cmd(root: Path | None, argv: list, phase: str | None = None, fix: bool = False) -> dict:
     if not argv:
         raise DhError("USAGE", "dh run -- <command …>")
     r = run(argv, cwd=root, timeout=3600)
+    log_run(root, r["cmd"], r["code"], (r["err"] + "\n" + r["out"]) if r["code"] else r["out"], phase)
     if r["code"] == 0:
         return {"ok": True, "cmd": r["cmd"], "ms": r["ms"], "tail": r["out"][-600:]}
     tail = (r["err"] + "\n" + r["out"])[-4000:]
@@ -119,8 +133,25 @@ def run_cmd(root: Path | None, argv: list, phase: str | None = None) -> dict:
         s = STATE.load(root, required=False) or {}
         append_jsonl(Path(root) / ".deckhand" / "failures.jsonl", {"at": now(), "cmd": r["cmd"], "code": r["code"],
                                                                      "phase": phase or (STATE.current(s)["id"] if s else None), "tail": tail[-2000:]})
+    auto = next((k for k in known if k.get("auto") and k.get("recipe")), None)
+    if fix and auto:
+        # a recipe proven by a past session and made only of safe, repeatable commands: replay it, retry once
+        steps = []
+        for kind, step in auto["recipe"]:
+            if kind != "run":
+                continue
+            rr = run(["bash", "-lc", step] if os.name != "nt" else ["cmd", "/c", step], cwd=root, timeout=1800)
+            log_run(root, step, rr["code"], rr["err"] + rr["out"], phase)
+            steps.append({"run": step, "exit": rr["code"]})
+            if rr["code"] != 0:
+                break
+        again = run(argv, cwd=root, timeout=3600)
+        log_run(root, again["cmd"], again["code"], (again["err"] + "\n" + again["out"]) if again["code"] else again["out"], phase)
+        return {"ok": again["code"] == 0, "cmd": again["cmd"], "code": again["code"], "fixed_by": auto["id"], "replayed": steps,
+                "tail": (again["err"] + "\n" + again["out"])[-1500:] if again["code"] else again["out"][-600:]}
     return {"ok": False, "cmd": r["cmd"], "code": r["code"], "tail": tail[-1500:], "known_fixes": known,
-            "next": "apply the known fix" if known else "fix it, then `dh learn from-failure --fix \"…\" --cause \"…\"` so it never costs tokens again"}
+            "next": (f"`dh run --fix -- …` replays the proven recipe of {auto['id']}" if auto else "apply the known fix") if known
+            else "fix it, then `dh learn from-failure --fix \"…\" --cause \"…\"` (or `dh autopsy --apply` after the session) so it never costs tokens again"}
 
 
 def _signature_from(tail: str) -> str:
