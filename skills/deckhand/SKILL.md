@@ -27,6 +27,12 @@ not ask for. One recommendation per decision, with the reason in one line.
 that apply) → `dh phase done <phase>` (runs the phase's check; red = not done) → `dh next`.
 The run state lives in `<project>/.deckhand/run.json`; history in `.deckhand/history.jsonl`.
 
+**Cold start** (new session, any AI, no memory of the project): run `dh resume` first. It prints
+`.deckhand/RESUME.md`, which is regenerated after every `dh` command from the project's files: stage, the exact
+next command, what is done (with proof), what is in progress, the owner's decisions and what waits on the owner.
+`dh resume --check` re-proves those claims against reality. `dh resume --hook` (Claude Code SessionStart hook) is
+the one command that prints plain text instead of JSON.
+
 Token discipline (MUST): load at most the one reference `dh next` names (+ one on demand); query data
 (`dh pool query`, `tryon query`) instead of reading data files; never paste file bodies back to the
 owner; never re-derive what a script computes.
@@ -62,7 +68,9 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
    SSH keys in `~/.vps-ops/ssh/` and the backup keyring in `~/.vps-ops/secrets/backup*.env.sh`; v1's
    `~/.vps-ops/secrets/env.sh` is still read as a fallback. Secrets MUST NOT appear in chat, the profile,
    commits, logs or HANDOFF.md (write locations, not values). Run logs and autopsy reports are redacted with one
-   policy (`data/secrets.json`), and `dh init` gitignores deckhand's run logs in every project.
+   policy (`data/secrets.json`), and `dh init` gitignores deckhand's run logs in every project. A client project
+   (`dh init --for client`) keeps its settings and secrets in its own gitignored `.deckhand/profile.json` and
+   `.deckhand/vault.env`; the owner's machine vault stays a fallback. Never use one client's keys for another.
 4. **Licences.** Bases and components come from permissive licences only (`data/licenses.json`: MIT,
    Apache-2.0, BSD-2/3, ISC, 0BSD, Unlicense); `NOTICE` and `THIRD_PARTY_NOTICES.md` are never deleted or
    rewritten. Nothing enters the pool or the catalog unvetted: `dh pool vet|add owner/repo` and `tryon registry
@@ -81,14 +89,19 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
    `prod-clean`); `tryon clean` before release.
 10. **Production changes follow the pipeline** (`references/80-operate.md`): edit → verify → commit →
     `dh deploy ship` (proof) → report. Rollback path known before shipping.
+11. **Nothing lives only in the chat.** An owner decision is recorded the moment it is made
+    (`dh note decision "…"`). Before stopping, and whenever the session has grown long, `dh resume` MUST say
+    SAFE TO START A FRESH SESSION; if it says NO, `dh note doing|next "…"` or commit. When `dh next` returns
+    `fresh_session` (a gate just passed), tell the owner a fresh session is safe now.
 
 ## 4. Command surface
 
 | intent | command |
 |---|---|
 | what now? | `dh next` · `dh status` |
-| start / brief | `dh init --name N --mode phased\|auto --path pool\|mine\|existing\|scratch --project DIR` · `dh brief set k=v …` |
-| owner profile / secrets | `dh profile doctor\|set k=v` · `dh vault set NAME` (value via stdin) · `dh vault list` |
+| start / brief | `dh init --name N --mode phased\|auto --path pool\|mine\|existing\|scratch --for me\|client --project DIR` · `dh brief set k=v …` |
+| resume a session | `dh resume [--check [--online]]` · `dh note decision\|doing\|next "…"` · `dh resume --install-hook claude` (adds `dh resume --hook` as a SessionStart hook) |
+| owner profile / secrets | `dh profile show\|doctor\|set k=v [--here\|--machine]` · `dh vault set NAME [--here\|--machine]` (value via stdin) · `dh vault list` |
 | bases | `dh pool query [--shape --features]` · `dh pool show N` · `dh pool vet owner/repo` · `dh pool add owner/repo [--mine]` (vetted) |
 | plan | `dh plan init\|lint\|render\|split --agents N` · `dh bb post\|read` (shared memory for parallel agents) |
 | build | `dh clone T --to DIR` · `dh adopt PATH\|URL` · `dh scaffold --to DIR` · `dh compose --sections … --copy .deckhand/copy.json` · `dh swap scan\|check` · `dh dev start\|stop\|status` |

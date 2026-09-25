@@ -11,6 +11,7 @@ from pathlib import Path
 
 from .util import DhError, SKILL, TRYON, emit, project_root, read_json, write_json
 from . import state as STATE
+from . import resume as RESUME
 
 
 def _root(a) -> Path:
@@ -54,18 +55,29 @@ def build_parser():
     common.add_argument("--project", default=argparse.SUPPRESS, help=argparse.SUPPRESS)   # accepted after the subcommand too
     sub = ap.add_subparsers(dest="cmd", required=True)
     _add = sub.add_parser
-    sub.add_parser = lambda *a, **k: _add(*a, parents=[common], **k)  # type: ignore[method-assign]
+    sub.add_parser = lambda *a, parents=(), **k: _add(*a, parents=[common, *parents], **k)  # type: ignore[method-assign]
 
     p = sub.add_parser("init"); p.add_argument("--name", required=True); p.add_argument("--mode", default="phased", choices=STATE.MODES); p.add_argument("--path", default="pool", choices=STATE.PATHS)
+    p.add_argument("--for", dest="for_", choices=["me", "client"], help="client: this project keeps its own settings and secrets")
     sub.add_parser("status"); sub.add_parser("next")
+    p = sub.add_parser("resume", help="where the project stands, from its files — any AI, any fresh session")
+    p.add_argument("--check", action="store_true", help="re-prove every claim against reality"); p.add_argument("--online", action="store_true")
+    p.add_argument("--hook", action="store_true", help="SessionStart hook: plain text, nothing outside a deckhand project")
+    p.add_argument("--install-hook", choices=["claude"], help="add the SessionStart hook to Claude Code's user settings")
+    p = sub.add_parser("note", help="decision | doing | next — what would otherwise live only in the chat")
+    p.add_argument("kind", choices=RESUME.KINDS); p.add_argument("text", nargs="+")
     p = sub.add_parser("brief"); p.add_argument("action", choices=["show", "set"]); p.add_argument("pairs", nargs="*")
     p = sub.add_parser("phase"); p.add_argument("action", choices=["done", "skip"]); p.add_argument("phase", choices=STATE.PHASE_IDS)
     p.add_argument("--reason"); p.add_argument("--force", help="record done despite a red check (the reason is kept and shown)")
     p = sub.add_parser("gate"); p.add_argument("action", choices=["pass"]); p.add_argument("gate"); p.add_argument("--note", default="")
     p = sub.add_parser("reopen"); p.add_argument("phase", choices=STATE.PHASE_IDS); p.add_argument("--reason", required=True)
 
-    p = sub.add_parser("profile"); p.add_argument("action", choices=["show", "set", "doctor"]); p.add_argument("pairs", nargs="*"); p.add_argument("--offline", action="store_true")
-    p = sub.add_parser("vault"); p.add_argument("action", choices=["set", "list"]); p.add_argument("name", nargs="?")
+    where = argparse.ArgumentParser(add_help=False)
+    w = where.add_mutually_exclusive_group()
+    w.add_argument("--here", dest="where", action="store_const", const="project", help="this project's own layer (.deckhand/, gitignored)")
+    w.add_argument("--machine", dest="where", action="store_const", const="machine", help="~/.deckhand (every project)")
+    p = sub.add_parser("profile", parents=[where]); p.add_argument("action", choices=["show", "set", "doctor"]); p.add_argument("pairs", nargs="*"); p.add_argument("--offline", action="store_true")
+    p = sub.add_parser("vault", parents=[where]); p.add_argument("action", choices=["set", "list"]); p.add_argument("name", nargs="?")
 
     p = sub.add_parser("pool"); p.add_argument("action", choices=["query", "show", "vet", "add", "list", "sync"]); p.add_argument("target", nargs="?")
     p.add_argument("--shape"); p.add_argument("--features"); p.add_argument("--languages"); p.add_argument("--top", type=int, default=3); p.add_argument("--mine", action="store_true"); p.add_argument("--lane", default="web")
@@ -110,7 +122,18 @@ def dispatch(a):
     root = _root(a)
     c = a.cmd
     if c == "init":
-        return STATE.init(root, a.name, a.mode, a.path)
+        return STATE.init(root, a.name, a.mode, a.path, for_=a.for_)
+    if c == "resume":
+        if a.install_hook:
+            return RESUME.install_hook()
+        if a.check:
+            r = RESUME.check(root, online=a.online)
+            if not r["ok"]:
+                raise DhError("DRIFT", f"{r['drift']} claim(s) no longer true — see claims; fix or tell the owner", **r)
+            return r
+        return RESUME.resume(root)
+    if c == "note":
+        return RESUME.note(root, a.kind, " ".join(a.text))
     if c == "status":
         s = STATE.load(root)
         return {**STATE.summary(root, s), "phases": {k: v["status"] for k, v in s["phases"].items()}, "gates": {k: v["status"] for k, v in s["gates"].items()}, "base": s.get("base")}
@@ -133,17 +156,21 @@ def dispatch(a):
     if c == "profile":
         from . import profile as PR
         if a.action == "set":
-            return PR.set_fields(a.pairs)
+            return PR.set_fields(a.pairs, where=a.where)
         if a.action == "doctor":
             return PR.doctor(online=not a.offline)
-        return {"profile": PR.load(), "path": str(PR.profile_path())}
+        pp = PR.project_profile_path()
+        return {"profile": PR.load(), "scope": PR.scope(), "path": str(PR.profile_path()),
+                "project_layer": str(pp) if pp and pp.exists() else None}
     if c == "vault":
         from . import profile as PR
         if a.action == "list":
-            return {"names": sorted(PR.vault_read()), "path": str(PR.vault_path())}
+            pv = PR.project_vault_path()
+            return {"names": sorted(PR.vault_read()), "by_layer": PR.vault_names(), "scope": PR.scope(), "path": str(PR.vault_path()),
+                    "project_layer": str(pv) if pv and pv.exists() else None}
         if not a.name:
-            raise DhError("USAGE", "dh vault set NAME   (value on stdin or prompted — never on the command line)")
-        return PR.vault_set(a.name)
+            raise DhError("USAGE", "dh vault set NAME [--here|--machine]   (value on stdin or prompted — never on the command line)")
+        return PR.vault_set(a.name, where=a.where)
     if c == "pool":
         from . import pool as POOL
         if a.action == "query":
@@ -307,8 +334,8 @@ def dispatch(a):
 
 def _log(a, shown: str, code: int, out: str = "") -> None:
     """Every dh call lands in .deckhand/runs.jsonl (phase transitions make the playbooks `dh autopsy` learns)."""
-    if a.cmd in ("run", "autopsy", "next", "status"):
-        return                                           # `run` logs itself; read-only calls are noise
+    if a.cmd in ("run", "autopsy", "next", "status", "resume", "note"):
+        return                                           # `run` logs itself; read-only calls are noise; notes have their own file
     try:
         from . import learn as LE
         LE.log_run(_root(a), shown, code, out)
@@ -323,7 +350,14 @@ def main(argv=None) -> int:
         pass
     ap = build_parser()
     a = ap.parse_args(argv)
+    if a.cmd == "resume" and a.hook:                     # the one non-JSON output: a harness injects it as context
+        sys.stdout.write(RESUME.hook(RESUME.stdin_if_piped(), start=Path(a.project) if getattr(a, "project", None) else None))
+        return 0
     shown = "dh " + " ".join(argv if argv is not None else sys.argv[1:])
+    root = _root(a)
+    from . import profile as PROFILE
+    PROFILE.use_project(root)                            # the project's own profile/vault layer applies to this command
+    out = None
     try:
         out = dispatch(a)
         if a.cmd == "tryon":
@@ -336,3 +370,19 @@ def main(argv=None) -> int:
         return emit({**e.extra, "ok": False, "code": e.code, "message": e.message}, 1)   # extra never overrides the verdict
     except KeyboardInterrupt:
         return emit({"ok": False, "code": "INTERRUPTED"}, 130)
+    finally:
+        _refresh(a, root, out)
+
+
+def _refresh(a, root: Path, out) -> None:
+    """RESUME.md follows every command, success or failure — a new session always starts from the current truth."""
+    if a.cmd in ("resume", "note"):
+        return                                           # they write it themselves
+    roots = {root}
+    if a.cmd in ("clone", "adopt", "scaffold") and isinstance(out, dict) and out.get("project"):
+        roots.add(Path(out["project"]))
+    for r in roots:
+        try:
+            RESUME.write(r)
+        except Exception:  # noqa: BLE001 — the summary never breaks a command
+            pass

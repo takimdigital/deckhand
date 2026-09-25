@@ -6,7 +6,7 @@ and it is regenerated from the code, so it is never stale.
 
 This repository is an agent skill. If your harness does not load `SKILL.md` folders automatically:
 
-1. Read `skills/deckhand/SKILL.md` (the operating specification, ~150 lines).
+1. Read `skills/deckhand/SKILL.md` (the operating specification, ~160 lines).
 2. Run `python3 skills/deckhand/dh.py next` (`py` on Windows) and do what it prints — it names the single
    reference file to load for the current phase.
 

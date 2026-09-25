@@ -66,8 +66,11 @@ def _record_base(dest: Path, base: dict, name: str, path: str) -> None:
     ensure_gitignore(dest)                                # every way in keeps deckhand's run logs out of git
     s = STATE.load(dest, required=False)
     if not s:
-        STATE.init(dest, name=name, path=path)
+        STATE.init(dest, name=name, path=path)            # also writes the AGENTS.md cold-start entry
         s = STATE.load(dest)
+    else:
+        from . import resume as RESUME
+        RESUME.agent_entry(dest)
     s["base"] = base
     STATE.save(dest, s)
 

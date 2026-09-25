@@ -83,6 +83,18 @@ def _pending(root: Path) -> dict:
     return SEO.pending_summary(root)
 
 
+def _fresh_session(root: Path) -> str | None:
+    """Right after the owner passed a gate the chat holds nothing the files do not: the best moment to start fresh."""
+    from .util import read_jsonl
+    hist = read_jsonl(root / ".deckhand" / "history.jsonl")
+    if not hist or hist[-1].get("event") != "gate":
+        return None
+    from . import resume as RESUME
+    ok, _ = RESUME.safe(RESUME.safety_facts(root))
+    return ("a gate just passed and nothing lives only in this chat: a fresh session is safe and sharper here — "
+            "it starts with `dh resume` (tell the owner; never required)") if ok else None
+
+
 def next_step(root: Path) -> dict:
     root = Path(root)
     s = STATE.load(root, required=False)
@@ -107,6 +119,9 @@ def next_step(root: Path) -> dict:
     out = {"phase": cur["id"], "n": f"{STATE.PHASE_IDS.index(cur['id']) + 1}/{len(STATE.PHASES)}", "title": cur["title"],
            "mode": s["mode"], "path": s["path"], "read": str(SKILL / cur["ref"]), "do": steps,
            "lessons": LEARN.preflight(root, cur["id"]), "dh": DH, "pending": _pending(root)}
+    fresh = _fresh_session(root)
+    if fresh:
+        out["fresh_session"] = fresh
     books = _playbook(cur["id"])
     if books:
         out["worked_before"] = books

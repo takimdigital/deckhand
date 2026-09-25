@@ -48,6 +48,29 @@ the measured template pool).
 - **Deploy:** `dh deploy ship` pings IndexNow on production, and `dh deploy target` gives the preview noindex
   instruction.
 
+### Resume from any session, any AI (`dh resume`)
+Long chats lose quality, and starting a fresh one used to mean losing where things stood. Now the project
+itself says where it stands.
+- **`.deckhand/RESUME.md`** is regenerated after every `dh` command, success or failure, from the project's
+  files: stage, the exact next command, what is done with its proof, passed gates, try-on sessions still open,
+  the last unexplained failure, uncommitted files, the owner's decisions, what waits on the owner, recent
+  events. It stays under ~1,500 tokens, it is not a model recap, and it is local only (gitignored).
+- **`dh note decision|doing|next "…"`** records what would otherwise live only in the chat (redacted).
+- **A computed switch verdict**: "SAFE TO START A FRESH SESSION: YES/NO (why)". It says NO when files changed
+  after the last note or a failure was never explained. `dh next` offers a fresh session right after a gate
+  passes when nothing lives only in the chat.
+- **`dh resume --check`** re-proves the claims: phase checks re-run, `dh verify` against HEAD and later edits
+  (verify now records its commit), the brief or plan edited after G1, the dev server, the live commit, open
+  try-on sessions. Drift exits 1 (`DRIFT`).
+- **Cold start everywhere**: `dh init` writes a marked block in the project's `AGENTS.md` (and `@AGENTS.md` in
+  `CLAUDE.md`) telling any AI to run `dh resume` first. `dh resume --install-hook claude` (or
+  `install.sh --claude-hook`) adds a Claude Code SessionStart hook: new, resumed, cleared and compacted sessions
+  in a deckhand project start from the RESUME; elsewhere it prints nothing.
+- **Per-project profile and vault** (`.deckhand/profile.json`, `.deckhand/vault.env`, gitignored, never pushed):
+  a project's layer overrides the machine's. `dh init --for client` keeps that client's settings and secrets in
+  its own project by default, so client A's keys are never visible in client B. `--here` / `--machine` choose
+  the layer explicitly. Older projects get the new gitignore lines added to their existing block.
+
 ### Security (final audit)
 - **One secret policy** (`data/secrets.json`) for every scanner: verify, harvest, vet, tryon save. Now also
   catches Coolify, Anthropic, OpenAI, GitLab, npm, SendGrid and Telegram tokens, Stripe webhooks, and

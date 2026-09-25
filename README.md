@@ -57,6 +57,8 @@ cd deckhand-skill && ./install.sh        # Windows: powershell -ExecutionPolicy 
 
 The installer finds your agents (Claude Code, Codex, Cursor, Hermes, OpenCode, Gemini CLI) and installs into
 each one. You need Python 3.9+ and Node 18+, and nothing else. Then open your agent and say what you want.
+Using Claude Code? `./install.sh --claude-hook` makes every new, resumed or compacted session in a Deckhand project
+start from where that project stands.
 
 ## 🧭 What happens when you ask
 
@@ -119,6 +121,13 @@ to start from it, from any computer.
 
 Nobody can promise #1. We make sure nothing in our control is missing.
 
+**Switch sessions without fear, even to another AI.** Long chats get worse, and a fresh one used to forget
+everything. Deckhand keeps a one-page summary of each project on your computer, rebuilt after every step from the
+project's own files: where it stands, what's done and the proof, what's in progress, what you decided, what's
+waiting on you, and the exact next command. It also tells you whether it's safe to start fresh right now, and
+if not, why. Open a new session in Claude, Codex, Cursor or any other agent, and it carries on from there. Working
+for clients? Each client's settings and keys stay in that client's project, on your machine, never on GitHub.
+
 **It runs the business, not just the website.** An uptime watchdog and a broken-link audit run on a
 schedule from day one, and backups and dependencies are checked too. Business bots (weekly KPIs, lead digest,
 failed payments, booking reminders, review requests, low stock) come as ready specs and skeletons that your
@@ -152,7 +161,7 @@ Run for real in this release:
     business details for search engines;
   - unknown pages answered 404;
   - preview mode served noindex.
-- CI on every push, Ubuntu and Windows: 46 try-on + 54 control-plane + 40 server-client + 17 repo tests.
+- CI on every push, Ubuntu and Windows: 46 try-on + 66 control-plane + 40 server-client + 17 repo tests.
 
 Not yet proven live: a full `dh deploy ship` against a real server (it uses the same Coolify client that
 was proven live in v1), and the first real run of the $0 Oracle track. I'd rather tell you than let you

@@ -4,15 +4,17 @@
 #   ./install.sh                  # every detected harness
 #   ./install.sh --link           # symlink instead of copy (git pull updates every harness)
 #   ./install.sh --only claude,hermes
+#   ./install.sh --claude-hook    # also: every Claude Code session in a deckhand project starts from its RESUME
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 SRC="$HERE/skills/deckhand"
-MODE=copy; ONLY=""
+MODE=copy; ONLY=""; HOOK=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --link) MODE=link ;;
     --only) ONLY="$2"; shift ;;
-    -h|--help) sed -n '2,7p' "$0"; exit 0 ;;
+    --claude-hook) HOOK=1 ;;
+    -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
   esac; shift
 done
 
@@ -54,6 +56,12 @@ exec python3 "$HOME/.deckhand/skill/deckhand/dh.py" "\$@"
 SHIM
 chmod +x "$HOME/.deckhand/bin/dh"
 say "✓ dh shim → $HOME/.deckhand/bin/dh   (add to PATH: export PATH=\"\$HOME/.deckhand/bin:\$PATH\")"
+if [ "$HOOK" = 1 ]; then
+  python3 "$HOME/.deckhand/skill/deckhand/dh.py" resume --install-hook claude >/dev/null && \
+    say "✓ Claude Code SessionStart hook (new, resumed, cleared, compacted sessions start from .deckhand/RESUME.md)"
+else
+  say "(optional) ./install.sh --claude-hook — Claude Code sessions in a deckhand project then start from its RESUME"
+fi
 say ""
 say "Next: open your agent and say what you want, e.g. \"Build a website for my bakery. Phased mode.\""
 say "Step by step, copy-a-sentence: docs/USE-CASES.md"

@@ -1,6 +1,7 @@
 # Deckhand installer (Windows) — copies skills\deckhand into every agent harness found and adds a dh.cmd shim.
-#   powershell -ExecutionPolicy Bypass -File install.ps1 [-Link] [-Only claude,hermes]
-param([switch]$Link, [string]$Only = "")
+#   powershell -ExecutionPolicy Bypass -File install.ps1 [-Link] [-Only claude,hermes] [-ClaudeHook]
+#   -ClaudeHook: every Claude Code session in a deckhand project starts from its .deckhand/RESUME.md
+param([switch]$Link, [string]$Only = "", [switch]$ClaudeHook)
 $ErrorActionPreference = "Stop"
 $Src = Join-Path $PSScriptRoot "skills\deckhand"
 foreach ($t in @(@("py","Python 3.9+ (the py launcher)"), @("node","Node 18+ (try-on, compose)"), @("git","git"))) {
@@ -34,5 +35,9 @@ if (Test-Path $stable) { Remove-Item -Recurse -Force $stable }
 if ($Link) { New-Item -ItemType Junction -Path $stable -Target $Src | Out-Null } else { Copy-Item -Recurse $Src $stable }
 Set-Content -Path "$bin\dh.cmd" -Value "@py `"$stable\dh.py`" %*" -Encoding ASCII
 Write-Host "✓ dh shim → $bin\dh.cmd  (add $bin to PATH)"
+if ($ClaudeHook) {
+  & py "$stable\dh.py" resume --install-hook claude | Out-Null
+  Write-Host "✓ Claude Code SessionStart hook (sessions in a deckhand project start from .deckhand/RESUME.md)"
+} else { Write-Host "(optional) -ClaudeHook: Claude Code sessions in a deckhand project then start from its RESUME" }
 Write-Host "Next: open your agent and say what you want, e.g. 'Build a website for my bakery. Phased mode.'"
 Write-Host "Step by step, copy-a-sentence: docs/USE-CASES.md"

@@ -23,6 +23,7 @@ and it stops at the ✋ checkpoints until you say go.
 | 9 | reuse this site for my next client | [→](#9-reuse-this-site-for-my-next-client) |
 | 10 | work on it as a developer | [→](#10-for-developers) |
 | 11 | get found on Google and in AI answers | [→](#11-get-found-on-google-and-in-ai-answers) |
+| 12 | start a fresh session (or switch AI) without losing anything | [→](#12-start-a-fresh-session-or-switch-ai-without-losing-anything) |
 
 ---
 
@@ -199,7 +200,7 @@ privately, never shown.
   [`LLM_CONTEXT.md`](../LLM_CONTEXT.md) first. It holds the whole repo in one file: how it works, where
   everything lives, and every command and function with its line number. It's regenerated from the code, so
   it's never out of date.
-- Read [`skills/deckhand/SKILL.md`](../skills/deckhand/SKILL.md) (~150 lines). Every command prints one
+- Read [`skills/deckhand/SKILL.md`](../skills/deckhand/SKILL.md) (~160 lines). Every command prints one
   JSON object: exit 0 = ok, 1 = a check failed (with why), 2 = usage.
 - Headless try-on:
   `tryon try --file f --line n --col c --slot hero` → `show` / `keep` / `discard`
@@ -240,6 +241,37 @@ That list stays in every report until it's done.
 **Under the hood:** `dh seo audit` → words in `.deckhand/copy.json → seo.pages` → `dh seo apply` → `dh verify`
 (row `seo`) → after launch `dh seo audit --url https://<domain>`; every production `dh deploy ship` pings IndexNow.
 Nobody can promise #1 on Google; this makes sure nothing in our control is missing.
+
+## 12. Start a fresh session (or switch AI) without losing anything
+
+**Say** (in the old session, before you leave):
+> Can I start a fresh session now?
+
+**What happens:** the agent answers from a computed check, not from a feeling:
+- **YES** → nothing lives only in this chat. Open a new session.
+- **NO, and why** → for example, "2 files changed since the last note". The agent writes down what it was doing,
+  in one line, and then it's a YES.
+
+After a checkpoint you approved (✋), the agent tells you on its own when it's a good moment to start fresh.
+
+**Then, in the new session** (any agent: Claude, Codex, Cursor…):
+> Continue my bakery site.
+
+It reads the project's one-page summary: where it stands, what's done and the proof, your decisions, what's
+waiting on you, and the exact next step. Then it carries on. If you're not sure the summary still matches
+reality, say *"check that everything is still true"*.
+
+**Working for clients?** Say *"this one is for a client"* at the start. That client's settings and keys stay in
+that client's project folder, on your computer only. They're never used for another client and never pushed to
+GitHub.
+
+**You do:** nothing. With Claude Code, `./install.sh --claude-hook` once makes every new or compacted session
+pick up the summary on its own.
+
+**Under the hood:** `.deckhand/RESUME.md` is regenerated after every `dh` command (gitignored, under ~1,500
+tokens) · `dh note decision|doing|next "…"` · `dh resume` (verdict: SAFE TO START A FRESH SESSION) ·
+`dh resume --check` (re-proves the claims) · `AGENTS.md` block written by `dh init` · SessionStart hook
+`dh resume --hook` · `dh init --for client` + `dh vault set NAME` (project layer).
 
 Stuck, or found a better way? [Open an issue](https://github.com/takimdigital/deckhand-skill/issues).
 That's how this gets better for everyone.

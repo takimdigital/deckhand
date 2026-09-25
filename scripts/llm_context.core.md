@@ -74,8 +74,13 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
 | PENDING.md "Detected by `dh seo`" block | [[dhlib/seo.py#sync_pending]] (every audit) | owner, [[dhlib/seo.py#pending_summary]] → `dh next` | open owner facts/actions (P-SEO-<key>), first-asked dates kept |
 | <project>/lib/seo.ts · app/robots.ts · sitemap.ts · manifest.ts · opengraph-image.tsx · not-found.tsx · components/seo/json-ld.tsx | [[tryon/lib/seo.mjs#seoApply]] (marker `dh:seo`) | the app | business facts + JSON-LD · crawl rules · public routes · share image · real 404 |
 | .deckhand/tryon/seo/last.json | [[tryon/lib/seo.mjs#seoApply]] | [[tryon/lib/seo.mjs#seoUndo]] | the files before the last SEO apply (byte-exact undo) |
-| .deckhand/verify.json · VERIFY.md | [[dhlib/verify.py#run_verify]] | checks.review, handoff, harvest | rows {check, ok, blocking, detail} |
+| .deckhand/verify.json · VERIFY.md | [[dhlib/verify.py#run_verify]] | checks.review, handoff, harvest, [[dhlib/resume.py#check]] | rows {check, ok, blocking, detail}, commit (HEAD it proved) |
 | .deckhand/deploy.json | [[dhlib/deploy.py#target]] · ship | checks.deploy, handoff, ops | app_uuid, url, last{commit,result}, smoke |
+| .deckhand/RESUME.md (gitignored) | [[dhlib/resume.py#write]] after EVERY dh command ([[dhlib/cli.py#_refresh]]), success or failure | a cold agent (`dh resume`, the SessionStart hook) | where the project stands, rendered from its files by [[dhlib/resume.py#gather]] → [[dhlib/resume.py#render]]: switch verdict, stage, exact next commands, done+proof, gates, in progress, decisions, PENDING, recent; ≤ [[dhlib/resume.py#BUDGET]] chars |
+| .deckhand/notes.jsonl (gitignored) | [[dhlib/resume.py#note]] (`dh note decision\|doing\|next`) | [[dhlib/resume.py#gather]], [[dhlib/resume.py#safety_facts]] | {at, ts, kind, text (redacted), phase}: what otherwise lives only in the chat |
+| .deckhand/profile.json · vault.env (gitignored; project layer) | [[dhlib/profile.py#set_scope]] (`dh init --for client`) · [[dhlib/profile.py#set_fields]] / [[dhlib/profile.py#vault_set]] (`--here`, or default in a client project) | [[dhlib/profile.py#load]] (machine merged under project) · [[dhlib/profile.py#secret]] | scope me/client + project facts · that project's secrets (a client's keys never leave its project) |
+| <project>/AGENTS.md (marked block) · CLAUDE.md (`@AGENTS.md` when new; the same block when the owner has one) | [[dhlib/resume.py#agent_entry]] (dh init, every build path) | any harness at session start | "run `dh resume` first" between `deckhand:begin`/`deckhand:end`; the owner's text is kept |
+| ~/.claude/settings.json hooks.SessionStart | [[dhlib/resume.py#install_hook]] (`dh resume --install-hook claude`, `install.sh --claude-hook`) | Claude Code | `dh resume --hook` on startup/resume/clear/compact → [[dhlib/resume.py#hook]] prints the RESUME as context (nothing outside a project) |
 | .deckhand/runs.jsonl · failures.jsonl | [[dhlib/learn.py#log_run]] · [[dhlib/learn.py#run_cmd]] | [[dhlib/autopsy.py#load_runs]], [[dhlib/learn.py#from_failure]] | every command {cmd, exit, out} · failed tails |
 | .deckhand/lessons.jsonl | [[dhlib/learn.py#add]] (scope=project) | [[dhlib/learn.py#match]] | project-only lessons |
 | .deckhand/autopsy/<A-id>.md,.json | [[dhlib/autopsy.py#autopsy]] | owner, `--apply` | the deterministic report |
@@ -88,9 +93,9 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
 | <project>/NOTICE · THIRD_PARTY_NOTICES.md | [[dhlib/build.py#clone]] · [[tryon/lib/engine.mjs#recordNotice]] | never rewritten | upstream + licence of the base and of every kept design |
 | <project>/<components>/sections/ or ui-kit/<slug>/ · dh-tryon/ | keep · open | the app | kept designs · staging (removed on keep/discard/clean) |
 | <project>/globals.css marked blocks | [[tryon/lib/theme.mjs#tokenLayer]] (deckhand:tokens) · [[tryon/lib/engine.mjs#open]] (dh:css per variant) · [[tryon/lib/sitetheme.mjs#themeCss]] (dh:theme) | the app | derived tokens · variant CSS · Site knobs |
-| ~/.deckhand/profile.json · vault.env (0600) | [[dhlib/profile.py#set_fields]] · [[dhlib/profile.py#vault_set]] | [[dhlib/profile.py#secret]] (env → vault → v1 keyring), [[ops/scripts/coolify_api.py#resolve]] | owner facts · secrets as `NAME='value'` (single-quoted: `set -a; . vault.env; set +a` is safe), never printed |
+| ~/.deckhand/profile.json · vault.env (0600) | [[dhlib/profile.py#set_fields]] · [[dhlib/profile.py#vault_set]] | [[dhlib/profile.py#secret]] (env → project vault → machine vault → v1 keyring), [[ops/scripts/coolify_api.py#resolve]] | owner facts · secrets as `NAME='value'` (single-quoted: `set -a; . vault.env; set +a` is safe), never printed |
 | ~/.vps-ops/ssh/ · ~/.vps-ops/secrets/*.env.sh (v1 keyring) | the ops runbooks (SSH keys) · v1 | [[dhlib/profile.py#legacy_read]] (fallback), backup scripts | SSH keys for the servers · the backup keyring (backup.env.sh, b2-scoped.env.sh) · v1 tokens still honoured |
-| <project>/.gitignore (deckhand block) | [[dhlib/util.py#ensure_gitignore]] (dh init, every build path) | git, verify `logs-ignored` | keeps runs.jsonl, failures.jsonl, *.log, dev.json, autopsy/, tryon/ out of git |
+| <project>/.gitignore (deckhand block) | [[dhlib/util.py#ensure_gitignore]] (dh init, every build path) | git, verify `logs-ignored` | [[dhlib/util.py#GITIGNORE_LINES]]: runs, failures, *.log, dev.json, autopsy/, tryon/, RESUME.md, notes.jsonl, profile.json, vault.env; an older block is upgraded in place (every RESUME write calls it) |
 | ~/.deckhand/pool.json · bases/<name>/ | [[dhlib/pool.py#add_local]] · [[dhlib/harvest.py#harvest]] | [[dhlib/pool.py#rows]] (ranked first) | personal bases (source mine) |
 | ~/.deckhand/lessons.jsonl · playbooks.jsonl · autopsy/proposals/E-*.md | [[dhlib/learn.py#add]] · [[dhlib/autopsy.py#apply_report]] | match/preflight · [[dhlib/guide.py#_playbook]] · a human | global lessons (+recipe, auto) · steps that finished a phase ≥2× · skill-fix proposals |
 | ~/.deckhand/library/ (components/, components.index.json) | [[tryon/lib/library.mjs#saveToLibrary]] | [[tryon/lib/catalog.mjs#loadCatalog]] (r=mine, ranked first) | the owner's saved components |
@@ -100,8 +105,8 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
 
 ## INVARIANTS — never break these (and what enforces each)
 1. Output contract: one JSON object on stdout; exit 0 ok · 1 check failed/refused · 2 usage. Nothing else on stdout
-   ([[dhlib/util.py#emit]]; tryon `out`). The one exception is `tryon serve`, which streams JSON lines, including
-   {"event":"draft_request"}.
+   ([[dhlib/util.py#emit]]; tryon `out`). The exceptions: `tryon serve` streams JSON lines, including
+   {"event":"draft_request"}; `dh resume --hook` prints plain text (a harness injects it as context) and never fails.
 2. Dependencies: Python stdlib only (3.9+). Node built-ins only (18+). The only vendored code is [[tryon/vendor]]
    (babel parser, MIT). Never use the project's own `typescript` package: TS7 has no JS API (lesson S-008).
 3. Deterministic: same inputs → same bytes. This covers ranking ([[tryon/lib/catalog.mjs#rank]], [[dhlib/pool.py#score]]),
@@ -123,6 +128,9 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
      every autopsy report, lesson and playbook. A recipe with a redacted step is never auto-replayed.
    - `harvest --push` refuses on any secret-shaped file or string ([[dhlib/harvest.py#secret_scan]], [[!SECRETS_IN_BASE]]).
    - Every project gitignores the run logs ([[dhlib/util.py#ensure_gitignore]]); verify blocks when they're not ignored.
+   - Layers: [[dhlib/profile.py#use_project]] is set by [[dhlib/cli.py#main]] for every command. A client project
+     (scope client) writes settings and secrets to its own gitignored layer by default ([[dhlib/profile.py#_target]]);
+     another project never reads it. The RESUME, notes and project vault never leave the machine.
    Helper/CLI inputs are validated before they become CSS, class lists or paths: [[tryon/lib/sitetheme.mjs#cleanTheme]]
    ([[!BAD_THEME]]), [[tryon/lib/tune.mjs#dialsOf]] ([[!BAD_DIAL]]), safe ids ([[!BAD_ID]]).
 8. One licence policy ([[data/licenses.json]]) for bases, registries and the catalog. NOTICE and
@@ -142,10 +150,13 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
 14. Windows parity. Use `py`; read files with CRLF normalized; delete trees with [[dhlib/util.py#rmtree]] (read-only
    git objects); resolve launchers with [[dhlib/util.py#which]] (npm.cmd). Line endings follow [[.gitattributes]].
    CI runs Ubuntu and Windows.
+15. Nothing lives only in the chat. RESUME.md is regenerated from files after every dh command; it is never a
+   model recap. The switch verdict ([[dhlib/resume.py#safe]]) is computed: NO while files changed after the last note
+   (dh-managed files excluded: [[dhlib/resume.py#MANAGED]]) or a failure newer than the last note has no known fix.
 
 ## FLOWS (→ = then; each step names its code)
 F1 RUN LOOP
-- `dh init` → [[dhlib/state.py#init]] writes run.json and PENDING.md.
+- `dh init` → [[dhlib/state.py#init]] writes run.json, PENDING.md and the AGENTS.md cold-start block ([[dhlib/resume.py#agent_entry]]).
 - `dh next` → [[dhlib/guide.py#next_step]] returns:
   - STEPS[phase], a list of commands ([[dhlib/guide.py#STEPS]]);
   - `read`, the one reference to load;
@@ -381,6 +392,23 @@ F17 FOUND ON GOOGLE (SEO)
 - [[dhlib/verify.py#run_verify]] adds row `seo` on the served build (blocking = launch-breakers only).
 - [[dhlib/deploy.py#ship]] → [[dhlib/seo.py#ping]] (IndexNow) on production.
 
+F18 RESUME (any session, any AI)
+- Every `dh` command → [[dhlib/cli.py#_refresh]] → [[dhlib/resume.py#write]] (after the command, even when it failed;
+  clone/adopt/scaffold also refresh the new project). `resume`/`note` write it themselves and are not logged in runs.jsonl.
+- [[dhlib/resume.py#gather]] reads run.json, history, notes, brief/research/sitemap/verify/deploy, SEO + PENDING
+  ([[dhlib/seo.py#pending_summary]]), try-on sessions ([[dhlib/resume.py#_sessions]]), git status/log, and
+  [[dhlib/guide.py#next_step]] (DH/TRYON shortened to `dh`/`tryon`).
+- [[dh:note]] decision|doing|next → notes.jsonl (redacted with the vault values). `doing done` clears doing.
+- [[dh:resume]] → {safe_to_switch, why, file, resume, session}; session = the Claude Code log size
+  ([[dhlib/resume.py#session_hint]]; > 2 MB → "a fresh session will be sharper").
+- `dh resume --check` → [[dhlib/resume.py#check]]: phase checks re-run (define…tryon); G1 vs brief/sitemap mtime;
+  dev URL answers (info); verify.commit vs HEAD and files edited after verify; deploy last.commit vs HEAD (info);
+  `--online` smoke; open try-on after tryon done. Drift → [[!DRIFT]] exit 1.
+- [[dhlib/guide.py#_fresh_session]]: last history event is a gate and the verdict is YES → `dh next` returns
+  `fresh_session` (the moment to offer a new session).
+- Cold start: `dh init` → [[dhlib/resume.py#agent_entry]]; Claude Code → [[dhlib/resume.py#install_hook]] +
+  [[dhlib/resume.py#hook]] (finds the project from the hook's stdin cwd, [[dhlib/resume.py#stdin_if_piped]] never hangs).
+
 ## ROUTING — "to change X, edit Y (and prove it in Z)"
 | change | edit | prove in |
 |---|---|---|
@@ -415,6 +443,7 @@ F17 FOUND ON GOOGLE (SEO)
 | installer | [[install.sh]] · [[install.ps1]] | manual |
 | owner-facing docs | [[README.md]] · [[docs/USE-CASES.md]] · [[skills/deckhand/SKILL.md]] | [[scripts/version_check.py]] (versions) |
 | secret patterns / redaction / project gitignore | [[data/secrets.json]] · [[dhlib/util.py#redact]] · [[dhlib/util.py#ensure_gitignore]] | [[skills/deckhand/tests/test_security.py]], [[skills/deckhand/tryon/test/hardening.test.mjs]] |
+| resume, notes, switch verdict, cold-start entry, hook, project profile/vault layer | [[dhlib/resume.py]] · [[dhlib/profile.py]] · [[dhlib/cli.py#_refresh]] | [[skills/deckhand/tests/test_resume.py]] |
 | SEO rules, owner facts, crawler lists | [[data/seo.json]] · [[dhlib/seo.py]] (checks, PENDING block, ping) · [[tryon/lib/seo.mjs]] (writes) | [[skills/deckhand/tests/test_seo.py]], [[skills/deckhand/tryon/test/seo.test.mjs]] |
 | docs ↔ commands, README numbers | whatever changed (docs, SKILL.md §4, README) | [[scripts/test_repo_coherence.py]] |
 | this file | code (generated part) · [[scripts/llm_context.core.md]] (curated part) · [[scripts/llm_context.py]] | [[scripts/test_llm_context.py]] |

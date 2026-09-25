@@ -52,7 +52,8 @@ def log(root: Path, event: dict) -> None:
     append_jsonl(Path(root) / ".deckhand" / "history.jsonl", {"at": now(), **event})
 
 
-def init(root: Path, name: str, mode: str = "phased", path: str = "pool") -> dict:
+def init(root: Path, name: str, mode: str = "phased", path: str = "pool", for_: str | None = None) -> dict:
+    """Idempotent: an existing run is kept (its gitignore block, scope and cold-start entry are brought up to date)."""
     if mode not in MODES:
         raise DhError("BAD_MODE", f"mode must be one of {MODES}")
     if path not in PATHS:
@@ -60,19 +61,23 @@ def init(root: Path, name: str, mode: str = "phased", path: str = "pool") -> dic
     root = Path(root)
     existing = load(root, required=False)
     root.mkdir(parents=True, exist_ok=True)
-    ensure_gitignore(root)                              # run logs hold command output: never in git
+    ensure_gitignore(root)                              # run logs, RESUME, notes, project vault: never in git
+    from . import profile as PROFILE, resume as RESUME
+    if for_:
+        (root / ".deckhand").mkdir(parents=True, exist_ok=True)
+        PROFILE.set_scope(root, for_)
+    entry = RESUME.agent_entry(root)                    # AGENTS.md block (+ CLAUDE.md import): any AI resumes cold
     if existing:
-        return {"created": False, **summary(root, existing)}
+        return {"created": False, **summary(root, existing), "agents": entry["written"]}
     s = {"version": 2, "name": name, "mode": mode, "path": path, "created": now(),
          "phases": {p["id"]: {"status": "pending"} for p in PHASES},
          "gates": {g: {"status": "pending"} for g in GATES}}
-    root.mkdir(parents=True, exist_ok=True)
     save(root, s)
     pending = root / "PENDING.md"
     if not pending.exists():
         pending.write_text((SKILL / "templates" / "PENDING.md").read_text(encoding="utf-8").replace("{{NAME}}", name), encoding="utf-8")
-    log(root, {"event": "init", "mode": mode, "path": path})
-    return {"created": True, **summary(root, s)}
+    log(root, {"event": "init", "mode": mode, "path": path, **({"for": for_} if for_ else {})})
+    return {"created": True, **summary(root, s), "agents": entry["written"]}
 
 
 def current(s: dict):

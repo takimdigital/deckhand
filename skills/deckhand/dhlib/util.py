@@ -117,26 +117,36 @@ def redact_obj(obj, values=()):
 
 
 GITIGNORE_MARK = "# deckhand: run logs and local state"
-GITIGNORE_BLOCK = GITIGNORE_MARK + """ (they can hold command output — never commit them)
-.deckhand/runs.jsonl
-.deckhand/failures.jsonl
-.deckhand/*.log
-.deckhand/dev.json
-.deckhand/autopsy/
-.deckhand/tryon/
-"""
+# run logs hold command output; RESUME/notes/project profile/vault are this machine's own (never pushed)
+GITIGNORE_LINES = (".deckhand/runs.jsonl", ".deckhand/failures.jsonl", ".deckhand/*.log", ".deckhand/dev.json",
+                   ".deckhand/autopsy/", ".deckhand/tryon/", ".deckhand/RESUME.md", ".deckhand/notes.jsonl",
+                   ".deckhand/profile.json", ".deckhand/vault.env")
+GITIGNORE_BLOCK = GITIGNORE_MARK + " (they can hold command output — never commit them)\n" + "\n".join(GITIGNORE_LINES) + "\n"
 # probe path -> what to show (a directory is probed through a file inside it)
 RUNTIME_STATE = {".deckhand/runs.jsonl": ".deckhand/runs.jsonl", ".deckhand/failures.jsonl": ".deckhand/failures.jsonl",
                  ".deckhand/dev.log": ".deckhand/*.log", ".deckhand/dev.json": ".deckhand/dev.json",
-                 ".deckhand/autopsy/r.md": ".deckhand/autopsy/", ".deckhand/tryon/s.json": ".deckhand/tryon/"}
+                 ".deckhand/autopsy/r.md": ".deckhand/autopsy/", ".deckhand/tryon/s.json": ".deckhand/tryon/",
+                 ".deckhand/RESUME.md": ".deckhand/RESUME.md", ".deckhand/notes.jsonl": ".deckhand/notes.jsonl",
+                 ".deckhand/profile.json": ".deckhand/profile.json", ".deckhand/vault.env": ".deckhand/vault.env"}
 
 
 def ensure_gitignore(root: Path) -> bool:
-    """Keep deckhand's run logs out of the owner's git history. Idempotent; returns True when it wrote."""
+    """Keep deckhand's run logs and local state out of the owner's git history. Idempotent; an older block is
+    upgraded in place (missing lines added under it). Returns True when it wrote."""
     gi = Path(root) / ".gitignore"
     text = gi.read_text(encoding="utf-8") if gi.exists() else ""
     if GITIGNORE_MARK in text:
-        return False
+        lines = text.splitlines()
+        have = {x.strip() for x in lines}
+        missing = [x for x in GITIGNORE_LINES if x not in have]
+        if not missing:
+            return False
+        i = next(n for n, x in enumerate(lines) if x.startswith(GITIGNORE_MARK)) + 1
+        while i < len(lines) and lines[i].strip().startswith(".deckhand/"):
+            i += 1
+        lines[i:i] = missing
+        gi.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return True
     gi.parent.mkdir(parents=True, exist_ok=True)
     gi.write_text((text.rstrip("\n") + "\n\n" if text.strip() else "") + GITIGNORE_BLOCK, encoding="utf-8")
     return True

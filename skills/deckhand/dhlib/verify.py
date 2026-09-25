@@ -99,8 +99,8 @@ def run_verify(root: Path, url: str | None = None, skip: tuple = (), allow: tupl
     # deckhand's own run logs hold command output: they must never reach the owner's git history
     if (root / ".git").exists():
         loose = [show for probe, show in RUNTIME_STATE.items() if run(["git", "check-ignore", "-q", probe], cwd=root)["code"] == 1]
-        row("logs-ignored", not loose, "deckhand's run logs are gitignored" if not loose
-            else f"not gitignored (they hold command output): {', '.join(loose)} — re-run `dh init --name <name>` (idempotent) to add the block",
+        row("logs-ignored", not loose, "deckhand's run logs and local state are gitignored" if not loose
+            else f"not gitignored (command output, notes, project vault): {', '.join(loose)} — any dh command adds the block (then commit .gitignore)",
             blocking=True)
     from . import swap as SWAP
     sw = SWAP.check(root)
@@ -173,7 +173,8 @@ def run_verify(root: Path, url: str | None = None, skip: tuple = (), allow: tupl
         hi = (int(m.group(1)) + int(m.group(2))) if m else 0
         row("deps-audit", hi == 0, f"{hi} high/critical advisories" if hi else "no high/critical advisories", blocking=False)
     ok = all(r["ok"] for r in rows if r["blocking"])
-    report = {"ok": ok, "at": now(), "rows": rows}
+    head = run(["git", "rev-parse", "HEAD"], cwd=root)["out"].strip() if (root / ".git").exists() else ""
+    report = {"ok": ok, "at": now(), **({"commit": head} if head else {}), "rows": rows}   # `dh resume --check`: still this code?
     write_json(root / ".deckhand" / "verify.json", report)
     md = ["# Verify report", "", f"{'PASS' if ok else 'FAIL'} — {now()}", "", "| check | result | detail |", "|---|---|---|"]
     for r in rows:

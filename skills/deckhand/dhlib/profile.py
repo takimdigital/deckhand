@@ -1,9 +1,13 @@
-"""The owner, once: ~/.deckhand/profile.json (facts) + ~/.deckhand/vault.env (secrets, chmod 600).
+"""The owner, once: ~/.deckhand/profile.json (facts) + ~/.deckhand/vault.env (secrets, chmod 600) — plus a
+per-project layer: <project>/.deckhand/profile.json + <project>/.deckhand/vault.env (gitignored, never pushed).
 
 The profile answers the questions every project would otherwise ask again (providers, domain habits,
-defaults, languages). Secrets never enter the profile, the chat, or a repo: scripts read the vault
-directly, `dh vault list` shows names only, and `dh profile doctor` proves which capabilities are
-reachable WITHOUT printing a value — "access before asks".
+defaults, languages). A project's own layer overrides the machine's for that project only. A project made
+for a CLIENT (`dh init --for client`) keeps its settings and secrets in its own layer by default, so client
+A's keys can never be used in client B's project; the owner's machine-wide keys stay available as fallback.
+Lookup: environment → project vault → machine vault → v1's ops keyring.
+Secrets never enter the profile, the chat, or a repo: scripts read the vault directly, `dh vault list` shows
+names only, and `dh profile doctor` proves which capabilities are reachable WITHOUT printing a value.
 """
 from __future__ import annotations
 
@@ -41,6 +45,14 @@ SECRET_NAMES = ("COOLIFY_TOKEN", "CLOUDFLARE_API_TOKEN", "HOSTINGER_API_TOKEN", 
                 "STRIPE_SECRET_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "SMTP_URL")
 
 
+_PROJECT: Path | None = None      # the project whose layer applies (set by the CLI for every command)
+
+
+def use_project(root) -> None:
+    global _PROJECT
+    _PROJECT = Path(root) if root and (Path(root) / ".deckhand").is_dir() else None
+
+
 def profile_path() -> Path:
     return home() / "profile.json"
 
@@ -49,8 +61,56 @@ def vault_path() -> Path:
     return home() / "vault.env"
 
 
+def project_profile_path() -> Path | None:
+    return _PROJECT / ".deckhand" / "profile.json" if _PROJECT else None
+
+
+def project_vault_path() -> Path | None:
+    return _PROJECT / ".deckhand" / "vault.env" if _PROJECT else None
+
+
+def _merge(a: dict, b: dict) -> dict:
+    out = dict(a)
+    for k, v in b.items():
+        out[k] = _merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
+def project_profile() -> dict:
+    p = project_profile_path()
+    return (read_json(p, {}) or {}) if p else {}
+
+
+def scope() -> str:
+    """"client" when this project was started for a client: its settings and secrets stay in the project."""
+    return "client" if project_profile().get("scope") == "client" else "me"
+
+
+def set_scope(root, who: str) -> str:
+    """`dh init --for me|client`: a client project keeps its own settings and secrets (.deckhand/, gitignored)."""
+    if who not in ("me", "client"):
+        raise DhError("BAD_SCOPE", "--for me | client")
+    p = Path(root) / ".deckhand" / "profile.json"
+    prof = read_json(p, {}) or {}
+    if prof.get("scope", "me") != who:
+        prof["scope"] = who
+        prof["updated"] = now()
+        write_json(p, prof)
+    return who
+
+
 def load() -> dict:
-    return read_json(profile_path(), {}) or {}
+    return _merge(read_json(profile_path(), {}) or {}, project_profile())
+
+
+def _target(where: str | None, kind: str) -> Path:
+    here = where == "project" or (where is None and scope() == "client")
+    if here:
+        p = project_profile_path() if kind == "profile" else project_vault_path()
+        if not p:
+            raise DhError("NO_PROJECT", "no project here (.deckhand/) — run inside the project, or pass --project")
+        return p
+    return profile_path() if kind == "profile" else vault_path()
 
 
 def _set(d: dict, dotted: str, value):
@@ -73,8 +133,10 @@ def _get(d: dict, dotted: str):
 SECRETISH = re.compile(r"(token|secret|password|passwd|api[_-]?key|private)", re.I)
 
 
-def set_fields(pairs: list) -> dict:
-    prof = load()
+def set_fields(pairs: list, where: str | None = None) -> dict:
+    """Machine profile by default; the project's own layer with where="project" (default in a client project)."""
+    target = _target(where, "profile")
+    prof = read_json(target, {}) or {}
     changed = {}
     for pair in pairs:
         if "=" not in pair:
@@ -86,15 +148,28 @@ def set_fields(pairs: list) -> dict:
         _set(prof, k.strip(), val)
         changed[k] = val
     prof["updated"] = now()
-    write_json(profile_path(), prof)
-    return {"changed": changed, "path": str(profile_path())}
+    write_json(target, prof)
+    return {"changed": changed, "path": str(target), "scope": "project" if target != profile_path() else "machine"}
 
 
 # ------------------------------------------------------------------ vault
 def vault_read() -> dict:
-    p = vault_path()
+    """Every stored secret this project can use (machine vault, then the project's own, which wins)."""
+    out = _vault_file(vault_path())
+    pv = project_vault_path()
+    if pv:
+        out.update(_vault_file(pv))
+    return out
+
+
+def vault_names() -> dict:
+    pv = project_vault_path()
+    return {"machine": sorted(_vault_file(vault_path())), "project": sorted(_vault_file(pv)) if pv else []}
+
+
+def _vault_file(p) -> dict:
     out = {}
-    if not p.exists():
+    if not p or not Path(p).exists():
         return out
     for line in p.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -134,16 +209,16 @@ def legacy_read() -> dict:
     return out
 
 
-def vault_set(name: str, value: str | None = None) -> dict:
+def vault_set(name: str, value: str | None = None, where: str | None = None) -> dict:
     if not re.match(r"^[A-Z][A-Z0-9_]{1,63}$", name):
         raise DhError("BAD_NAME", "vault names are UPPER_SNAKE_CASE")
     if value is None:
         value = sys.stdin.readline().rstrip("\n") if not sys.stdin.isatty() else __import__("getpass").getpass(f"{name}: ")
     if not value:
         raise DhError("EMPTY", "no value given")
-    data = vault_read()
+    p = _target(where, "vault")
+    data = _vault_file(p)                      # only this layer is rewritten: a client's secret never lands elsewhere
     data[name] = value
-    p = vault_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text("# deckhand vault — secrets only; never commit, never paste into chat\n" +
                  "\n".join(f"{k}={_quote(v)}" for k, v in sorted(data.items())) + "\n", encoding="utf-8")
@@ -151,12 +226,14 @@ def vault_set(name: str, value: str | None = None) -> dict:
         os.chmod(p, stat.S_IRUSR | stat.S_IWUSR)
     except OSError:
         pass
-    return {"stored": name, "names": sorted(data)}
+    return {"stored": name, "names": sorted(data), "scope": "project" if p != vault_path() else "machine"}
 
 
 def secret(name: str):
-    """Env first (CI / harness secrets), then the vault, then v1's ops keyring. Never logged."""
-    return os.environ.get(name) or vault_read().get(name) or legacy_read().get(name)
+    """Env first (CI / harness secrets), then this project's vault, the machine vault, v1's ops keyring. Never logged."""
+    pv = project_vault_path()
+    return (os.environ.get(name) or (_vault_file(pv).get(name) if pv else None) or _vault_file(vault_path()).get(name)
+            or legacy_read().get(name))
 
 
 # ------------------------------------------------------------------ doctor
