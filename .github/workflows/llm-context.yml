@@ -36,6 +36,14 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add LLM_CONTEXT.md
           git commit -m "chore: regenerate LLM_CONTEXT.md for ${GITHUB_SHA::7}"
-          git push origin HEAD:main || echo "::notice::main moved on; the run for the newer push regenerates it"
+          if ! git push origin HEAD:main; then
+            git fetch -q origin main
+            if [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then
+              echo "::notice::main moved on; the run for the newer push regenerates it"
+            else
+              echo "::error::could not push the regenerated LLM_CONTEXT.md — Settings → Actions → General → Workflow permissions: Read and write"
+              exit 1
+            fi
+          fi
       - name: every curated anchor resolves
         run: python scripts/llm_context.py --check
