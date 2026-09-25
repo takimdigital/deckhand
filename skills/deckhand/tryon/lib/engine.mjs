@@ -460,7 +460,7 @@ const req = createRequire(process.cwd() + '/package.json');
 const present = (pkg) => { for (let d = process.cwd(); ; d = path.dirname(d)) { if (fs.existsSync(path.join(d, 'node_modules', pkg, 'package.json'))) return true; if (path.dirname(d) === d) return false; } };
 const pkgOf = (s) => s.startsWith('@') ? s.split('/').slice(0, 2).join('/') : s.split('/')[0];
 // a package the import itself needs and nobody installed (radix-ui/toggle re-exports @radix-ui/react-toggle)
-const depOf = (e, pkg) => { const m = /Cannot find (?:package|module) '([^'./\\\\][^']*)'/.exec(String(e && e.message)); if (!m || /^[A-Za-z]:/.test(m[1])) return null; const d = pkgOf(m[1]); return d !== pkg && !present(d) ? d : null; };
+const depOf = (e, pkg) => { const m = /Cannot find (?:package|module) '([^'./\\\\][^']*)'/.exec(String(e && e.message)); if (!m || /[:\\\\]/.test(m[1])) return null; const d = pkgOf(m[1]); return d !== pkg && !present(d) ? d : null; };
 const want = ${want}; const out = {};
 const judge = (m, names) => { const miss = names.filter((n) => !(n in m) && !(m && m.default && typeof m.default === 'object' && n in m.default)); return miss.length ? { missing: miss } : { ok: true }; };
 for (const [s, names] of want) {
