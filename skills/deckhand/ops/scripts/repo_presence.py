@@ -31,7 +31,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-TEMPLATES = Path(__file__).resolve().parent.parent / "templates" / "repo-presence"
+TEMPLATES = Path(__file__).resolve().parents[2] / "templates" / "ops" / "repo-presence"
 
 REQUIRED = ["repo", "name", "tagline", "live_url", "version", "intro", "stack", "deploy_notes"]
 

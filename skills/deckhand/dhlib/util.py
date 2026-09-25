@@ -1,0 +1,160 @@
+"""Shared plumbing for the dh control plane (stdlib only, Python 3.9+)."""
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+SKILL = Path(__file__).resolve().parent.parent          # .../skills/deckhand
+DATA = SKILL / "data"
+REFS = SKILL / "references"
+TEMPLATES = SKILL / "templates"
+TRYON = SKILL / "tryon"
+
+
+def home() -> Path:
+    """~/.deckhand (DECKHAND_HOME overrides) — the owner's portable state."""
+    return Path(os.environ.get("DECKHAND_HOME") or (Path.home() / ".deckhand"))
+
+
+def now() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def today() -> str:
+    return time.strftime("%Y-%m-%d")
+
+
+def read_json(p: Path, default=None):
+    try:
+        return json.loads(Path(p).read_text(encoding="utf-8"))
+    except Exception:
+        return default
+
+
+def write_json(p: Path, obj) -> None:
+    p = Path(p)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp.write_text(json.dumps(obj, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(tmp, p)
+
+
+def append_jsonl(p: Path, obj) -> None:
+    p = Path(p)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+
+def read_jsonl(p: Path) -> list:
+    p = Path(p)
+    if not p.exists():
+        return []
+    out = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            try:
+                out.append(json.loads(line))
+            except Exception:
+                continue
+    return out
+
+
+def emit(obj, code: int = 0):
+    """Machine-first output: exactly one JSON object on stdout."""
+    sys.stdout.write(json.dumps(obj, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+    return code
+
+
+class DhError(Exception):
+    def __init__(self, code: str, message: str, **extra):
+        super().__init__(message)
+        self.code, self.message, self.extra = code, message, extra
+
+
+def which(cmd: str):
+    """Resolve a launcher to a real executable (Windows PATH carries npm.cmd, not npm)."""
+    return shutil.which(cmd)
+
+
+def run(argv: list, cwd=None, timeout: int = 900, env=None, check=False) -> dict:
+    exe = which(argv[0]) or argv[0]
+    t0 = time.time()
+    try:
+        p = subprocess.run([exe, *argv[1:]], cwd=str(cwd) if cwd else None, capture_output=True, text=True,
+                           timeout=timeout, env={**os.environ, **(env or {})}, encoding="utf-8", errors="replace")
+        res = {"cmd": " ".join(argv), "code": p.returncode, "out": p.stdout[-6000:], "err": p.stderr[-6000:],
+               "ms": int((time.time() - t0) * 1000)}
+    except FileNotFoundError:
+        res = {"cmd": " ".join(argv), "code": 127, "out": "", "err": f"{argv[0]}: not found on PATH", "ms": 0}
+    except subprocess.TimeoutExpired as e:
+        res = {"cmd": " ".join(argv), "code": 124, "out": str(e.stdout or "")[-3000:], "err": "timeout", "ms": timeout * 1000}
+    if check and res["code"] != 0:
+        raise DhError("COMMAND_FAILED", f"{res['cmd']} -> exit {res['code']}", result=res)
+    return res
+
+
+def project_root(p=None) -> Path:
+    """The project: --project, else the nearest parent with .deckhand/ or package.json, else cwd."""
+    if p:
+        return Path(p).resolve()
+    cur = Path.cwd().resolve()
+    for d in [cur, *cur.parents]:
+        if (d / ".deckhand" / "run.json").exists():
+            return d
+    for d in [cur, *cur.parents]:
+        if (d / "package.json").exists() or (d / "pyproject.toml").exists():
+            return d
+    return cur
+
+
+def slugify(s: str, n: int = 48) -> str:
+    s = re.sub(r"[^a-zA-Z0-9]+", "-", str(s)).strip("-").lower()
+    return s[:n] or "project"
+
+
+def package_json(root: Path) -> dict:
+    return read_json(Path(root) / "package.json", {}) or {}
+
+
+def package_manager(root: Path) -> str:
+    root = Path(root)
+    for lock, pm in (("pnpm-lock.yaml", "pnpm"), ("bun.lockb", "bun"), ("bun.lock", "bun"), ("yarn.lock", "yarn"), ("package-lock.json", "npm")):
+        if (root / lock).exists():
+            return pm
+    return "npm"
+
+
+def pm_run(root: Path, script: str) -> list:
+    pm = package_manager(root)
+    return {"npm": ["npm", "run", script], "pnpm": ["pnpm", "run", script], "yarn": ["yarn", script], "bun": ["bun", "run", script]}[pm]
+
+
+def git_files(root: Path) -> list:
+    """Tracked + untracked-not-ignored files (falls back to a walk without node_modules/.git)."""
+    root = Path(root)
+    r = run(["git", "ls-files", "-co", "--exclude-standard"], cwd=root, timeout=60)
+    if r["code"] == 0 and r["out"].strip():
+        return [root / l for l in r["out"].splitlines() if l.strip()]
+    out = []
+    skip = {"node_modules", ".git", ".next", "dist", "build", ".deckhand", ".turbo", ".vercel", "__pycache__"}
+    for dp, dns, fns in os.walk(root):
+        dns[:] = [d for d in dns if d not in skip]
+        out += [Path(dp) / f for f in fns]
+    return out
+
+
+TEXT_EXT = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".md", ".mdx", ".css", ".scss", ".html", ".txt",
+            ".yml", ".yaml", ".toml", ".env", ".example", ".py", ".sql", ".prisma", ".svg", ".xml", ".vue", ".svelte", ".astro"}
+
+
+def is_text(p: Path) -> bool:
+    return p.suffix.lower() in TEXT_EXT or p.name in (".env.example", "Dockerfile", "README", "LICENSE")

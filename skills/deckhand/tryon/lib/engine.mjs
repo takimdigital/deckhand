@@ -238,16 +238,7 @@ export async function open(rootIn, opts) {
     const entryAbs = path.join(root, stage.entry);
     const entryCode = fs.readFileSync(entryAbs, 'utf8');
     if (kind === 'block') {
-      // local names the entry imports from brand-logo files (hidden unless the slot IS a logo cloud)
-      const logoLocals = [];
-      if (slot !== 'logo-cloud' && stage.logoFiles.length) {
-        const east = parse(stage.entry, entryCode);
-        for (const st of east.program.body) {
-          if (st.type !== 'ImportDeclaration') continue;
-          const base = path.posix.basename(st.source.value);
-          if (stage.logoFiles.some((f) => f.replace(/\.(tsx|ts|jsx|js)$/, '') === base)) for (const sp of st.specifiers) logoLocals.push(sp.local.name);
-        }
-      }
+      const logoLocals = logoLocalsFor(stage, entryCode, slot);
       let p;
       try { p = parameterize(stage.entry, entryCode, stage.export, { stripChrome, logoLocals }); } catch (e) {
         skipped.push({ id: cand.id, why: 'PARAMETERIZE_FAILED', detail: e.message.slice(0, 200) });
@@ -344,6 +335,18 @@ export function publicSession(s) {
     }))),
     skipped: s.skipped, installed: s.installed,
   };
+}
+
+/** Local names the entry imports from brand-logo files — hidden unless the slot IS a logo cloud. */
+export function logoLocalsFor(stage, entryCode, slot) {
+  const out = [];
+  if (slot === 'logo-cloud' || !stage.logoFiles || !stage.logoFiles.length) return out;
+  for (const st of parse(stage.entry, entryCode).program.body) {
+    if (st.type !== 'ImportDeclaration') continue;
+    const base = path.posix.basename(st.source.value);
+    if (stage.logoFiles.some((f) => f.replace(/\.(tsx|ts|jsx|js)$/, '') === base)) for (const sp of st.specifiers) out.push(sp.local.name);
+  }
+  return out;
 }
 
 /** Make variant `idx` the visible one in source (headless / persistence). */
@@ -450,7 +453,7 @@ export function pruneFolder(root, dirRel, entryRel) {
  * (hidden demo buttons and logo rows are deleted, not left dormant), and whatever the usage still
  * has to pass (in-scope expressions like {t('x')}) stays a prop. Unused imports/files are pruned.
  */
-function bake(root, fileRel, local, variant) {
+export function bake(root, fileRel, local, variant) {
   const abs = path.join(root, fileRel);
   let code = fs.readFileSync(abs, 'utf8');
   const ast = parse(fileRel, code);
@@ -471,6 +474,7 @@ function bake(root, fileRel, local, variant) {
       const v = p.value;
       if (v.type === 'StringLiteral') values.set(k, { kind: 'string', value: v.value });
       else if (v.type === 'BooleanLiteral') values.set(k, { kind: 'bool', value: v.value });
+      else if (v.type === 'ArrayExpression' && v.elements.every((x) => x && x.type === 'StringLiteral')) values.set(k, { kind: 'array', raw: code.slice(v.start, v.end) });
       else if (v.type === 'JSXFragment' && markupOnly(v)) {
         let txt = '';
         walk(v, (n) => { if (n.type === 'JSXText') txt += n.value; return true; });
@@ -507,8 +511,13 @@ function bake(root, fileRel, local, variant) {
       const k = keyOf(n.left);
       if (!k || live.has(k)) return true;
       const container = parent && parent.type === 'JSXExpressionContainer' ? parent : null;
-      if (!container) return false;
       const lit = values.get(k);
+      if (!container) {
+        // an expression slot (bullets: `(content.bullets1 ?? [...])`): inline the owner's array
+        if (lit && lit.kind === 'array') edits.push({ start: n.start, end: n.end, text: lit.raw });
+        else if (!lit) edits.push({ start: n.start, end: n.end, text: comp.slice(n.right.start, n.right.end) });
+        return false;
+      }
       const inAttr = comp[container.start - 1] === '=';
       let text;
       if (lit && lit.kind !== 'bool') {
@@ -533,14 +542,17 @@ function bake(root, fileRel, local, variant) {
     if (applied.some((o) => o.start <= e.start && e.end <= o.end && o !== e && o.text === '')) continue;
     if (e.text === '__DH_KEEP__') {
       // unwrap: keep the body with every nested edit already applied
+      // top-level edits already applied inside this body (a nested unwrap absorbed its own children)
       const inner = applied.filter((o) => o.start >= e.node.start && o.end <= e.node.end);
       const shift = inner.reduce((acc, o) => acc + (o.text.length - (o.end - o.start)), 0);
       const bodyText = comp.slice(e.node.start, e.node.end + shift);
       comp = comp.slice(0, e.start) + bodyText + comp.slice(e.end + shift);
+      for (const o of inner) applied.splice(applied.indexOf(o), 1);
       applied.push({ start: e.start, end: e.end, text: bodyText });
       continue;
     }
     comp = comp.slice(0, e.start) + e.text + comp.slice(e.end);
+    for (const o of applied.filter((x) => x.start >= e.start && x.end <= e.end)) applied.splice(applied.indexOf(o), 1);
     applied.push(e);
   }
   // `unoptimized` was a preview guard for remote demo images; a local src gets Next's optimizer back
@@ -551,7 +563,10 @@ function bake(root, fileRel, local, variant) {
       .replace(` ${variant.prop} = {},`, '')
       .replace(` & { ${variant.prop}?: Record<string, any> }`, '');
   }
-  parse(variant.entry, comp);
+  try { parse(variant.entry, comp); } catch (e) {
+    if (process.env.DH_DEBUG_BAKE) fs.writeFileSync(process.env.DH_DEBUG_BAKE, comp);
+    throw e;
+  }
   fs.writeFileSync(cAbs, comp);
   pruneFolder(root, path.posix.dirname(variant.entry), variant.entry);
   // the usage keeps only live props
