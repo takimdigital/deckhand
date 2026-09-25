@@ -1,0 +1,298 @@
+/**
+ * materialize.mjs — turn a catalog item into files inside the project, self-contained:
+ *
+ *   <componentsDir>/dh-tryon/<slug>/<slug>.tsx     the entry component
+ *   <componentsDir>/dh-tryon/<slug>/<helper>.tsx   every file it needs that the project lacks
+ *
+ * Rules (the reason v1 swaps broke at import time):
+ *  - EVERY file the item needs is fetched (v1 staged only the entry file);
+ *  - a ui primitive the project already has (button, card, input…) is NOT fetched: the import is
+ *    pointed at the project's own component, so the variant renders in the site's design system;
+ *  - `lib/utils` resolves to the project's cn(); a project without one gets a local copy;
+ *  - bare imports become npm deps (reported; installed by the caller, batched);
+ *  - palette classes -> semantic tokens; 'use client' added when hooks/handlers need it;
+ *  - an attribution header (source URL + licence) is written into every file.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { followGh, fetchJsonItem, importsOf, pkgName, getText } from './registry.mjs';
+import { normalizeClasses } from './theme.mjs';
+import { specFor, depInstalled } from './project.mjs';
+import { libraryDir } from './catalog.mjs';
+
+const require = createRequire(import.meta.url);
+const { parse, walk } = require('./ast.cjs');
+
+const UTILS_SRC = `import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+`;
+const BUILTIN = new Set(['react', 'react-dom', 'next']);
+
+export const slugOf = (item) => (item.r + '-' + item.n).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64);
+export const pascal = (s) => s.replace(/(^|[^a-zA-Z0-9]+)([a-zA-Z0-9])/g, (_, __, c) => c.toUpperCase()).replace(/^[0-9]/, 'C$&');
+
+/** Which import specs the project satisfies itself. Returns the replacement spec, or null. */
+function projectProvides(prof, spec) {
+  const ui = /(?:^|\/)ui\/([a-z0-9-]+)$/.exec(spec);
+  if (ui && (spec.startsWith('@/') || spec.startsWith('~/')) && prof.ui[ui[1]]) return specFor(prof, prof.ui[ui[1]]);
+  if (/(?:^|\/)lib\/utils$/.test(spec) && (spec.startsWith('@/') || spec.startsWith('~/')) && prof.utilsExists) {
+    return specFor(prof, prof.utilsFile);
+  }
+  return null;
+}
+
+/** Upstream typing bugs fixed deterministically so a kept file passes `next build` type checks. */
+export function compatFixes(file, code) {
+  let ast;
+  try { ast = parse(file, code); } catch { return code; }
+  const edits = [];
+  const imgImport = ast.program.body.find((st) => st.type === 'ImportDeclaration' && st.source.value === 'next/image');
+  const imageLocal = imgImport && imgImport.specifiers.find((x) => x.type === 'ImportDefaultSpecifier')?.local.name;
+  walk(ast, (n) => {
+    // next/image in a staged file: `unoptimized`, so a demo's remote host can never crash the page
+    // ("hostname … is not configured under images") — the owner's own images keep their config
+    if (n.type === 'JSXOpeningElement' && n.name.type === 'JSXIdentifier' && n.name.name === imageLocal
+      && !n.attributes.some((a) => a.type === 'JSXAttribute' && a.name.name === 'unoptimized')) {
+      edits.push({ at: n.name.end, text: ' unoptimized' });
+    }
+    // `SVGProps` used bare (React 19 types require the element parameter)
+    if (n.type === 'TSTypeReference' && n.typeName.type === 'Identifier' && n.typeName.name === 'SVGProps' && !n.typeParameters && !n.typeArguments) {
+      edits.push({ at: n.typeName.end, text: '<SVGSVGElement>' });
+    }
+    return true;
+  });
+  edits.sort((a, b) => b.at - a.at);
+  for (const e of edits) code = code.slice(0, e.at) + e.text + code.slice(e.at);
+  return code;
+}
+
+function needsClient(code) {
+  if (/^\s*(['"])use client\1/m.test(code.slice(0, 400))) return false;
+  return /\buse(State|Effect|Ref|Reducer|Context|LayoutEffect|Transition|Id|Memo|Callback|Scroll|InView|Motion\w*|Animation|Media)\b\s*[(<]/.test(code)
+    || /\bon[A-Z][a-zA-Z]+=\{/.test(code) || /from\s+['"](motion\/react|framer-motion)['"]/.test(code)
+    || /\bcreateContext\s*\(/.test(code);
+}
+
+function exportsOf(file, code) {
+  const out = { defaultName: null, hasDefault: false, named: [] };
+  let ast;
+  try { ast = parse(file, code); } catch { return out; }
+  for (const st of ast.program.body) {
+    if (st.type === 'ExportDefaultDeclaration') {
+      out.hasDefault = true;
+      if (st.declaration?.id?.name) out.defaultName = st.declaration.id.name;
+      else if (st.declaration?.type === 'Identifier') out.defaultName = st.declaration.name;
+    } else if (st.type === 'ExportNamedDeclaration') {
+      if (st.declaration?.type === 'FunctionDeclaration' && st.declaration.id) out.named.push(st.declaration.id.name);
+      if (st.declaration?.type === 'VariableDeclaration') for (const d of st.declaration.declarations) if (d.id.name) out.named.push(d.id.name);
+      for (const s of st.specifiers || []) if (s.exported?.name) out.named.push(s.exported.name === 'default' ? (out.hasDefault = true, 'default') : s.exported.name);
+    }
+  }
+  return out;
+}
+
+/** The export a variant usage binds to: default, else the first PascalCase named export. */
+export function entryExport(file, code) {
+  const e = exportsOf(file, code);
+  if (e.hasDefault) return { kind: 'default', name: e.defaultName };
+  const comp = e.named.find((n) => /^[A-Z]/.test(n));
+  return comp ? { kind: 'named', name: comp } : null;
+}
+
+/** Fetch (cached) the normalized bundle for a catalog item. */
+export async function fetchBundle(prof, item) {
+  const errors = [];
+  if (item.local) {
+    // a personal-library item: files on disk, exactly as the owner kept them
+    const dir = path.join(libraryDir(), 'components', item.local);
+    const files = fs.readdirSync(dir).filter((f) => /\.(tsx|ts|jsx|js|css)$/.test(f)).map((f) => ({ path: 'mine/' + item.local + '/' + f, content: fs.readFileSync(path.join(dir, f), 'utf8').replace(/^\/\* .*? \*\/\n/, '') }));
+    const entry = 'mine/' + item.local + '/' + item.entry;
+    const deps = new Set(item.deps || []);
+    const external = {};
+    for (const f of files) for (const imp of importsOf(f.path, f.content)) {
+      const prov = projectProvides(prof, imp.spec);
+      if (prov) external[imp.spec] = prov;
+    }
+    return { origin: 'library', sourceUrl: item.source || 'library:' + item.local, entry, files, deps: [...deps], external, css: null, cssVars: null };
+  }
+  if (item.gh) {
+    try {
+      const repoParts = item.gh.split('/');
+      const repo = repoParts.slice(0, 3).join('/');
+      const entryPath = repoParts.slice(3).join('/');
+      const g = await followGh({ repo, entryPath, stop: (s) => projectProvides(prof, s) });
+      if (g.unresolved.length) throw new Error('UNRESOLVED_IMPORTS ' + g.unresolved.join(', '));
+      return {
+        origin: 'gh', sourceUrl: `https://github.com/${repo.split('/').slice(0, 2).join('/')}/blob/${repoParts[2]}/${entryPath}`,
+        entry: g.entry, files: [...g.files].map(([p, content]) => ({ path: p, content })), deps: [...new Set([...(item.deps || []), ...g.deps])],
+        external: g.external, css: null, cssVars: null,
+      };
+    } catch (e) { errors.push('gh: ' + e.message); }
+  }
+  for (const url of [item.json, item.mirror].filter(Boolean)) {
+    try {
+      const doc = await fetchJsonItem(url);
+      return await jsonBundle(prof, item, doc, url);
+    } catch (e) { errors.push(url + ': ' + e.message); }
+  }
+  if (item.ghFiles?.length) {
+    try {
+      const repo = item.ghFiles[0].split('/').slice(0, 3).join('/');
+      const files = [];
+      for (const f of item.ghFiles) files.push({ path: f.split('/').slice(3).join('/'), content: await getText(`https://raw.githubusercontent.com/${f}`) });
+      return await jsonBundle(prof, item, { files, dependencies: item.deps, registryDependencies: item.rdeps }, `https://github.com/${repo}`);
+    } catch (e) { errors.push('ghFiles: ' + e.message); }
+  }
+  const err = new Error('FETCH_FAILED ' + item.id + ' — ' + errors.join(' | '));
+  err.code = 'FETCH_FAILED';
+  throw err;
+}
+
+/** shadcn-schema JSON -> bundle; unresolved `@/registry|components/ui/x` become shadcn/registry deps. */
+async function jsonBundle(prof, item, doc, url) {
+  const files = (doc.files || []).filter((f) => f.content).map((f) => ({ path: f.path, content: f.content }));
+  const deps = new Set(doc.dependencies || []);
+  const external = {};
+  const have = new Set(files.map((f) => f.path));
+  const extra = [];
+  for (const f of files) {
+    for (const imp of importsOf(f.path, f.content)) {
+      const s = imp.spec;
+      const prov = projectProvides(prof, s);
+      if (prov) { external[s] = prov; continue; }
+      if (s.startsWith('@/') || s.startsWith('~/')) {
+        const local = files.find((x) => x.path.replace(/\.(tsx|ts|jsx|js)$/, '').endsWith(s.replace(/^[@~]\/(registry\/[^/]+\/)?/, '')));
+        if (local) continue;
+        const ui = /(?:^|\/)ui\/([a-z0-9-]+)$/.exec(s);
+        if (ui) { extra.push({ spec: s, name: ui[1] }); continue; }
+        if (/lib\/utils$/.test(s)) continue;           // local utils copy is added at write time
+        extra.push({ spec: s, name: s.split('/').pop() });
+      } else if (!s.startsWith('.') && !imp.typeOnly) {
+        const n = pkgName(s);
+        if (!BUILTIN.has(n)) deps.add(n);
+      }
+    }
+  }
+  // registry-internal deps the item did not embed: shadcn primitives by the project's style
+  for (const x of extra) {
+    const style = prof.base === 'base-ui' ? 'base-nova' : 'new-york-v4';
+    const tries = [`https://ui.shadcn.com/r/styles/${style}/${x.name}.json`];
+    let got = null;
+    for (const u of tries) { try { got = await fetchJsonItem(u); break; } catch { /* next */ } }
+    if (!got) {
+      try {
+        const content = await getText(`https://raw.githubusercontent.com/shadcn-ui/ui/main/apps/v4/registry/${style}/ui/${x.name}.tsx`);
+        got = { files: [{ path: `registry/${style}/ui/${x.name}.tsx`, content }], dependencies: [] };
+      } catch { /* unresolved */ }
+    }
+    if (!got) throw new Error('UNRESOLVED_REGISTRY_DEP ' + x.spec);
+    for (const f of got.files) if (!have.has(f.path)) { files.push({ path: f.path, content: f.content, aliasOf: x.spec }); have.add(f.path); }
+    for (const d of got.dependencies || []) deps.add(d);
+    for (const f of got.files) for (const imp of importsOf(f.path, f.content)) {
+      if (!imp.spec.startsWith('.') && !imp.spec.startsWith('@/') && !imp.typeOnly) { const n = pkgName(imp.spec); if (!BUILTIN.has(n)) deps.add(n); }
+    }
+  }
+  const mainIdx = Math.max(0, files.findIndex((f) => /\.(tsx|jsx)$/.test(f.path) && !/\/ui\//.test(f.path)));
+  const entry = files[mainIdx].path;
+  return { origin: 'json', sourceUrl: url, entry, files, deps: [...deps], external, css: doc.css || null, cssVars: doc.cssVars || null };
+}
+
+/**
+ * Write a bundle into <componentsDir>/dh-tryon/<slug>/. Returns the stage record.
+ */
+export function writeBundle(prof, item, bundle, { baseDir } = {}) {
+  const slug = slugOf(item);
+  const relDir = path.posix.join(baseDir || path.posix.join(prof.componentsDir, 'dh-tryon'), slug);
+  const absDir = path.join(prof.root, relDir);
+  fs.rmSync(absDir, { recursive: true, force: true });
+  fs.mkdirSync(absDir, { recursive: true });
+
+  // placement: entry -> <slug>.<ext>; others -> basename, de-duplicated with their parent dir name
+  const placed = new Map();
+  const used = new Set();
+  const ext = (p) => (/\.(tsx|ts|jsx|js|css)$/.exec(p) || ['', 'tsx'])[1];
+  const entryName = slug + '.' + ext(bundle.entry);
+  placed.set(bundle.entry, entryName);
+  used.add(entryName);
+  for (const f of bundle.files) {
+    if (placed.has(f.path)) continue;
+    let base = path.posix.basename(f.path);
+    if (used.has(base)) base = path.posix.basename(path.posix.dirname(f.path)) + '-' + base;
+    while (used.has(base)) base = '_' + base;
+    used.add(base);
+    placed.set(f.path, base);
+  }
+  const needUtils = bundle.files.some((f) => importsOf(f.path, f.content).some((i) => /lib\/utils$/.test(i.spec) && !bundle.external[i.spec]));
+  if (needUtils) { placed.set('__utils__', 'utils.ts'); used.add('utils.ts'); }
+
+  const resolveTarget = (fromPath, spec) => {
+    if (bundle.external[spec]) return bundle.external[spec];
+    if (/lib\/utils$/.test(spec) && needUtils) return './utils';
+    const cands = [];
+    if (spec.startsWith('.')) cands.push(path.posix.normalize(path.posix.join(path.posix.dirname(fromPath), spec)));
+    const body = spec.replace(/^[@~]\//, '');
+    for (const f of bundle.files) {
+      const noext = f.path.replace(/\.(tsx|ts|jsx|js)$/, '').replace(/\/index$/, '');
+      if (cands.includes(noext) || cands.includes(f.path) || noext.endsWith('/' + body) || noext === body
+        || (f.aliasOf && f.aliasOf === spec)) {
+        return './' + placed.get(f.path).replace(/\.(tsx|ts|jsx|js)$/, '');
+      }
+      // registry-scoped aliases: @/registry/<style>/ui/x ↔ registry/<style>/ui/x
+      if (spec.startsWith('@/registry/') && noext === spec.slice(2)) return './' + placed.get(f.path).replace(/\.(tsx|ts|jsx|js)$/, '');
+    }
+    const ui = /(?:^|\/)ui\/([a-z0-9-]+)$/.exec(spec);
+    if (ui) {
+      const f = bundle.files.find((x) => x.path.replace(/\.(tsx|ts|jsx|js)$/, '').endsWith('/ui/' + ui[1]));
+      if (f) return './' + placed.get(f.path).replace(/\.(tsx|ts|jsx|js)$/, '');
+    }
+    return null;
+  };
+
+  const header = (p) => `/* ${item.t || item.n} — ${item.r}/${item.n} (${item.lic || 'MIT'}) · source: ${bundle.sourceUrl}${p !== bundle.entry ? ' · ' + p : ''} · staged by deckhand try-on */\n`;
+  const written = [];
+  const problems = [];
+  for (const f of bundle.files) {
+    let code = f.content;
+    const imps = importsOf(f.path, code).sort((a, b) => b.start - a.start);
+    for (const imp of imps) {
+      const s = imp.spec;
+      if (!(s.startsWith('.') || s.startsWith('@/') || s.startsWith('~/'))) continue;
+      const t = resolveTarget(f.path, s);
+      if (!t) { problems.push(`${f.path}: cannot resolve ${s}`); continue; }
+      const q = code[imp.start];
+      code = code.slice(0, imp.start) + q + t + q + code.slice(imp.end);
+    }
+    if (/\.(tsx|jsx)$/.test(f.path)) code = normalizeClasses(f.path, code).code;
+    if (/\.(tsx|ts)$/.test(f.path)) code = compatFixes(f.path, code);
+    if (prof.rsc && /\.(tsx|jsx|ts|js)$/.test(f.path) && needsClient(code)) code = `"use client"\n\n` + code;
+    const out = header(f.path) + code;
+    const abs = path.join(absDir, placed.get(f.path));
+    fs.writeFileSync(abs, out);
+    written.push(path.posix.join(relDir, placed.get(f.path)));
+  }
+  if (needUtils) {
+    fs.writeFileSync(path.join(absDir, 'utils.ts'), UTILS_SRC);
+    written.push(path.posix.join(relDir, 'utils.ts'));
+  }
+  const deps = new Set(bundle.deps);
+  if (needUtils) { deps.add('clsx'); deps.add('tailwind-merge'); }
+  const allDeps = [...deps].filter((d) => !BUILTIN.has(d));
+  const missingDeps = allDeps.filter((d) => !depInstalled(prof, d));
+
+  // brand-logo components a design ships as demo social proof (registry svgs/ folders, known marks)
+  const BRANDS = /^(vercel|spotify|supabase|hulu|bolt|beacon|firebase|claude|claude-ai|openai|gemini|google|google-palm|slack|figma|linear|twilio|clerk|github|stripe|nvidia|netflix|cisco|lemon-squeezy|laravel|lilly|nike|column|replit|magic-ui|vs-codium|media-wiki|trustpilot|g2|tailwind|nextjs|zapier|notion|airbnb|microsoft|apple|amazon|meta|paypal|shopify)(-\w+)?\.tsx$/;
+  const logoFiles = [...placed].filter(([repo, base]) => repo !== bundle.entry && (/\/svgs?\//.test(repo) || /\/logos?\//.test(repo) || BRANDS.test(base))).map(([, base]) => base);
+  const entryRel = path.posix.join(relDir, entryName);
+  const entryCode = fs.readFileSync(path.join(prof.root, entryRel), 'utf8');
+  const exp = entryExport(entryRel, entryCode);
+  return {
+    slug, relDir, entry: entryRel, spec: specFor(prof, entryRel) || './' + entryRel, export: exp,
+    files: written, deps: allDeps, missingDeps, problems, sourceUrl: bundle.sourceUrl,
+    css: bundle.css, cssVars: bundle.cssVars, logoFiles,
+  };
+}

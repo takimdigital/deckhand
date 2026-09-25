@@ -1,0 +1,85 @@
+{
+  "version": 2,
+  "updated": "2026-09-24",
+  "policy": "MIT / Apache-2.0 only. A registry is indexed only after its LICENSE was read at the URL in license_evidence. Try-on writes an attribution header (source URL + licence) into every staged file; a kept file keeps it.",
+  "refused": [
+    {"id": "coss (originui)", "reason": "AGPL-3.0"},
+    {"id": "animate-ui", "reason": "MIT + Commons Clause (not OSI MIT)"},
+    {"id": "aceternity", "reason": "custom licence, paid tiers"},
+    {"id": "21st.dev", "reason": "marketplace ToS, no redistribution grant"},
+    {"id": "tailark.com (pro)", "reason": "paywalled blocks (401) — the MIT OSS registry below is the free source"},
+    {"id": "cult-ui", "reason": "endpoint bot-challenged (429) for every client — not installable"}
+  ],
+  "registries": [
+    {
+      "id": "tailark-oss",
+      "name": "Tailark OSS",
+      "license": "MIT",
+      "license_evidence": "https://github.com/tailark/blocks/blob/main/LICENCE.md",
+      "homepage": "https://tailark.com",
+      "adapter": "tailark-oss",
+      "gh": "tailark/blocks/main",
+      "kits": ["dusk", "mist", "veil"],
+      "bases": {
+        "radix": "https://oss-tailark.com/r/radix/{name}",
+        "base-ui": "https://oss-tailark.com/r/{name}"
+      },
+      "import_roots": {"@/registry/": "registry/"},
+      "notes": "Marketing blocks (hero, features, pricing, cta, faq, testimonials, footer, logo-cloud, stats, team, contact, login, sign-up …) in three kits. Fetched from the MIT GitHub source; imports are followed file by file."
+    },
+    {
+      "id": "shadcn",
+      "name": "shadcn/ui",
+      "license": "MIT",
+      "license_evidence": "https://github.com/shadcn-ui/ui/blob/main/LICENSE.md",
+      "adapter": "shadcn-schema",
+      "styles": {"new-york-v4": "radix", "base-nova": "base-ui"},
+      "index": "https://ui.shadcn.com/r/styles/{style}/registry.json",
+      "item": "https://ui.shadcn.com/r/styles/{style}/{name}.json",
+      "gh": "shadcn-ui/ui/main/apps/v4",
+      "notes": "Primitives + app blocks (login, signup, sidebar, dashboard). Primitive names are also the canonical `ui/<name>` a block may depend on."
+    },
+    {
+      "id": "magicui",
+      "name": "Magic UI",
+      "license": "MIT",
+      "license_evidence": "https://github.com/magicuidesign/magicui/blob/main/LICENSE.md",
+      "adapter": "shadcn-schema",
+      "base": "any",
+      "index": "https://magicui.design/r/registry.json",
+      "item": "https://magicui.design/r/{name}.json",
+      "mirror": "https://raw.githubusercontent.com/magicuidesign/magicui/main/apps/www/public/r/{name}.json",
+      "notes": "Effects and animated primitives (buttons, text effects, backgrounds, marquee). Many need `motion`."
+    },
+    {
+      "id": "kokonutui",
+      "name": "KokonutUI",
+      "license": "MIT",
+      "license_evidence": "https://github.com/kokonut-labs/kokonutui/blob/main/LICENSE",
+      "adapter": "shadcn-schema",
+      "base": "any",
+      "index": "https://kokonutui.com/r/registry.json",
+      "item": "https://kokonutui.com/r/{name}.json"
+    },
+    {
+      "id": "smoothui",
+      "name": "SmoothUI",
+      "license": "MIT",
+      "license_evidence": "https://github.com/educlopez/smoothui/blob/main/LICENSE",
+      "adapter": "shadcn-schema",
+      "base": "any",
+      "index": "https://smoothui.dev/r/registry.json",
+      "item": "https://smoothui.dev/r/{name}.json"
+    },
+    {
+      "id": "basecn",
+      "name": "basecn",
+      "license": "MIT",
+      "license_evidence": "https://github.com/akash3444/basecn/blob/main/LICENSE",
+      "adapter": "shadcn-schema",
+      "base": "base-ui",
+      "index": "https://basecn.dev/r/registry.json",
+      "item": "https://basecn.dev/r/{name}.json"
+    }
+  ]
+}
