@@ -111,6 +111,11 @@ def build_parser():
 
     p = sub.add_parser("harvest"); p.add_argument("--name", required=True); p.add_argument("--to"); p.add_argument("--repo"); p.add_argument("--public", action="store_true")
     p.add_argument("--push", action="store_true", help="secret scan, then a private repo on your GitHub + your library index")
+    p = sub.add_parser("research", help="evidence: brief · add/seen (shared sources) · merge · verify (quotes re-checked) · score (cost of a run)")
+    p.add_argument("action", choices=["brief", "add", "seen", "merge", "verify", "score"]); p.add_argument("target", nargs="?")
+    p.add_argument("--focus"); p.add_argument("--agent"); p.add_argument("--by"); p.add_argument("--kind", default=""); p.add_argument("--note", default="")
+    p.add_argument("--refresh", action="store_true"); p.add_argument("--offline", action="store_true")
+    p.add_argument("--baseline"); p.add_argument("--research"); p.add_argument("--baseline-research")
     p = sub.add_parser("seo", help="be found on Google and in AI answers: audit · apply (add/improve, never overwrite) · undo · ping · facts")
     p.add_argument("action", choices=["audit", "apply", "undo", "ping", "facts"]); p.add_argument("--url")
     sub.add_parser("handoff")
@@ -304,6 +309,27 @@ def dispatch(a):
     if c == "harvest":
         from . import harvest as H
         return H.harvest(root, a.name, Path(a.to) if a.to else None, a.repo, private=not a.public, push=a.push)
+    if c == "research":
+        from . import research as RS
+        if a.action == "brief":
+            if not a.focus or not a.agent:
+                raise DhError("USAGE", "dh research brief --focus " + "|".join(RS.POLICY["focus"]) + " --agent ID")
+            return RS.brief(root, a.focus, a.agent)
+        if a.action == "add":
+            if not a.target:
+                raise DhError("USAGE", "dh research add URL --by ID --kind K --note \"dense facts\"")
+            return RS.add_source(root, a.target, a.by or "", a.kind, a.note)
+        if a.action == "seen":
+            return RS.seen(root, a.target)
+        if a.action == "merge":
+            return RS.merge(root)
+        if a.action == "score":
+            return RS.score(root, a.target, a.baseline, a.research, a.baseline_research)
+        r = RS.verify(root, refresh=a.refresh, offline=a.offline)
+        if not r["ok"]:
+            raise DhError("RESEARCH_UNVERIFIED", f"{r['summary']['mismatch']} quotes not on their page, {r['summary']['invalid']} invalid claims, "
+                          f"{r['summary']['terms_bad']} bad terms — fix or relabel (references/research-card.md)", **r)
+        return r
     if c == "seo":
         from . import seo as SEO
         if a.action == "apply":

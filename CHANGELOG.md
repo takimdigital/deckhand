@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.1.0] — 2026-09-25 — research you can check, not trust
+
+- **Claims with proof.** Research facts live in `research.json → claims[]`, each with a label (VERIFIED ·
+  SECONDARY · INFERRED · NOT_FOUND), the page's url and a verbatim quote. INFERRED names the claims it is derived
+  from; NOT_FOUND says what was tried.
+- **`dh research verify`** fetches every cited page and checks each quote is really on it (visible text only:
+  a sentence hidden in a script does not count; curly quotes, non-breaking spaces and `…` joins are handled).
+  Pages that block robots or draw themselves with JavaScript are reported as unchecked, never as failed. Page text
+  is cached (gitignored), so `--offline` re-checks without the network.
+- **Vocabulary harvested, never invented.** `vocabulary[]` holds terms copied from real pages (kind customer,
+  trade or search) with a quote that contains the term. Guessed terms hurt search exactly on unfamiliar niches
+  (Abe et al., SIGIR 2025), so the plan, the copy and the SEO use harvested ones.
+- **A research card** (`references/research-card.md`, ~40 lines) is the only search guidance an agent reads:
+  query → read snippets → diagnose → one change; never reword a failed query; stop at DONE_WHEN.
+- **`dh research brief --focus F --agent ID`** pre-fills each agent's questions (target, primary source, when
+  to stop, whether it goes stale) from `data/research.json` and the owner's brief.
+- **One shared source list** (`dh research add` / `dh research seen`): parallel agents never read the same page
+  twice; each writes only its own `research/agents/ID.json`, and `dh research merge` is the single writer.
+- **`dh research score`** measures a research run from its session log (Claude Code, including sub-agents, or
+  any one-JSON-per-search trace): searches, page reads, duplicate reads, repeated queries (one word added or
+  removed counts as the same query), zero-gain streaks, tokens, and searches or tokens per proven claim.
+  `--baseline` compares two runs.
+- **The research phase** is done only with claims, ≥ 3 harvested terms and a `dh research verify` run after the
+  last edit.
+
 ## [2.0.0] — 2026-09-25 — Deckhand v2 (full rework)
 
 One skill (`skills/deckhand`), one control plane (`dh`), one try-on engine. The five v1 skills

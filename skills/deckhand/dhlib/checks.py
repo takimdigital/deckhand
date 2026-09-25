@@ -37,7 +37,18 @@ def research(root: Path, s: dict) -> dict:
         why.append("conversion.plays missing (what makes the best in this niche convert)")
     if not (r.get("features") or {}).get("now"):
         why.append("features.now missing (what must exist on day one)")
-    return _res(not why, why, "research is evidence: every claim carries its URL")
+    from . import research as RS
+    if not r.get("claims") and not list((root / ".deckhand" / "research" / "agents").glob("*.json")):
+        why.append("claims[] missing — each fact with label, url and verbatim quote (references/research-card.md)")
+    if len(RS._all_vocab(root)) < RS.POLICY["min_vocabulary"]:
+        why.append(f"vocabulary: {RS.POLICY['min_vocabulary']}+ terms harvested from real pages (term, kind, url, quote)")
+    v = RS.verified_now(root)
+    if v is None:
+        why.append("run `dh research verify` (after the last change to research.json): every quote is fetched and checked")
+    elif not v.get("ok"):
+        s = v["summary"]
+        why.append(f"dh research verify: {s['mismatch']} quotes not on their page, {s['invalid']} invalid claims, {s['terms_bad']} bad terms")
+    return _res(not why, why, "research is evidence: every claim carries its label, URL and a quote that is really on the page")
 
 
 def plan(root: Path, s: dict) -> dict:

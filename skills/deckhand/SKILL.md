@@ -1,7 +1,7 @@
 ---
 name: deckhand
 description: "Idea → live, owned web business on a $5 VPS (or $0): define, research, plan the page/feature graph, build from a vetted MIT base or scratch, rebrand, live-swap sections for licensed designs (try-on), verify, deploy to Coolify, operate with bots, learn from every failure, resume any project from any fresh session or AI. Use for building, launching, redesigning, deploying or maintaining a website/SaaS/booking/catalogue/lead-gen business, for component try-on/swap, for ops bots/crons, or to turn a project into a reusable base."
-version: 2.0.0
+version: 2.1.0
 license: MIT
 compatibility: "Any agent harness that can run shell commands (Claude Code, Codex, Cursor, Hermes, OpenCode, Gemini CLI …). Needs Python 3.9+ (stdlib) and Node 18+ for try-on/compose. Windows: `py` instead of `python3`."
 metadata:
@@ -42,7 +42,7 @@ owner; never re-derive what a script computes.
 | # | phase | done when (the check) | gate after (phased mode) | reference |
 |---|---|---|---|---|
 | 1 | define | brief has business, shape, languages, audience | — | `references/00-define.md` |
-| 2 | research | 3 competitors w/ URL + strengths + gaps; audience; conversion plays; day-one features | — | `references/10-research.md` |
+| 2 | research | 3 competitors w/ URL + strengths + gaps; audience; conversion plays; day-one features; claims with quotes that `dh research verify` finds on their pages; ≥ 3 harvested terms | — | `references/10-research.md` |
 | 3 | plan | `dh plan lint` = 0 errors (no dead end, no orphan, no un-owned API, forms have success+error) | **G1** plan approved | `references/20-plan.md` |
 | 4 | build | base recorded + the app answers on its dev URL | **G2** owner tested it locally | `references/30-build.md` |
 | 5 | brand | `dh rebrand check` has 0 blocking findings (+ SEO: `references/45-seo.md`) | — | `references/40-brand.md` |
@@ -103,6 +103,7 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
 | resume a session | `dh resume [--check [--online]]` · `dh note decision\|doing\|next "…"` · `dh resume --install-hook claude` (adds `dh resume --hook` as a SessionStart hook) |
 | owner profile / secrets | `dh profile show\|doctor\|set k=v [--here\|--machine]` · `dh vault set NAME [--here\|--machine]` (value via stdin) · `dh vault list` |
 | bases | `dh pool query [--shape --features]` · `dh pool show N` · `dh pool vet owner/repo` · `dh pool add owner/repo [--mine]` (vetted) |
+| research | `dh research brief --focus F --agent ID` · `dh research seen\|add URL` (shared sources) · `dh research merge` · `dh research verify` (every quote re-checked on its page) · `dh research score [LOG] [--baseline LOG]` |
 | plan | `dh plan init\|lint\|render\|split --agents N` · `dh bb post\|read` (shared memory for parallel agents) |
 | build | `dh clone T --to DIR` · `dh adopt PATH\|URL` · `dh scaffold --to DIR` · `dh compose --sections … --copy .deckhand/copy.json` · `dh swap scan\|check` · `dh dev start\|stop\|status` |
 | brand | `dh rebrand scan\|apply\|check` |

@@ -12,6 +12,8 @@
   },
   "discovery": { "keywords": [], "local": false, "pages_that_rank": [] },
   "features": { "now": [], "later": [], "not": [] },
+  "claims": [],
+  "vocabulary": [],
   "unproven": [],
   "sources": []
 }

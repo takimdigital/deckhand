@@ -12,7 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <a href="https://github.com/takimdigital/deckhand-skill/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/takimdigital/deckhand-skill/ci.yml?branch=main&label=CI"></a>
-  <img alt="Version: 2.0.0" src="https://img.shields.io/badge/version-2.0.0-blueviolet.svg">
+  <img alt="Version: 2.1.0" src="https://img.shields.io/badge/version-2.1.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes, OpenCode, Gemini CLI" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
@@ -114,6 +114,12 @@ what would be accepted instead.
 (`dh harvest --push`): brand removed, secret scan first, marked "verified + live". Next client: one command
 to start from it, from any computer.
 
+**Research you can check, not trust.** Every fact about your market (a competitor's price, what customers
+complain about, a local rule) is stored with the exact sentence it came from and the page it's on. Deckhand
+reopens every page and checks the sentence is really there, so an invented or misremembered "fact" can't slip
+into your plan. The words your customers actually use are copied from real pages, not guessed. When several
+agents research at once, none of them reads a page another one already read.
+
 **Found on Google and in AI answers, from day one.**
 - **What the scripts write, from your own facts:** crawl rules, a sitemap, a title and description per page,
   canonicals, the card shown when someone shares your link, your business details for search engines, a real 404
@@ -170,7 +176,7 @@ Run for real in this release:
 - Session resume, tested in CI on Ubuntu and Windows: the summary is rebuilt after every command, the "safe to start fresh"
   verdict turns NO on unexplained edits and failures, the re-check catches a stale verify or a plan edited after
   approval, and one client's keys are invisible from another client's project.
-- CI on every push, Ubuntu and Windows: 46 try-on + 68 control-plane + 40 server-client + 17 repo tests.
+- CI on every push, Ubuntu and Windows: 46 try-on + 76 control-plane + 40 server-client + 17 repo tests.
 
 Not yet proven live: a full `dh deploy ship` against a real server (it uses the same Coolify client that
 was proven live in v1), the first real run of the $0 Oracle track, and the Claude Code session hook inside a

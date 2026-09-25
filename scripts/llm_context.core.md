@@ -64,7 +64,8 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
 | <project>/.deckhand/run.json | [[dhlib/state.py#save]] | [[dhlib/state.py#load]] | name, mode phased/auto, path pool/mine/existing/scratch, phases{status}, gates{status}, base |
 | .deckhand/history.jsonl | [[dhlib/state.py#log]] | humans | init / phase_done / gate / reopen events |
 | .deckhand/brief.json | [[dhlib/cli.py#cmd_brief]] | checks, pool.query, brand, sitelinks, harvest | business, shape, languages, audience, brand{name,tagline,primary,logo,social} ([[templates/brief.json]]) |
-| .deckhand/research.json | the agent | [[dhlib/checks.py#research]] | 3 competitors with URL, strengths and gaps; audience; conversion plays; features.now ([[templates/research.json]]) |
+| .deckhand/research.json | the agent (summary) · [[dhlib/research.py#merge]] (claims[], vocabulary[]) | [[dhlib/checks.py#research]], [[dhlib/research.py#verify]] | 3 competitors with URL, strengths and gaps; audience; conversion plays; features.now; claims {id, label, url, quote}; vocabulary {term, kind, url, quote} ([[templates/research.json]]) |
+| .deckhand/research/agents/ID.json · sources.jsonl · verify.json · cache/ (gitignored) | each research agent (its own file only) · [[dhlib/research.py#add_source]] · [[dhlib/research.py#verify]] · [[dhlib/research.py#page_text]] | merge · `dh research seen` · checks.research ([[dhlib/research.py#verified_now]]) | claims + terms per agent · pages read with notes (append-only) · quote results + research_sha · fetched page text |
 | .deckhand/sitemap.json | the agent, after [[dhlib/plan.py#init]] | [[dhlib/plan.py#lint]], render, split, sitelinks, verify routes | pages, actions with typed targets, nav, forms, features, entities ([[templates/sitemap.json]]) |
 | .deckhand/PLAN.md · work/WP-*.md · blackboard.jsonl | [[dhlib/plan.py#render]] · [[dhlib/plan.py#split]] · [[dhlib/plan.py#bb_post]] | owner · sub-agents | the plan for G1; one work package per bounded context; contract/done/blocker posts |
 | .deckhand/copy.json | the agent | [[tryon/compose.mjs]] | section copy (schema in compose.mjs header; footer.columns/social, navbar.links) |
@@ -410,6 +411,21 @@ F18 RESUME (any session, any AI)
 - Cold start: `dh init` → [[dhlib/resume.py#agent_entry]]; Claude Code → [[dhlib/resume.py#install_hook]] +
   [[dhlib/resume.py#hook]] (finds the project from the hook's stdin cwd, [[dhlib/resume.py#stdin_if_piped]] never hangs).
 
+F19 RESEARCH EVIDENCE
+- `dh research brief --focus F --agent ID` ([[dhlib/research.py#brief]]): questions from [[data/research.json]] filled
+  from the brief (business, audience, market, language), budget, pages already read, vocabulary so far, the card
+  [[references/research-card.md]].
+- Agents: `dh research seen URL` → open → `dh research add URL --by ID` (append-only [[dhlib/research.py#add_source]];
+  returns other agents' notes) → claims + vocabulary in research/agents/ID.json.
+- `dh research verify` → [[dhlib/research.py#merge]] (single writer; DUP_ID refuses) → per item
+  [[dhlib/research.py#_problems]] (label rules) → [[dhlib/research.py#page_text]] (visible text via _Text: no
+  script/style; meta description and alt kept; cached) → [[dhlib/research.py#quote_in]] (normalized, `…` joins parts).
+  Statuses: found · mismatch · invalid · unchecked (blocked, error, PDF, < 200 chars = JS-drawn). ok = no mismatch,
+  no invalid claim, no bad term → [[!RESEARCH_UNVERIFIED]] otherwise.
+- `dh research score` → [[dhlib/research.py#load_trace]] (Claude Code tool_use/tool_result + toolUseResult urls,
+  usage deduped by message id, tool calls deduped by id; or generic {query, results, opened}) →
+  [[dhlib/research.py#metrics]] ([[dhlib/research.py#near_repeat]]: same words ±1 or ≥ 80% shared) + outcome.
+
 ## ROUTING — "to change X, edit Y (and prove it in Z)"
 | change | edit | prove in |
 |---|---|---|
@@ -445,6 +461,7 @@ F18 RESUME (any session, any AI)
 | owner-facing docs | [[README.md]] · [[docs/USE-CASES.md]] · [[skills/deckhand/SKILL.md]] | [[scripts/version_check.py]] (versions) |
 | secret patterns / redaction / project gitignore | [[data/secrets.json]] · [[dhlib/util.py#redact]] · [[dhlib/util.py#ensure_gitignore]] | [[skills/deckhand/tests/test_security.py]], [[skills/deckhand/tryon/test/hardening.test.mjs]] |
 | resume, notes, switch verdict, cold-start entry, hook, project profile/vault layer | [[dhlib/resume.py]] · [[dhlib/profile.py]] · [[dhlib/cli.py#_refresh]] | [[skills/deckhand/tests/test_resume.py]] |
+| research evidence: labels, quote check, sources, brief questions, scoring | [[dhlib/research.py]] · [[data/research.json]] · [[references/research-card.md]] | [[skills/deckhand/tests/test_research.py]] |
 | SEO rules, owner facts, crawler lists | [[data/seo.json]] · [[dhlib/seo.py]] (checks, PENDING block, ping) · [[tryon/lib/seo.mjs]] (writes) | [[skills/deckhand/tests/test_seo.py]], [[skills/deckhand/tryon/test/seo.test.mjs]] |
 | docs ↔ commands, README numbers | whatever changed (docs, SKILL.md §4, README) | [[scripts/test_repo_coherence.py]] |
 | this file | code (generated part) · [[scripts/llm_context.core.md]] (curated part) · [[scripts/llm_context.py]] | [[scripts/test_llm_context.py]] |
