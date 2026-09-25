@@ -12,6 +12,15 @@ holds a HANDOFF.md. **Output:** `dh phase done deploy`.
    `OPS.md`). Email: `70-auth-and-email.md`. Backups: `55-offsite-backups.md`. Uploads: `56-app-object-storage.md`.
 5. Record the target: `dh deploy target --app <coolify-app-uuid> --url https://<domain>`.
 
+## No domain yet ($0, or "just let me see it live")
+A domain is optional for a preview. Coolify gives every app a generated address on `sslip.io`
+(`http://<app-id>.<server-ip>.sslip.io`, shown on the app's page) when the server has no wildcard domain.
+Use it as the target: `dh deploy target --app <uuid> --url http://<…>.sslip.io`. Setting the address to
+`https://…` asks Traefik for a Let's Encrypt certificate; if issuance fails, keep http for the preview.
+`dh deploy smoke` then carries a warning (`NO_TLS` / `PREVIEW_URL`), and HANDOFF.md labels the site
+"preview". Hard rule: **no logins, payments or personal data over plain http**. Those features stay off
+(or the owner adds a free or paid domain via `20-domain-dns-ssl.md` / `21-free-domain-cloudflare.md`) before G4.
+
 ## Every release
 `dh deploy ship` = clean tree required → `git push` → Coolify deploy → wait for a terminal deployment of
 THIS commit (a stale success is not success) → smoke (200 + brand name on the page) → `deploy.json`.

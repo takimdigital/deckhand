@@ -31,9 +31,16 @@ $T keep --id <S> --idx 2      # or: discard --id <S>   (byte-exact restore)
   never gets Base UI code), missing deps, personal library first, then design diversity.
 - Theme: palette classes → the project's semantic tokens; the site's own `components/ui/*` primitives are
   reused; a site without tokens gets a token layer derived from its own background/foreground + measured accent.
-- Content: headings, text, prices, buttons+links, images, inputs and `.map()` list data are transplanted by
-  role/order; repeated cards pair item by item; extra demo buttons/cards hide; brand-logo rows and stock
-  photos never pass as the owner's. The bar shows the fit ("your content 8/8") and dashes any demo copy.
+- Content: headings, text, prices, buttons+links (CTA to CTA, link to link), images, inputs and `.map()`
+  list data are transplanted by role/order; repeated cards pair item by item (twin rows of the same card
+  shape count as one list; the row that fits the owner's count wins, unused rows hide whole); two-tone
+  headings take the heading in the bright half and a subtitle, or nothing, in the muted half; extra demo
+  buttons/cards hide; brand-logo rows, stock photos and the design's `©` never pass as the owner's.
+- Honesty: a design form (newsletter, "enter your email") is hidden unless the slot is a form page
+  (contact, login, signup) or the owner's element has one; footer/navbar menus come from the plan
+  (`.deckhand/sitemap.json` nav + page titles) and social rows keep only the owner's networks
+  (`brief.brand.social`). The bar shows the fit ("your content 8/8") and dashes any demo copy that is left;
+  keep records it in `.deckhand/demo-copy.json`, which `dh rebrand check` blocks on until rewritten.
 - Keep: wrapper collapses to one component under `components/sections/<slug>/`, literal copy baked in,
   show/hide switches resolved, unused files pruned, `THIRD_PARTY_NOTICES.md` updated.
 - Production: stamps are dev-only (`dh verify` row `prod-clean`); `$T clean` unwires before release

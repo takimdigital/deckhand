@@ -28,8 +28,14 @@ def write(root: Path) -> dict:
     if (root / "PENDING.md").exists():
         pending = [l for l in (root / "PENDING.md").read_text(encoding="utf-8").splitlines() if l.startswith("- [ ]")]
     prof = PROFILE.load()
-    L = [f"# {name} — handoff", "", f"_Written {now()} by deckhand. Secrets are never in this file — only where they live._", ""]
-    L += ["## Live", "", f"- **Site:** {dep.get('url') or '(not deployed yet)'}",
+    url = dep.get("url") or ""
+    preview = url.startswith("http://") or bool(re.search(r"\.(sslip|nip)\.io(/|$)", url)) or (prof.get("hosting") or "").startswith("free")
+    L = [f"# {name} — handoff" + (" (PREVIEW)" if preview else ""), "", f"_Written {now()} by deckhand. Secrets are never in this file — only where they live._", ""]
+    if preview:
+        L += ["> **Preview deployment.** " + ("No HTTPS: do not take logins, payments or personal data here. " if url.startswith("http://") else "")
+              + "Going to production = a domain + HTTPS (references/ops/20-domain-dns-ssl.md) and, from the free tier, "
+              "references/ops/60-migrate-to-paid.md.", ""]
+    L += ["## Live", "", f"- **Site:** {url or '(not deployed yet)'}" + (" — preview" if preview else ""),
           f"- **Last release:** {(dep.get('last') or {}).get('commit', '—')[:12]} · smoke {'OK' if (dep.get('smoke') or {}).get('ok') else 'not proven'}",
           f"- **Signed-in areas:** {', '.join(admin) or 'none'}",
           f"- **Server dashboard (Coolify):** {((prof.get('coolify') or {}).get('url')) or 'see references/ops/10-bootstrap-vps.md'} — reachable through the SSH tunnel only", ""]

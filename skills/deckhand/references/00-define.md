@@ -21,7 +21,7 @@
 | Q6 | brand | name, tagline, colour, logo (or "derive it") | derive |
 | Q7 | money | subscription · one-off · commission · invoice · not yet | — |
 | Q8 | content | "Do you have real copy/photos, or should I draft and you correct?" | draft-then-correct |
-| Q9 | hosting | own VPS + domain · free preview ($0: Oracle + free domain) · undecided | profile |
+| Q9 | hosting | own VPS + domain · free preview ($0: Oracle + free domain, or no domain: Coolify's generated URL) · undecided | profile |
 
 4. Write it: `dh brief set business="…" shape=… languages=fr,en audience="…" features=… brand.name="…"`.
    `dh init` first if there is no run (`--mode`, `--path` from Q0/Q1).

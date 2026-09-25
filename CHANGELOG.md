@@ -35,11 +35,21 @@ the measured template pool).
   cache + fixture replay, materialize, theme normalization, transplant, keep/bake/prune, byte-exact
   discard, save to library, headless CLI, `compose` (a page from blocks + copy).
 - Multi-harness installer (`install.sh`, `install.ps1`), `AGENTS.md`, offline CI.
+- Compose/try-on content fidelity: CTA-vs-link pairing, copyright line → `© <year> <brand>`, compound
+  component roles (`AccordionTrigger`…), lead/body paragraph split, twin card rows as one list, two-tone
+  headings, footer/navbar menus from the plan (`lib/sitelinks.mjs`), social rows filtered to the owner's
+  networks, design forms hidden unless wired, one `<h1>` per page, design-family coherence, and a
+  demo-copy ledger (`.deckhand/demo-copy.json`) that `dh rebrand check` enforces.
+- No-domain preview: `dh deploy smoke` warns on plain http / generated `sslip.io` URLs; HANDOFF.md is
+  labelled PREVIEW with the no-logins-over-http rule.
 
 ### Verified
 - Chromium end-to-end on a real Next 16.3.6 app: pick → 3 hero variants with the owner's copy (4/4) →
   cycle → keep (baked, pruned, licence recorded) → save to library; CTA try → discard byte-exact.
+- Scratch compose of a 6-section landing page from live Tailark OSS blocks (~6 s): 34/34 owner words
+  placed, footer menu from the plan, typecheck clean; `dh rebrand check` blocked the one leftover demo
+  sentence and passed after it was rewritten.
 - `next build` after keep: type-check passes; 0 stamped files in the production output.
-- Suites: 22 node (try-on) · 18 unittest (dh) · 40 pytest (ops clients).
+- Suites: 26 node (try-on) · 19 unittest (dh) · 40 pytest (ops clients).
 
 v1 history: see the git log of `main` up to 6832e0f.

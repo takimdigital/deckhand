@@ -56,6 +56,11 @@ def smoke(root: Path, url: str | None = None, contains: str | None = None) -> di
         rc = CA.smoke(url + "/", expect=200, contains=contains)
     d["url"] = url
     d["smoke"] = {"ok": rc == 0, "at": now(), "evidence": buf.getvalue().strip(), "contains": contains}
+    if url.startswith("http://"):
+        # the no-domain preview (Coolify's generated sslip.io URL) is fine to show — not to take logins or money
+        d["smoke"]["warning"] = "NO_TLS: plain http — preview only; no logins, payments or personal data until a domain + HTTPS (references/70-deploy.md)"
+    elif ".sslip.io" in url or ".nip.io" in url:
+        d["smoke"]["warning"] = "PREVIEW_URL: a generated address — fine to share for feedback; add a domain before launch"
     write_json(deploy_path(root), d)
     return d["smoke"]
 

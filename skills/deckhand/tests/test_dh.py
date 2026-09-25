@@ -13,7 +13,7 @@ from pathlib import Path
 SKILL = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SKILL))
 
-from dhlib import brand, build, harvest, learn, ops, plan, pool, profile, state  # noqa: E402
+from dhlib import brand, build, deploy, handoff, harvest, learn, ops, plan, pool, profile, state  # noqa: E402
 from dhlib.cli import main  # noqa: E402
 from dhlib.util import DhError, read_json, write_json  # noqa: E402
 
@@ -225,6 +225,38 @@ class Ops(Base):
         p = subprocess.run([sys.executable, str(self.root / "ops" / "bots" / "watchdog.py")], env=env, capture_output=True, text=True, timeout=60)
         self.assertEqual(p.returncode, 1)
         self.assertIn("DOWN", p.stdout)
+
+
+class Deploy(Base):
+    def test_no_domain_preview_passes_smoke_with_a_tls_warning_and_the_handoff_says_preview(self):
+        import http.server
+        import threading
+
+        class Page(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                body = b"<html><body><h1>Maison Levain</h1></body></html>"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *a):
+                pass
+        srv = http.server.HTTPServer(("127.0.0.1", 0), Page)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            write_json(self.root / ".deckhand" / "brief.json", {"brand": {"name": "Maison Levain"}})
+            deploy.target(self.root, "app-uuid", f"http://127.0.0.1:{srv.server_port}")
+            sm = deploy.smoke(self.root)
+            self.assertTrue(sm["ok"], sm)
+            self.assertIn("NO_TLS", sm["warning"])
+            handoff.write(self.root)
+            text = (self.root / "HANDOFF.md").read_text(encoding="utf-8")
+            self.assertIn("(PREVIEW)", text.splitlines()[0])
+            self.assertIn("do not take logins, payments", text)
+        finally:
+            srv.shutdown()
 
 
 class Profile(Base):

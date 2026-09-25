@@ -10,6 +10,23 @@
 | existing | `dh adopt <folder\|git-url>` | history kept; stack detected; nothing rewritten |
 | scratch | `dh scaffold --to <dir>` then `dh compose --sections hero,features,pricing,faq,cta,footer --copy .deckhand/copy.json` | create-next-app + UI base (tokens, `cn`, Button); compose assembles licensed blocks filled with the plan's copy — no code generation |
 
+### copy.json (scratch path) — the only input the model writes: words, never code
+```json
+{ "hero":     { "eyebrow": "…", "heading": "…", "text": ["…"], "actions": [{ "label": "…", "href": "/order" }],
+                "image": { "src": "/hero.jpg", "alt": "…" } },
+  "features": { "heading": "…", "text": ["subtitle"], "items": [{ "title": "…", "text": "…" }] },
+  "pricing":  { "heading": "…", "items": [{ "title": "…", "price": "€9", "text": "…", "bullets": ["…"],
+                "action": { "label": "…", "href": "…" } }] },
+  "faq":      { "heading": "…", "items": [{ "title": "question", "text": "answer" }] },
+  "footer":   { "text": ["…"], "columns": [{ "title": "…", "links": [{ "label": "…", "href": "/x" }] }],
+                "social": ["https://instagram.com/…"] } }
+```
+Every owner word comes from the plan (never invented); missing facts → `PENDING.md`. Footer columns default
+to the sitemap's `nav` (page titles as labels). A section that must keep the design's form says
+`"form": true`, and its WP must then wire it with success and error states. Compose scores up to 8 designs per
+section (owner words carried, demo left, design family) and reports `dropped` / `demo_copy`: rewrite those
+words, never delete the report.
+
 ## Swap rented services (pool/existing bases)
 `dh swap scan` → `.deckhand/swap-map.json`. Replace ONE vendor at a time, keeping the base's call-site
 interfaces (an adapter module), then `dh swap check` (vendor SDK absent + target present). Targets:
