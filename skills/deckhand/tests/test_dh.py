@@ -110,12 +110,36 @@ class Planner(Base):
         idx = plan.split(self.root, agents=2)
         ids = [p["id"] for p in idx["packages"]]
         self.assertIn("WP-00", ids)
-        self.assertEqual({p["agent"] for p in idx["packages"]}, {1, 2})
+        self.assertEqual({p["agent"] for p in idx["packages"]}, {0, 1, 2})          # 0 = the orchestrator's shell, before dispatch
+        self.assertEqual(idx["agents"], 2)
+        self.assertEqual([d["give"] for d in idx["dispatch"]], [".deckhand/work/AGENT-1.md", ".deckhand/work/AGENT-2.md"])
         wp = next(self.root.glob(".deckhand/work/WP-01-*.md")).read_text(encoding="utf-8")
         self.assertIn("MUST NOT edit files owned by another package", wp)
         self.assertIn("POST /api/orders", wp)
+        a1 = (self.root / ".deckhand" / "work" / "AGENT-1.md").read_text(encoding="utf-8")
+        self.assertIn("`/order/**`", a1)
+        self.assertNotIn("/order/thanks/**", a1)                                        # inside /order already
+        conv = (self.root / ".deckhand" / "work" / "CONVENTIONS.md").read_text(encoding="utf-8")
+        self.assertIn("Never run a production build", conv)
+        self.assertIn("| A2 |", conv)
+        # packages sharing a folder never go to two agents: 5 agents asked, 2 independent groups exist
+        idx5 = plan.split(self.root, agents=5)
+        self.assertEqual(idx5["agents"], 2)
+        self.assertIn("independent folder groups", idx5["note"])
+        self.assertFalse((self.root / ".deckhand" / "work" / "AGENT-3.md").exists())
         plan.bb_post(self.root, "WP-01", "contract", "Order total is in cents")
         self.assertEqual(plan.bb_read(self.root, "WP-02")[0]["msg"], "Order total is in cents")   # contracts reach everyone
+
+    def test_flags_are_bounded_handoffs(self):
+        plan.bb_flag(self.root, "A1-done", "3 routes")
+        r = plan.bb_wait(self.root, "A1-done", max_s=1)
+        self.assertTrue(r["present"])
+        with self.assertRaises(DhError) as e:
+            plan.bb_wait(self.root, "never-set", max_s=1)
+        self.assertEqual(e.exception.code, "TIMEOUT")
+        self.assertIn("A1-done", e.exception.extra["flags_present"])
+        with self.assertRaises(DhError):
+            plan.bb_flag(self.root, "../escape")
 
 
 class Pool(Base):

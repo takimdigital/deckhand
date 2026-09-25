@@ -4,7 +4,9 @@
 page says clearly what it is and where, the business is one consistent entity everywhere, and the owner's part
 is tracked until done. **Output:** `dh seo audit` without launch-breakers; the `seo` row of `dh verify` green;
 the owner's open items in `PENDING.md`. **Honesty:** nobody can promise position #1. Say so once; then remove
-every reason not to rank.
+every reason not to rank. **A product** (`brief.deliverable=product`): the business facts belong to each buyer — the
+app reads them from its settings, `dh seo audit` lists them as the buyer's (not as PENDING), and CUSTOMIZE.md says
+where the buyer enters them. Still run `dh seo audit` on hand-written SEO.
 
 ## When (by path — `dh next` prints the right lines)
 | path | brand phase | before G4 |

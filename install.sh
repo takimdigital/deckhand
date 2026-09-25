@@ -41,9 +41,13 @@ echo "$HOMES" | while IFS=: read -r name dir; do
   if [ -n "$ONLY" ] && ! echo ",$ONLY," | grep -q ",$name,"; then continue; fi
   [ -d "$parent" ] || [ "$name" = "agents" ] || continue
   mkdir -p "$dir"
-  rm -rf "$dir/deckhand"
-  if [ "$MODE" = link ]; then ln -s "$SRC" "$dir/deckhand"; else cp -R "$SRC" "$dir/deckhand"; fi
-  say "✓ $name → $dir/deckhand ($MODE)"
+  dest="$dir/deckhand"
+  # Hermes files skills under categories (skills/software-development/deckhand): update that copy, never add a second one
+  nested=$(ls -d "$dir"/*/deckhand 2>/dev/null | while read -r d; do [ -f "$d/SKILL.md" ] && echo "$d"; done | head -1)
+  [ -n "$nested" ] && [ ! -f "$dest/SKILL.md" ] && dest="$nested"
+  rm -rf "$dest"
+  if [ "$MODE" = link ]; then ln -s "$SRC" "$dest"; else cp -R "$SRC" "$dest"; fi
+  say "✓ $name → $dest ($MODE)"
 done
 
 # a stable home for the shim (survives deleting the clone in copy mode)

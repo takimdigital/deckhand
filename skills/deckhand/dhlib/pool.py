@@ -255,3 +255,33 @@ def add_local(path: Path, meta: dict) -> dict:
     doc["count"] = len(doc["templates"])
     write_json(personal_path(), doc)
     return {"registered": meta["name"], "pool": str(personal_path())}
+
+
+def measure_local(path: Path) -> dict:
+    """The owner's own project folder, measured on disk (D13: their real 'mine' sources were local folders).
+    Their own code: licence 'owner' unless a LICENSE file says otherwise; never leaves the machine."""
+    path = Path(path).resolve()
+    if not path.is_dir():
+        raise DhError("NO_SUCH_PATH", str(path))
+    pkg = read_json(path / "package.json", {}) or {}
+    from .util import git_files
+    tree = [str(f.relative_to(path)).replace("\\", "/") for f in git_files(path)][:20000]
+    readme = ""
+    for n in ("README.md", "readme.md", "README"):
+        if (path / n).exists():
+            readme = (path / n).read_text(encoding="utf-8", errors="replace")[:20000]
+            break
+    lic = "owner"
+    lf = next((f for f in path.iterdir() if f.name.upper().startswith(("LICENSE", "LICENCE"))), None)
+    if lf:
+        head = lf.read_text(encoding="utf-8", errors="replace")[:600]
+        lic = next((spdx for spdx, rx in (("MIT", r"MIT License|Permission is hereby granted, free of charge"), ("Apache-2.0", r"Apache License"),
+                                         ("ISC", r"ISC License"), ("BSD-3-Clause", r"BSD 3-Clause|Redistribution and use")) if re.search(rx, head)), "owner")
+    stack = detect_stack(pkg, tree)
+    text = (pkg.get("description") or "") + " " + readme
+    return {"name": re.sub(r"[^a-z0-9-]+", "-", path.name.lower()).strip("-"), "path": str(path), "source": "mine", "license": lic,
+            "lane": "web", "shape": None, "stack": stack, "canonical": stack["framework"] == "next" and stack["db"] == "postgres",
+            "features": detect_features(pkg, tree, text), "vendors": sorted({v for k, v in VENDOR_PKGS.items() if k in {**(pkg.get("dependencies") or {}), **(pkg.get("devDependencies") or {})}} - {"stripe"}),
+            "description": (pkg.get("description") or (readme.strip().splitlines()[0] if readme.strip() else ""))[:200],
+            "stars": None, "pushed_at": now()[:10], "measured": "local", "measured_at": now()}
+

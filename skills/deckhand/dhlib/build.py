@@ -20,7 +20,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from .util import ensure_gitignore, DhError, TEMPLATES, TRYON, now, package_json, package_manager, read_json, rmtree, run, slugify, write_json
+from .util import ensure_gitignore, DhError, TEMPLATES, TRYON, free_port, now, package_json, package_manager, read_json, rmtree, run, slugify, write_json
 from . import pool as POOL
 from . import state as STATE
 
@@ -75,6 +75,70 @@ def _record_base(dest: Path, base: dict, name: str, path: str) -> None:
     STATE.save(dest, s)
 
 
+OWN_FILES = {".deckhand", "AGENTS.md", "CLAUDE.md", "PENDING.md", ".gitignore", ".gitattributes", "HANDOFF.md"}
+
+
+def _hold(to: Path) -> Path | None:
+    """`dh init` fills the folder first (.deckhand, AGENTS.md, PENDING.md…); a base still goes in there.
+    Deckhand's own files step aside while the base lands, then come back (the plan, notes and gates survive).
+    Anything else in the folder = not empty: refuse, never merge into someone's files."""
+    to = Path(to)
+    if not to.exists() or not any(to.iterdir()):
+        return None
+    other = sorted(p.name for p in to.iterdir() if p.name not in OWN_FILES)
+    if other:
+        raise DhError("DEST_NOT_EMPTY", f"{to} holds files that are not Deckhand's: {', '.join(other[:8])} — pick a new folder, "
+                      "or `dh adopt` it if it is the owner's project")
+    held = to.parent / f".{to.name}.deckhand-hold"
+    rmtree(held)
+    held.mkdir(parents=True)
+    for p in list(to.iterdir()):
+        shutil.move(str(p), str(held / p.name))
+    return held
+
+
+def _unhold(held: Path | None, to: Path) -> list:
+    """Deckhand's files back in: .deckhand and PENDING.md win; the base's own AGENTS.md/CLAUDE.md win (the cold-start
+    block is re-added to them); .gitignore/.gitattributes lines are merged."""
+    if not held:
+        return []
+    back = []
+    for p in sorted(held.iterdir()):
+        dst = Path(to) / p.name
+        if p.name in (".gitignore", ".gitattributes") and dst.exists():
+            have = dst.read_text(encoding="utf-8").splitlines()
+            add = [l for l in p.read_text(encoding="utf-8").splitlines() if l.strip() and l not in have]
+            if add:
+                dst.write_text("\n".join(have + [""] + add) + "\n", encoding="utf-8")
+        elif p.name in ("AGENTS.md", "CLAUDE.md") and dst.exists():
+            pass
+        else:
+            if dst.exists():
+                rmtree(dst) if dst.is_dir() else dst.unlink()
+            shutil.move(str(p), str(dst))
+        back.append(p.name)
+    rmtree(held)
+    return back
+
+
+def record_base(root: Path, kind: str, note: str = "", source: str | None = None) -> dict:
+    """`dh base record`: a project built another way (by hand, by another tool) states its base in the open
+    instead of reaching into private functions (D4)."""
+    root = Path(root)
+    if kind not in ("scratch", "existing", "template"):
+        raise DhError("BAD_KIND", "kind must be scratch | existing | template")
+    if not (root / "package.json").exists() and not (root / "pyproject.toml").exists():
+        raise DhError("NO_APP", f"no package.json in {root}: record the base once the app exists")
+    s = STATE.load(root)
+    pkg = package_json(root)
+    base = {"kind": kind, "at": now(), "recorded_by": "dh base record", **({"note": note} if note else {}), **({"source": source} if source else {}),
+            "stack": POOL.detect_stack(pkg, [])}
+    s["base"] = base
+    STATE.save(root, s)
+    STATE.log(root, {"event": "base", "kind": kind, "note": note})
+    return {"base": base, "next": "dh dev start"}
+
+
 def clone(name: str, to: Path, do_install: bool = True) -> dict:
     row = next((r for r in POOL.rows() if r["name"] == name), None)
     if not row:
@@ -82,11 +146,29 @@ def clone(name: str, to: Path, do_install: bool = True) -> dict:
     if row.get("license") not in POOL.OK_LICENSES and not (row.get("source") == "mine" and row.get("license") in POOL.OWNER_LICENSES):
         raise DhError("LICENCE_REFUSED", f"{name}: licence {row.get('license')}")
     to = Path(to).resolve()
-    if to.exists() and any(to.iterdir()):
-        raise DhError("DEST_NOT_EMPTY", f"{to} is not empty — pick a new folder")
+    held = _hold(to)
     to.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        commit = _fetch_base(row, to)
+    except Exception:
+        _unhold(held, to)
+        raise
+    lic = next((p.name for p in to.iterdir() if p.name.upper().startswith(("LICENSE", "LICENCE"))), None)
+    (to / "NOTICE").write_text(
+        f"This project started from {row.get('repo') or row['name']} ({row.get('license')}), commit {commit}.\n"
+        f"The upstream licence is kept in {lic or 'LICENSE'} — keep this file and that licence in the project.\n", encoding="utf-8")
+    made = seed_env(to)
+    _fresh_git(to, f"base: {row['name']} @ {commit[:12]} ({row.get('license')})")
+    kept = _unhold(held, to)
+    _record_base(to, {"kind": "template", "name": row["name"], "repo": row.get("repo"), "commit": commit, "at": now()}, name=to.name, path="mine" if row.get("source") == "mine" else "pool")
+    inst = install(to) if do_install and (to / "package.json").exists() else None
+    return {"project": str(to), "template": row["name"], "commit": commit, "local_secrets_generated": made, "install": inst,
+            **({"kept": kept} if kept else {}), "next": "dh dev start --project " + str(to)}
+
+
+def _fetch_base(row: dict, to: Path) -> str:
     if row.get("path") and Path(row["path"]).exists():   # a harvested base on this machine
-        shutil.copytree(row["path"], to, ignore=shutil.ignore_patterns("node_modules", ".git", ".next", ".deckhand", ".env", ".env.*"))
+        shutil.copytree(row["path"], to, dirs_exist_ok=True, ignore=shutil.ignore_patterns("node_modules", ".git", ".next", ".deckhand", ".env", ".env.*"))
         commit = "local"
     elif row.get("source") == "mine" and row.get("repo"):  # the owner's private library base, from their GitHub
         from . import github as GH
@@ -103,16 +185,7 @@ def clone(name: str, to: Path, do_install: bool = True) -> dict:
             if f["code"] == 0:
                 run(["git", "checkout", "-q", row["commit"]], cwd=to)
                 commit = row["commit"]
-    lic = next((p.name for p in to.iterdir() if p.name.upper().startswith(("LICENSE", "LICENCE"))), None)
-    (to / "NOTICE").write_text(
-        f"This project started from {row.get('repo') or row['name']} ({row.get('license')}), commit {commit}.\n"
-        f"The upstream licence is kept in {lic or 'LICENSE'} — keep this file and that licence in the project.\n", encoding="utf-8")
-    made = seed_env(to)
-    _fresh_git(to, f"base: {row['name']} @ {commit[:12]} ({row.get('license')})")
-    _record_base(to, {"kind": "template", "name": row["name"], "repo": row.get("repo"), "commit": commit, "at": now()}, name=to.name, path="mine" if row.get("source") == "mine" else "pool")
-    inst = install(to) if do_install and (to / "package.json").exists() else None
-    return {"project": str(to), "template": row["name"], "commit": commit, "local_secrets_generated": made, "install": inst,
-            "next": "dh dev start --project " + str(to)}
+    return commit
 
 
 def adopt(src: str, to: Path | None = None, do_install: bool = False) -> dict:
@@ -137,12 +210,15 @@ def adopt(src: str, to: Path | None = None, do_install: bool = False) -> dict:
 
 def scaffold(to: Path, pm: str = "npm") -> dict:
     to = Path(to).resolve()
-    if to.exists() and any(to.iterdir()):
-        raise DhError("DEST_NOT_EMPTY", str(to))
+    held = _hold(to)
     to.parent.mkdir(parents=True, exist_ok=True)
+    if to.exists() and not any(to.iterdir()):
+        to.rmdir()                                         # create-next-app wants to create it
     r = run(["npx", "--yes", "create-next-app@latest", str(to), "--ts", "--tailwind", "--app", "--no-eslint", "--no-src-dir",
              "--import-alias", "@/*", f"--use-{pm}", "--yes", "--disable-git"], timeout=1800)
     if r["code"] != 0:
+        to.mkdir(parents=True, exist_ok=True)
+        _unhold(held, to)
         raise DhError("SCAFFOLD_FAILED", (r["err"] or r["out"])[-600:])
     base = TEMPLATES / "scaffold"
     for rel in ("components/ui/button.tsx", "lib/utils.ts"):
@@ -153,8 +229,9 @@ def scaffold(to: Path, pm: str = "npm") -> dict:
     deps = ["clsx", "tailwind-merge", "class-variance-authority", "radix-ui", "lucide-react", "tw-animate-css"]
     ir = run({"npm": ["npm", "install", "--no-audit", "--no-fund"], "pnpm": ["pnpm", "add"], "bun": ["bun", "add"], "yarn": ["yarn", "add"]}[pm] + deps, cwd=to, timeout=1800)
     _fresh_git(to, "base: create-next-app + deckhand UI base (tokens, cn, Button)")
+    kept = _unhold(held, to)
     _record_base(to, {"kind": "scratch", "at": now()}, name=to.name, path="scratch")
-    return {"project": str(to), "deps_ok": ir["code"] == 0, "next": "dh compose --sections hero,features,pricing,faq,cta,footer (or build pages from the plan)"}
+    return {"project": str(to), "deps_ok": ir["code"] == 0, **({"kept": kept} if kept else {}), "next": "dh compose --sections hero,features,pricing,faq,cta,footer (or build pages from the plan)"}
 
 
 def compose(root: Path, page: str, sections: list, copy: str | None) -> dict:
@@ -171,13 +248,9 @@ def compose(root: Path, page: str, sections: list, copy: str | None) -> dict:
         raise DhError("COMPOSE_FAILED", (r["err"] or r["out"])[-800:])
 
 
-# ------------------------------------------------------------------ dev server
+# ------------------------------------------------------------------ dev server (+ the services it needs)
 def _free_port(start: int = 3000) -> int:
-    for p in range(start, start + 50):
-        with socket.socket() as s:
-            if s.connect_ex(("127.0.0.1", p)) != 0:
-                return p
-    raise DhError("NO_PORT", f"no free port in {start}-{start + 49}")
+    return free_port(start)
 
 
 def _answers(url: str) -> int | None:
@@ -188,24 +261,45 @@ def _answers(url: str) -> int | None:
         return getattr(e, "code", None)
 
 
-def serve(root: Path, script: str, port: int, log: Path, wait: int = 180):
-    """Start `<pm> run <script> --port N` detached (own process group); wait until it answers < 500.
-    Returns (proc, url, status). The caller stops it with kill_tree(proc.pid)."""
-    root = Path(root)
-    pm = package_manager(root)
-    cmd = {"npm": ["npm", "run", script, "--"], "pnpm": ["pnpm", "run", script], "yarn": ["yarn", script], "bun": ["bun", "run", script]}[pm] + ["--port", str(port)]
+PIN_RX = re.compile(r"(?:(?:^|\s)(?:-p|--port)[ =](\d{2,5})\b|\bPORT=(\d{2,5})\b)")
+
+
+def pinned_port(root: Path, script: str) -> int | None:
+    """A port the owner's own script already pins (`next dev -p 3010`, `PORT=3010 …`): keep it, never append another."""
+    cmd = ((package_json(root).get("scripts") or {}).get(script) or "")
+    m = PIN_RX.search(cmd)
+    return int(m.group(1) or m.group(2)) if m else None
+
+
+def _spawn(argv: list, cwd: Path, log: Path, env: dict):
     log.parent.mkdir(parents=True, exist_ok=True)
     out = open(log, "w")
-    kw = {"cwd": str(root), "stdout": out, "stderr": subprocess.STDOUT, "env": {**os.environ, "PORT": str(port)}}
+    kw = {"cwd": str(cwd), "stdout": out, "stderr": subprocess.STDOUT, "env": env}
     if os.name == "nt":
         kw["creationflags"] = 0x00000008 | 0x00000200          # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-        cmd[0] = shutil.which(cmd[0]) or cmd[0]
+        argv = [shutil.which(argv[0]) or argv[0], *argv[1:]]
     else:
         kw["start_new_session"] = True
     try:
-        proc = subprocess.Popen(cmd, **kw)
+        return subprocess.Popen(argv, **kw)
     finally:
         out.close()                                            # the child keeps its own handle
+
+
+def serve(root: Path, script: str, port: int, log: Path, wait: int = 180, keep_pinned: bool = True):
+    """Start `<pm> run <script> --port N` detached (own process group); wait until it answers < 500.
+    Returns (proc, url, status). The caller stops it with kill_tree(proc.pid).
+    HOSTNAME is pinned to 127.0.0.1: git-bash exports the machine name and Next's standalone server binds to it."""
+    root = Path(root)
+    pm = package_manager(root)
+    pinned = pinned_port(root, script) if keep_pinned else None
+    cmd = {"npm": ["npm", "run", script, "--"], "pnpm": ["pnpm", "run", script], "yarn": ["yarn", script], "bun": ["bun", "run", script]}[pm]
+    if pinned:
+        port = pinned
+        cmd = cmd[:-1] if cmd[-1] == "--" else cmd
+    else:
+        cmd = cmd + ["--port", str(port)]
+    proc = _spawn(cmd, root, log, {**os.environ, "PORT": str(port), "HOSTNAME": "127.0.0.1"})
     url = f"http://localhost:{port}"
     t0 = time.time()
     status = None
@@ -227,35 +321,168 @@ def kill_tree(pid: int) -> None:
         os.killpg(os.getpgid(pid), signal.SIGTERM)
 
 
+def services_path(root: Path) -> Path:
+    return Path(root) / ".deckhand" / "services.json"
+
+
+def services(root: Path) -> list:
+    return (read_json(services_path(root), {}) or {}).get("services", [])
+
+
+def service_add(root: Path, name: str, cmd: str, port: int | None = None, ready: str | None = None, env_file: str | None = None) -> dict:
+    """What the app needs running before it can answer (a database, a queue, a mail catcher). Committed config:
+    every session, every AI, starts the same things the same way (`dh dev start` starts them first)."""
+    if not re.match(r"^[a-z][a-z0-9-]{0,30}$", name or "") or name == "app":
+        raise DhError("BAD_NAME", "service name: lowercase letters, digits, dashes (not 'app')")
+    if not cmd:
+        raise DhError("USAGE", "dh dev add NAME --cmd \"…\" [--port N] [--ready REGEX] [--env-file .env]")
+    if not port and not ready:
+        raise DhError("NO_READY_SIGNAL", "give --port N (it answers) or --ready REGEX (a log line) so Deckhand knows it is up")
+    if ready:
+        re.compile(ready)
+    rows = [r for r in services(root) if r["name"] != name]
+    rows.append({"name": name, "cmd": cmd, **({"port": port} if port else {}), **({"ready": ready} if ready else {}),
+                 **({"env_file": env_file} if env_file else {})})
+    write_json(services_path(root), {"services": rows})
+    return {"services": rows, "next": "dh dev start   # starts these first, then the app"}
+
+
+def service_remove(root: Path, name: str) -> dict:
+    rows = [r for r in services(root) if r["name"] != name]
+    write_json(services_path(root), {"services": rows})
+    return {"services": rows}
+
+
+def _env_file(root: Path, rel: str | None) -> dict:
+    if not rel:
+        return {}
+    p = Path(root) / rel
+    out = {}
+    if p.exists():
+        for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+            m = re.match(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$", line)
+            if m:
+                out[m.group(1)] = m.group(2).strip().strip("'\"")
+    return out
+
+
+def _bash_exe() -> str | None:
+    """git-bash on Windows: HERMES_GIT_BASH_PATH may name bash.exe or the git tree that holds it."""
+    for cand in (os.environ.get("HERMES_GIT_BASH_PATH"), shutil.which("bash")):
+        if not cand:
+            continue
+        c = Path(cand)
+        if c.is_file():
+            return str(c)
+        for rel in ("usr/bin/bash.exe", "bin/bash.exe", "bash.exe"):
+            if (c / rel).is_file():
+                return str(c / rel)
+    return None
+
+
+def _shell(cmd: str) -> list:
+    if os.name == "nt":
+        bash = _bash_exe()
+        return [bash, "-lc", cmd] if bash else ["cmd", "/c", cmd]
+    return [shutil.which("bash") or "/bin/sh", "-c", cmd]
+
+
+def _port_open(port: int) -> bool:
+    with socket.socket() as sk:
+        sk.settimeout(1)
+        return sk.connect_ex(("127.0.0.1", port)) == 0
+
+
+def _alive(pid) -> bool:
+    if not pid:
+        return False
+    if os.name == "nt":
+        r = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True)
+        return str(pid) in r.stdout
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def service_up(root: Path, svc: dict, info: dict | None = None) -> bool:
+    if svc.get("port"):
+        return _port_open(svc["port"])
+    return _alive(((info or {}).get("services") or {}).get(svc["name"], {}).get("pid"))
+
+
+def _start_service(root: Path, svc: dict, wait: int = 90) -> dict:
+    log = Path(root) / ".deckhand" / f"svc-{svc['name']}.log"
+    proc = _spawn(_shell(svc["cmd"]), Path(root), log, {**os.environ, **_env_file(root, svc.get("env_file"))})
+    rx = re.compile(svc["ready"]) if svc.get("ready") else None
+    t0, up = time.time(), False
+    while time.time() - t0 < wait:
+        if svc.get("port") and _port_open(svc["port"]):
+            up = True
+        elif rx and rx.search(log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""):
+            up = True
+        if up or proc.poll() is not None:
+            break
+        time.sleep(1)
+    return {"pid": proc.pid, "up": up, "log": str(log.relative_to(root)).replace("\\", "/"), "started": now(),
+            **({} if up else {"log_tail": log.read_text(encoding="utf-8", errors="replace")[-1200:] if log.exists() else ""})}
+
+
 def dev_start(root: Path, port: int | None = None, wait: int = 180) -> dict:
+    """Services first (each once: a live one is reused), then the app. A dead database under a live app is
+    restarted too — the app alone answering is not 'running'."""
     root = Path(root)
     info = read_json(root / ".deckhand" / "dev.json", {}) or {}
+    svc_state = dict(info.get("services") or {})
+    started = []
+    for svc in services(root):
+        if service_up(root, svc, info):
+            svc_state.setdefault(svc["name"], {})["up"] = True
+            continue
+        r = _start_service(root, svc)
+        svc_state[svc["name"]] = r
+        started.append(svc["name"])
+        if not r["up"]:
+            info["services"] = svc_state
+            write_json(root / ".deckhand" / "dev.json", info)
+            return {"running": False, "service": svc["name"], **r,
+                    "hint": f"service {svc['name']} did not come up — read {r['log']}; `dh learn match --log {r['log']}` knows past fixes"}
     if info.get("url") and _answers(info["url"]):
-        return {"running": True, **info, "reused": True}
+        info["services"] = svc_state
+        write_json(root / ".deckhand" / "dev.json", info)
+        return {"running": True, **info, "reused": True, **({"restarted_services": started} if started else {})}
     pkg = package_json(root)
     script = "dev" if "dev" in (pkg.get("scripts") or {}) else "start"
     log = root / ".deckhand" / "dev.log"
-    proc, url, status = serve(root, script, port or _free_port(), log, wait)
-    info = {"url": url, "pid": proc.pid, "cmd": proc.cmd, "started": now(), "status": status}
+    proc, url, status = serve(root, script, port or pinned_port(root, script) or _free_port(), log, wait)
+    info = {"url": url, "pid": proc.pid, "cmd": proc.cmd, "started": now(), "status": status, **({"services": svc_state} if svc_state else {})}
     write_json(root / ".deckhand" / "dev.json", info)
     tail = log.read_text(encoding="utf-8", errors="replace")[-1500:]
     if not status or status >= 500:
         return {"running": False, **info, "log_tail": tail, "hint": "read the log tail; `dh learn match --log .deckhand/dev.log` knows past fixes"}
-    return {"running": True, **info}
+    return {"running": True, **info, **({"started_services": started} if started else {})}
 
 
 def dev_stop(root: Path) -> dict:
     info = read_json(Path(root) / ".deckhand" / "dev.json", {}) or {}
-    pid = info.get("pid")
-    if not pid:
+    stopped, errors = [], []
+    for name, pid in [("app", info.get("pid"))] + [(n, (v or {}).get("pid")) for n, v in reversed(list((info.get("services") or {}).items()))]:
+        if not pid:
+            continue
+        try:
+            kill_tree(pid)
+            stopped.append(name)
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"{name}: {e}")
+    if not stopped and not errors:
         return {"stopped": False, "reason": "not started by dh"}
-    try:
-        kill_tree(pid)
-    except Exception as e:  # noqa: BLE001
-        return {"stopped": False, "reason": str(e)}
-    return {"stopped": True, "pid": pid}
+    return {"stopped": bool(stopped), "what": stopped, **({"errors": errors} if errors else {}), "pid": info.get("pid")}
 
 
 def dev_status(root: Path) -> dict:
     info = read_json(Path(root) / ".deckhand" / "dev.json", {}) or {}
-    return {**info, "answers": _answers(info["url"]) if info.get("url") else None}
+    svc = [{"name": s["name"], "up": service_up(root, s, info), **({"port": s["port"]} if s.get("port") else {})} for s in services(root)]
+    down = [x["name"] for x in svc if not x["up"]]
+    return {**info, "answers": _answers(info["url"]) if info.get("url") else None, **({"services": svc} if svc else {}),
+            **({"down": down, "restore": "dh dev start   # restarts what is down, reuses what is up"} if down else {})}

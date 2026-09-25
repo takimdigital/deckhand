@@ -6,9 +6,10 @@
 ## Entry by path
 | path | command | notes |
 |---|---|---|
-| pool / mine | `dh clone <template> --to <projects_root>/<slug>` | shallow clone at the measured commit, fresh history, `NOTICE`, `.env` from the example with LOCAL secrets generated (never vendor keys), deps installed |
+| pool / mine | `dh clone <template> --to <dir>` | shallow clone at the measured commit, fresh history, `NOTICE`, `.env` from the example with LOCAL secrets generated (never vendor keys), deps installed. The planning folder itself is fine: Deckhand's own files (.deckhand, AGENTS.md, PENDING.md) step aside and come back |
 | existing | `dh adopt <folder\|git-url>` | history kept; stack detected; nothing rewritten |
 | scratch | `dh scaffold --to <dir>` then `dh compose --sections hero,features,pricing,faq,cta,footer --copy .deckhand/copy.json` | create-next-app + UI base (tokens, `cn`, Button); compose assembles licensed blocks filled with the plan's copy — no code generation |
+| built another way | `dh base record --kind scratch\|existing --note "how"` | a generator, a hand-written app: the base is stated in the open (never through a private function) |
 
 ### copy.json (scratch path) — the only input the model writes: words, never code
 ```json
@@ -47,17 +48,28 @@ Swap BEFORE the first build when the base validates env at build time. A swap bi
 decision for the owner, never a silent half-swap. Smoke the swapped path (sign-up → session → protected page;
 migrate → write → read), not the home page.
 
+## Services the app needs (database, queue, mail catcher)
+Declare them once: `dh dev port --from 5700` (a bind-tested free port — Windows reserves random ranges), then
+`dh dev add db --cmd "npx pglite-server --db=.pglite --port=5772" --port 5772 --env-file .env`. From then on
+`dh dev start` starts the services first (a live one is reused, a dead one restarted), then the app;
+`dh dev stop` stops all; `dh dev status` and RESUME show what is down. Never keep a database alive by hand in a
+terminal: a pause or a restart kills it silently. A dev script that pins its port (`next dev -p 3010`) is kept as is.
+
 ## Implementing the plan
 - Solo: build WP by WP in `.deckhand/work/index.json` order (WP-00 shell first).
-- Parallel: one sub-agent per lane (`agent` field) with its WP brief; coordination only via
-  `dh bb post|read`. Merge order: WP-00, then features; `dh plan lint` + route smoke after each merge.
+- Parallel (`references/team.md`): you build WP-00 (schema, migrations, seed, auth, layout, shared UI), prove it
+  (`npx tsc --noEmit`, `dh dev start`), then dispatch every builder in ONE batch, each with exactly one
+  `.deckhand/work/AGENT-n.md`. Coordination only through `dh bb post|read|flag|wait`. Before `phase done` you
+  re-run tsc and the route matrix yourself — the builders' summaries are self-reports.
 - Every page from the plan exists; every action reaches its declared target; every call shows its success
   and error state. Forms validate server-side. Seed data is realistic but marked as sample.
 - Run commands through `dh run -- …` (known failures print their fix immediately).
 
 ## Run it
-`dh dev start` (detached; `.deckhand/dev.log`; waits until it answers) → give the owner the URL and a
-3-line test script (what to click, what should happen). `dh phase done build` → **G2**.
+`dh dev start` (detached; `.deckhand/dev.log`; waits until it answers) → the G2 message: the URL, the logins per role
+(a table), what you tested (route matrix, screens), what you found and fixed, ONE question. `dh phase done build` →
+**G2** → `dh gate pass G2 --quote "<their words>"`. A check you satisfied some other way than the documented one is
+said so in that message.
 
 ## Traps
 Read `dh learn preflight build` output — it is printed by `dh next` and is the current list.

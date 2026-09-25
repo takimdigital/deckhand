@@ -1,0 +1,35 @@
+{
+  "why": "Deckhand detects the harness (environment variables) and `dh next` returns these few lines: the right syntax, not a generic one. Details: references/harness.md.",
+  "hermes": {
+    "background": "terminal(command=…, background=true, notify=[\"Ready in\"]) → session_id; process_manage(action=\"wait\", session_id=…, timeout ≤ 180). Never `nohup … &`. `dh dev start` detaches by itself.",
+    "limits": "terminal: 180 s default, 600 s foreground max (longer is auto-promoted to background — do not re-run it). execute_code: state is lost on timeout/interrupt/30 min idle; inside it `from hermes_tools import terminal`.",
+    "delegate": "delegate_task(tasks=[{goal, context, output_schema}], ≤ 10) — one task per .deckhand/work/AGENT-n.md, all in ONE call; no {x} or <x> in any task text (the whole batch is refused); steer early with action=\"steer\".",
+    "todo": "no todo tool: keep `dh workflow todo --format md` as the checklist, tick with `dh workflow step ID done`.",
+    "browser": "browser_navigate refuses localhost: check pages with curl; visual QA = a screenshot file + vision_analyze(image_url=path, question=…).",
+    "transcript": "dh autopsy --latest reads this session from state.db (read-only)."
+  },
+  "claude-code": {
+    "background": "Bash with run_in_background; wait with Monitor (never sleep loops). `dh dev start` detaches by itself.",
+    "delegate": "Agent tool, one agent per .deckhand/work/AGENT-n.md, launched in one message.",
+    "todo": "TodoWrite ← `dh workflow todo` (content/status/activeForm).",
+    "transcript": "dh autopsy --latest reads ~/.claude/projects/<project>/*.jsonl; `dh resume --install-hook claude` starts every session from RESUME."
+  },
+  "codex": {
+    "background": "a background terminal; `dh dev start` detaches by itself.",
+    "delegate": "no sub-agents: build the AGENT-n.md packages one after the other, or one Codex session per package.",
+    "todo": "`dh workflow todo --format md` as the plan.",
+    "transcript": "export the chat as JSONL (role, content) → dh autopsy --workflow chat.jsonl; the run log .deckhand/runs.jsonl is always read."
+  },
+  "cursor": {
+    "background": "a background terminal; `dh dev start` detaches by itself.",
+    "delegate": "background agents: one per AGENT-n.md, or sequential.",
+    "todo": "`dh workflow todo --format md` as the plan.",
+    "transcript": "the run log .deckhand/runs.jsonl (run risky commands through `dh run --`)."
+  },
+  "unknown": {
+    "background": "a second terminal, or the harness's background mode; `dh dev start` detaches by itself.",
+    "delegate": "parallel sessions, one per AGENT-n.md — or sequential in this one.",
+    "todo": "`dh workflow todo --format md` as the plan.",
+    "transcript": "the run log .deckhand/runs.jsonl (run risky commands through `dh run --`)."
+  }
+}

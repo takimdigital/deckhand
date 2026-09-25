@@ -67,9 +67,11 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
 | .deckhand/research.json | the agent (summary) · [[dhlib/research.py#merge]] (claims[], vocabulary[]) | [[dhlib/checks.py#research]], [[dhlib/research.py#verify]] | 3 competitors with URL, strengths and gaps; audience; conversion plays; features.now; claims {id, label, url, quote}; vocabulary {term, kind, url, quote} ([[templates/research.json]]) |
 | .deckhand/research/agents/ID.json · sources.jsonl · verify.json · cache/ (gitignored) | each research agent (its own file only) · [[dhlib/research.py#add_source]] · [[dhlib/research.py#verify]] · [[dhlib/research.py#page_text]] | merge · `dh research seen` · checks.research ([[dhlib/research.py#verified_now]]) | claims + terms per agent · pages read with notes (append-only) · quote results + research_sha · fetched page text |
 | .deckhand/sitemap.json | the agent, after [[dhlib/plan.py#init]] | [[dhlib/plan.py#lint]], render, split, sitelinks, verify routes | pages, actions with typed targets, nav, forms, features, entities ([[templates/sitemap.json]]) |
-| .deckhand/PLAN.md · work/WP-*.md · blackboard.jsonl | [[dhlib/plan.py#render]] · [[dhlib/plan.py#split]] · [[dhlib/plan.py#bb_post]] | owner · sub-agents | the plan for G1; one work package per bounded context; contract/done/blocker posts |
+| .deckhand/PLAN.md · work/WP-*.md · work/AGENT-n.md · work/CONVENTIONS.md · blackboard.jsonl · work/state/<flag> | [[dhlib/plan.py#render]] · [[dhlib/plan.py#split]] · [[dhlib/plan.py#bb_post]] · [[dhlib/plan.py#bb_flag]] | owner · sub-agents ([[dhlib/plan.py#bb_wait]]) | the plan for G1; one WP per bounded context; exactly N agent packages grouped by owned route prefixes ([[dhlib/plan.py#_groups]]) + the shared rules; progress/contract/done/blocker posts; handoff flags |
+| .deckhand/services.json | [[dhlib/build.py#service_add]] (`dh dev add`) | [[dhlib/build.py#dev_start]] (services first), dev_status, [[dhlib/resume.py#_services]] | services the app needs {name, cmd, port or ready regex, env_file} — committed config |
+| .deckhand/workflow.json | [[dhlib/workflow.py#use]] (a copy of the pinned workflow) | [[dhlib/workflow.py#progress]], observe, todo, autopsy | the workflow this run follows; run.json `workflow` = {id, version, source, sha, params, done[], skipped[], deviations[]} — a changed file is refused (sha) |
 | .deckhand/copy.json | the agent | [[tryon/compose.mjs]] | section copy (schema in compose.mjs header; footer.columns/social, navbar.links) |
-| .deckhand/dev.json · dev.log | [[dhlib/build.py#dev_start]] | checks.build, verify | url, pid, port · the dev server log |
+| .deckhand/dev.json · dev.log · svc-<name>.log | [[dhlib/build.py#dev_start]] | checks.build, verify, dev_status | url, pid, services{name: pid, up, log} · the dev server log · each service's log |
 | .deckhand/swap-map.json | [[dhlib/swap.py#scan]] | [[dhlib/swap.py#check]] | vendor SDKs found → owned target |
 | .deckhand/demo-copy.json | [[tryon/lib/engine.mjs#recordDemoCopy]] | [[dhlib/brand.py#check]] | demo words a kept design still shows (block), or AI-written words to confirm (ai:true → warn) |
 | .deckhand/seo.json · SEO.md · seo-plan.json | [[dhlib/seo.py#audit]] · [[dhlib/seo.py#apply]] | owner, `dh next` (G4 summary), verify row `seo` | score, launch-breakers, findings by rule, owner gaps · the plan handed to the engine |
@@ -86,6 +88,7 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
 | .deckhand/runs.jsonl · failures.jsonl | [[dhlib/learn.py#log_run]] · [[dhlib/learn.py#run_cmd]] | [[dhlib/autopsy.py#load_runs]], [[dhlib/learn.py#from_failure]] | every command {cmd, exit, out} · failed tails |
 | .deckhand/lessons.jsonl | [[dhlib/learn.py#add]] (scope=project) | [[dhlib/learn.py#match]] | project-only lessons |
 | .deckhand/autopsy/<A-id>.md,.json | [[dhlib/autopsy.py#autopsy]] | owner, `--apply` | the deterministic report |
+| .deckhand/autopsy/<W-id>.md,.json,.maintainer.md · workflow-latest.json | [[dhlib/wfautopsy.py#run]] (`dh autopsy --workflow`) | owner (proposals + save prompt), [[dhlib/wfautopsy.py#workflow_save]], the maintainer · [[dhlib/workflow.py#progress]] (proposal count) | timeline, questions ledger, deviations, errors per step, delegation, guidance counts, proposals P1…, maintainer items |
 | .deckhand/tryon/setup.json · runtime/ | [[tryon/lib/setup.mjs#setup]] | [[tryon/lib/setup.mjs#unsetup]], doctor | journal of the config patch (byte-exact undo) · copied loader/plugin |
 | .deckhand/tryon/sessions/<id>.json · backups/<id>/ | [[tryon/lib/engine.mjs#open]] | show/keep/discard, checks.tryon, verify | open→kept/discarded, variants[], shaBefore/After · original file bytes |
 | .deckhand/tryon/drafts/<D>.json · <D>/draft.tsx | [[tryon/lib/draft.mjs#requestDraft]] · the agent | [[tryon/lib/draft.mjs#checkDraft]], completeDraft | AI draft brief + state pending/rejected/done · the agent's component |
@@ -98,7 +101,10 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
 | ~/.deckhand/profile.json · vault.env (0600) | [[dhlib/profile.py#set_fields]] · [[dhlib/profile.py#vault_set]] | [[dhlib/profile.py#secret]] (env → project vault → machine vault → v1 keyring), [[ops/scripts/coolify_api.py#resolve]] | owner facts · secrets as `NAME='value'` (single-quoted: `set -a; . vault.env; set +a` is safe), never printed |
 | ~/.vps-ops/ssh/ · ~/.vps-ops/secrets/*.env.sh (v1 keyring) | the ops runbooks (SSH keys) · v1 | [[dhlib/profile.py#legacy_read]] (fallback), backup scripts | SSH keys for the servers · the backup keyring (backup.env.sh, b2-scoped.env.sh) · v1 tokens still honoured |
 | <project>/.gitignore (deckhand block) | [[dhlib/util.py#ensure_gitignore]] (dh init, every build path) | git, verify `logs-ignored` | [[dhlib/util.py#GITIGNORE_LINES]]: runs, failures, *.log, dev.json, autopsy/, tryon/, RESUME.md, notes.jsonl, profile.json, vault.env; an older block is upgraded in place (every RESUME write calls it) |
-| ~/.deckhand/pool.json · bases/<name>/ | [[dhlib/pool.py#add_local]] · [[dhlib/harvest.py#harvest]] | [[dhlib/pool.py#rows]] (ranked first) | personal bases (source mine) |
+| ~/.deckhand/pool.json · bases/<name>/ | [[dhlib/pool.py#add_local]] · [[dhlib/harvest.py#harvest]] · [[dhlib/pool.py#measure_local]] (`dh pool add D:/path --mine`) | [[dhlib/pool.py#rows]] (ranked first) | personal bases (source mine) |
+| ~/.deckhand/workflows/<id>.json · outbox/ · cache/workflows/ | [[dhlib/workflow.py#save]] · [[dhlib/workflow.py#new_from_run]] · [[dhlib/workflow.py#publish_bundle]] · [[dhlib/workflow.py#sync]] | [[dhlib/workflow.py#rows]] / [[dhlib/workflow.py#load]] (mine → base → community) | the owner's workflows (never shared unless published) · community bundles to submit by PR · the community index + fetched files (sha-checked) |
+| skills/deckhand/workflows/*.json · workflows/community/*.json + index.json (repo root, not installed) | the maintainer · community PRs + [[scripts/workflows_index.py]] | [[dhlib/workflow.py#rows]] | base workflows (shipped) · the community pool, read through its index from COMMUNITY_URL |
+| ~/.deckhand/pending.md · profile.md | [[dhlib/pending.py#add]] / [[dhlib/pending.py#close]] (`dh pending … --machine`) · the owner (profile.md, by hand) | [[dhlib/pending.py#summary]] (→ `dh next` pending, RESUME) · [[dhlib/pending.py#profile_md]] (`dh profile show|doctor` notes_md) | the owner's cross-project human tasks (same line format as PENDING.md) · free-form facts about the owner (answered, never re-asked) |
 | ~/.deckhand/lessons.jsonl · playbooks.jsonl · autopsy/proposals/E-*.md | [[dhlib/learn.py#add]] · [[dhlib/autopsy.py#apply_report]] | match/preflight · [[dhlib/guide.py#_playbook]] · a human | global lessons (+recipe, auto) · steps that finished a phase ≥2× · skill-fix proposals |
 | ~/.deckhand/library/ (components/, components.index.json) | [[tryon/lib/library.mjs#saveToLibrary]] | [[tryon/lib/catalog.mjs#loadCatalog]] (r=mine, ranked first) | the owner's saved components |
 | ~/.deckhand/registries.json · catalog/registry-<id>.json | [[tryon/lib/vet.mjs#addRegistry]] | [[tryon/lib/catalog.mjs#loadCatalog]] | vetted extra registries and their mapped items |
@@ -155,6 +161,13 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
 15. Nothing lives only in the chat. RESUME.md is regenerated from files after every dh command; it is never a
    model recap. The switch verdict ([[dhlib/resume.py#safe]]) is computed: NO while files changed after the last note
    (dh-managed files excluded: [[dhlib/resume.py#MANAGED]]) or a failure newer than the last note has no known fix.
+16. Gates pass on the owner's words. Phased `dh gate pass` needs `--quote` ([[!NEED_QUOTE]]); a quote that reads as a
+   change request is refused ([[dhlib/state.py#classify_quote]], [[!CHANGE_REQUEST]]) and points at `dh reopen`.
+17. Workflows are data an AI runs: [[dhlib/workflow.py#lint]] refuses private calls, user paths, secrets, unknown dh
+   commands (checked against the real parser) and, for base/community, anything off the allow-list; `use` shows every
+   other command to the owner first ([[!NEEDS_ACCEPT]]); a community file must match its index sha ([[!SHA_MISMATCH]]).
+   Rendered text never carries `{x}` or `<x>` (Hermes delegate_task refuses a batch that does). The workflow autopsy
+   writes only its report; accepted proposals go where the owner says (mine / a public bundle), never into the skill.
 
 ## FLOWS (→ = then; each step names its code)
 F1 RUN LOOP
@@ -411,6 +424,40 @@ F18 RESUME (any session, any AI)
 - Cold start: `dh init` → [[dhlib/resume.py#agent_entry]]; Claude Code → [[dhlib/resume.py#install_hook]] +
   [[dhlib/resume.py#hook]] (finds the project from the hook's stdin cwd, [[dhlib/resume.py#stdin_if_piped]] never hangs).
 
+F20 WORKFLOWS (proven paths)
+- `dh workflow query` → [[dhlib/workflow.py#query]]: facets from the brief + flags ([[dhlib/workflow.py#_facet]];
+  industry → family via [[data/industries.json]], longest keyword wins) → [[dhlib/workflow.py#score]] over index rows
+  only ([[dhlib/workflow.py#rows]]: mine, base, community — the community index refreshed at most daily,
+  DECKHAND_OFFLINE skips it) → top 3 with reasons, missing, proof. Level from runs: [[dhlib/workflow.py#level]].
+- `dh workflow use REF` → [[dhlib/workflow.py#use]] (lint, NEEDS_ACCEPT, pin sha + params, copy to workflow.json).
+- Every successful dh command → [[dhlib/cli.py#_observe]] → [[dhlib/workflow.py#observe]]: the matching open step is
+  ticked ([[dhlib/workflow.py#_norm]]: dh + 2 words, + a gate/phase name); a state-changing command no step names is a
+  deviation (phase exits excepted); `phase done` closes ask/write/delegate steps and marks unrun steps not-run.
+- [[dhlib/guide.py#next_step]] → [[dhlib/workflow.py#progress]]: `do` = the phase's open steps rendered
+  ([[dhlib/workflow.py#step_line]] + [[dhlib/workflow.py#fill]]), `workflow.line` = the status line (also in RESUME).
+- `dh workflow todo` ([[dhlib/workflow.py#todo]]) · `step` · `new --from-run` ([[dhlib/workflow.py#new_from_run]]:
+  successful state-changing commands per phase, paths made generic, decisions as learned questions) · `publish`.
+
+F21 WORKFLOW AUTOPSY
+- Sources ([[dhlib/autopsy.py#detect]] → [[dhlib/autopsy.py#load]]): Claude Code JSONL (+ messages, timestamps),
+  Hermes state.db ([[dhlib/autopsy.py#load_hermes_db]]: read-only, the session from --session / HERMES_SESSION_ID /
+  latest with this cwd, its compression lineage without sub-agents, async_delegations), Hermes export
+  ([[dhlib/autopsy.py#load_hermes_export]]), chat JSONL ([[dhlib/autopsy.py#load_chat]]), runs.jsonl.
+  [[dhlib/autopsy.py#_hermes_rows]]: `terminal` calls → commands (exit_code), write_file/patch → edits.
+- [[dhlib/wfautopsy.py#run]] → timeline (phase marks, active vs pauses > 20 min, gates with quote or PARAPHRASED) →
+  [[dhlib/wfautopsy.py#questions]] (assistant asks → next owner message; kind define/gate/late; DIRECTION-CHANGE =
+  a change-request answer at a gate, or a reopen/brief change/decision within 30 min; LOST) → deviations →
+  [[dhlib/wfautopsy.py#errors]] (the failure engine, episodes mapped to steps, minutes) → delegation → guidance →
+  [[dhlib/wfautopsy.py#proposals]] → reports (owner + maintainer), id = hash of the content, `--part` one section.
+- `dh workflow save --from-autopsy W --proposals P1,P3 [--public]` → [[dhlib/wfautopsy.py#workflow_save]]: learned
+  question (asked in the define round), added step, optional step, pitfall; this run as proof; version + 1; changelog.
+
+F22 OWNER'S TASKS (pending)
+- `dh pending add|decide|done|drop|wait|list` → [[dhlib/pending.py]]: project PENDING.md or `--machine`
+  ~/.deckhand/pending.md; IDs from item lines only ([[dhlib/pending.py#_next_id]]); HOW + WHERE required
+  ([[!NEED_HOW_WHERE]]); `when:` = a deferral (not listed until `--all`); the checkbox is the state of record.
+- [[dhlib/pending.py#summary]] (project + machine, ages) → `dh next` pending → RESUME "Waiting on the owner".
+
 F19 RESEARCH EVIDENCE
 - `dh research brief --focus F --agent ID` ([[dhlib/research.py#brief]]): questions from [[data/research.json]] filled
   from the brief (business, audience, market, language), budget, pages already read, vocabulary so far, the card
@@ -461,6 +508,10 @@ F19 RESEARCH EVIDENCE
 | owner-facing docs | [[README.md]] · [[docs/USE-CASES.md]] · [[skills/deckhand/SKILL.md]] | [[scripts/version_check.py]] (versions) |
 | secret patterns / redaction / project gitignore | [[data/secrets.json]] · [[dhlib/util.py#redact]] · [[dhlib/util.py#ensure_gitignore]] | [[skills/deckhand/tests/test_security.py]], [[skills/deckhand/tryon/test/hardening.test.mjs]] |
 | resume, notes, switch verdict, cold-start entry, hook, project profile/vault layer | [[dhlib/resume.py]] · [[dhlib/profile.py]] · [[dhlib/cli.py#_refresh]] | [[skills/deckhand/tests/test_resume.py]] |
+| workflows: format, lint, query, pools, observe, todo, extraction, publish | [[dhlib/workflow.py]] · [[data/industries.json]] · skills/deckhand/workflows/*.json · [[scripts/workflows_index.py]] | [[skills/deckhand/tests/test_workflow.py]] |
+| workflow autopsy, session loaders (Hermes, chat) | [[dhlib/wfautopsy.py]] · [[dhlib/autopsy.py#load]] | test_workflow.py |
+| gate quotes, services, ports, split into N agents, product deliverable, pending ledger (field fixes) | [[dhlib/state.py#gate_pass]] · [[dhlib/build.py]] · [[dhlib/util.py#free_port]] · [[dhlib/plan.py#split]] · [[dhlib/verify.py#product_kit]] · [[dhlib/pending.py]] | [[skills/deckhand/tests/test_field.py]] |
+| harness syntax `dh next` prints | [[data/harness.json]] · [[dhlib/guide.py#harness_notes]] · [[references/harness.md]] | test_workflow.py / manual |
 | research evidence: labels, quote check, sources, brief questions, scoring | [[dhlib/research.py]] · [[data/research.json]] · [[references/research-card.md]] | [[skills/deckhand/tests/test_research.py]] |
 | SEO rules, owner facts, crawler lists | [[data/seo.json]] · [[dhlib/seo.py]] (checks, PENDING block, ping) · [[tryon/lib/seo.mjs]] (writes) | [[skills/deckhand/tests/test_seo.py]], [[skills/deckhand/tryon/test/seo.test.mjs]] |
 | docs ↔ commands, README numbers | whatever changed (docs, SKILL.md §4, README) | [[scripts/test_repo_coherence.py]] |

@@ -64,6 +64,20 @@ def url_key(u: str) -> str:
 
 # ------------------------------------------------------------------ brief + shared source list
 
+def short_business(b: dict) -> str:
+    """What goes into search queries: brief.category ("commercial cleaning software"), else the business
+    sentence cut at its first clause — a 300-character pitch is not a search query (D14)."""
+    cat = str(b.get("category") or "").strip()
+    if cat:
+        return cat
+    text = str(b.get("business") or "").strip()
+    if not text:
+        return "this business"
+    first = re.split(r"[.;:(—–\n]| - |, (?:with|for|that|which|where|so)\b", text)[0].strip()
+    words = first.split()
+    return " ".join(words[:10]) if words else "this business"
+
+
 def _ctx(root) -> dict:
     b = read_json(Path(root) / ".deckhand" / "brief.json", {}) or {}
     langs = b.get("languages") or ["en"]
@@ -71,7 +85,7 @@ def _ctx(root) -> dict:
     market = b.get("market") or ", ".join(seo.get("locations") or []) or "the owner's market"
     aud = b.get("audience")
     aud = aud.get("primary") if isinstance(aud, dict) else aud
-    return {"business": b.get("business") or "this business", "audience": aud or "its customers", "market": market,
+    return {"business": short_business(b), "audience": aud or "its customers", "market": market,
             "language": langs[0] if isinstance(langs, list) else str(langs)}
 
 
@@ -93,13 +107,20 @@ def brief(root, focus: str, agent: str) -> dict:
             "then": f"dh research verify (after `{agent}.json` is written) — every quote is fetched and checked"}
 
 
+THIN_NOTE = re.compile(r"(?i)^\s*(|opened|open|seen|read|visited|checked|ok|done|page|looked|skimmed|n/?a|-+|\.+|todo|see page|useful|relevant)\s*$")
+
+
 def add_source(root, url: str, by: str, kind: str = "", note: str = "") -> dict:
     if not url_ok(url):
         raise DhError("BAD_URL", f"not an http(s) URL: {url!r}")
     if not AGENT_RX.match(by or ""):
         raise DhError("BAD_ID", "--by: the agent id (letters, digits, - or _)")
+    note = (note or "").strip()
+    if THIN_NOTE.match(note) or (len(note) < 12 and not re.search(r"\d", note)):
+        raise DhError("NOTE_TOO_THIN", f"--note {note!r} tells the next agent nothing: write the dense facts found on the page "
+                      "(\"€25/h standard, €35/h deep, min 2 h\"), or \"nothing usable: <why>\"")
     before = [s for s in read_jsonl(_dir(root) / "sources.jsonl") if url_key(s.get("url", "")) == url_key(url)]
-    row = {"at": now(), "url": url.strip(), "by": by, "kind": kind, "note": (note or "").strip()[:800]}
+    row = {"at": now(), "url": url.strip(), "by": by, "kind": kind, "note": note[:800]}
     if not any(s.get("by") == by and s.get("note") == row["note"] for s in before):
         append_jsonl(_dir(root) / "sources.jsonl", row)
     return {"added": row["url"], "read_before_by": [{"by": s.get("by"), "note": s.get("note", "")[:300]} for s in before if s.get("by") != by]}

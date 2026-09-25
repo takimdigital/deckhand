@@ -24,6 +24,10 @@ foreach ($t in $targets) {
   if (-not (Test-Path $parent) -and $name -ne "agents") { continue }
   New-Item -ItemType Directory -Force -Path $dir | Out-Null
   $dest = Join-Path $dir "deckhand"
+  # Hermes files skills under categories (skills\software-development\deckhand): update that copy, never add a second one
+  $nested = Get-ChildItem -Path $dir -Directory -ErrorAction SilentlyContinue | ForEach-Object { Join-Path $_.FullName "deckhand\SKILL.md" } |
+            Where-Object { Test-Path $_ } | Select-Object -First 1
+  if ($nested -and -not (Test-Path (Join-Path $dest "SKILL.md"))) { $dest = Split-Path $nested -Parent }
   if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }
   if ($Link) { New-Item -ItemType Junction -Path $dest -Target $Src | Out-Null } else { Copy-Item -Recurse $Src $dest }
   Write-Host "✓ $name → $dest"

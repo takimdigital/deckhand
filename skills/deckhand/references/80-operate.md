@@ -31,6 +31,24 @@ A schedule is live only after it fired once through its own trigger (the output 
   `dh next` shows them as `worked_before`). It never edits the skill: a person or a reviewed PR applies a
   proposal, with its regression test, and bumps `CHANGELOG.md`.
 - `dh learn from-failure` / `dh learn promote` remain for a single fix recorded by hand.
+- Sources: a Claude Code transcript, Hermes' own store (`state.db`, read-only — inside Hermes `--latest` is this
+  session; else `--session ID`), a `hermes sessions export` file, any chat JSONL (`{"role","content"}`), and always
+  `.deckhand/runs.jsonl`.
+
+## Workflows — the path, improved by every run
+- `dh autopsy --workflow` (any moment, not only at the end): the timeline (active time, pauses, gates and who passed
+  them — the owner's words or an agent's note), every question put to the owner with the answer and what it changed
+  (LATE: asked after define; DIRECTION-CHANGE: it re-opened work; LOST: the harness dropped the owner's message),
+  deviations from the pinned workflow, what each failure cost (minutes, attempts, the step it hit), the sub-agent
+  batches, how the AI talked to the owner (counts), then **proposals**, each with its reason and evidence. A long
+  session? Give sub-agents one `--part` each (timeline, questions, deviations, errors, delegation, guidance, proposals).
+- Show the owner the proposals block; they choose: `dh workflow save --from-autopsy W-… --proposals P1,P3` (their own
+  pool, `~/.deckhand/workflows/`, never shared) · `--public` (a bundle for a community pull request, reviewed by the
+  Deckhand maintainer) · nothing. The saved workflow gets the next version, this run as proof, and a changelog line.
+- No workflow was pinned? `dh workflow new --from-run` turns this run into a draft for the next similar project
+  (a plumbing kit after the cleaning one). Proof levels are computed: draft → proven (a complete green run) →
+  trusted (3 green runs on 2 harnesses or systems, reviewed).
+- The autopsy never edits the skill; Deckhand's own issues go to `.deckhand/autopsy/W-….maintainer.md`.
 
 ## Reuse — the owner's own library of bases (on their GitHub)
 Owner likes the result → `dh harvest --name <base> --push`:

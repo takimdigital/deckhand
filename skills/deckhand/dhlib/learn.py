@@ -132,9 +132,24 @@ def log_run(root: Path | None, cmd: str, code: int, out: str = "", phase: str | 
                                                            **({"phase": phase} if phase else {})})
 
 
+def resolve_dh(argv: list, root: Path | None) -> list:
+    """`dh run -- dh …` or `dh run -- py dh.py …` runs in the project folder, where a bare `dh` / relative `dh.py`
+    does not exist (D18): point it at this skill's own dh.py, with this interpreter."""
+    import sys
+    from .util import SKILL
+    me = str(SKILL / "dh.py")
+    if argv and argv[0] in ("dh", "dh.py"):
+        return [sys.executable, me, *argv[1:]]
+    if len(argv) > 1 and Path(argv[0]).name.lower() in ("py", "py.exe", "python", "python.exe", "python3", "python3.exe") \
+            and Path(argv[1]).name == "dh.py" and not (Path(root or ".") / argv[1]).exists() and not Path(argv[1]).is_file():
+        return [argv[0], me, *argv[2:]]
+    return argv
+
+
 def run_cmd(root: Path | None, argv: list, phase: str | None = None, fix: bool = False) -> dict:
     if not argv:
         raise DhError("USAGE", "dh run -- <command …>")
+    argv = resolve_dh(argv, root)
     r = run(argv, cwd=root, timeout=3600)
     log_run(root, r["cmd"], r["code"], (r["err"] + "\n" + r["out"]) if r["code"] else r["out"], phase)
     if r["code"] == 0:

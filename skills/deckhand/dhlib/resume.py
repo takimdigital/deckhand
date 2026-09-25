@@ -121,6 +121,16 @@ def _sessions(root: Path) -> dict:
             "drafts": [f"AI draft {j['id']} for {j.get('slot') or (j.get('request') or {}).get('slot', '?')} ({j.get('state')})" for j in drafts]}
 
 
+def _services(root: Path) -> list:
+    """What the app needs running (a database…): a restarted machine or a long pause kills them silently (D5)."""
+    try:
+        from . import build as B
+        info = read_json(_dk(root) / "dev.json", {}) or {}
+        return [{"name": x["name"], "up": B.service_up(root, x, info), "port": x.get("port")} for x in B.services(root)]
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def _proof(root: Path, phase: str, s: dict) -> str:
     dk = _dk(root)
     b = read_json(dk / "brief.json", {}) or {}
@@ -175,8 +185,8 @@ def gather(root: Path) -> dict | None:
     events = [(h.get("at", ""), _event(h)) for h in hist] + [(n["at"], f"note {n['kind']}: {_short(n['text'], 70)}") for n in ns]
     events.sort(key=lambda e: e[0])
     seo = read_json(dk / "seo.json", None)
-    from . import seo as SEO
-    pend = SEO.pending_summary(root)
+    from . import pending as PEND
+    pend = PEND.summary(root)
     return {
         "name": s.get("name"), "mode": s.get("mode"), "path": s.get("path"),
         "client": (read_json(dk / "profile.json", {}) or {}).get("scope") == "client",
@@ -185,7 +195,10 @@ def gather(root: Path) -> dict | None:
         "next": [short(x) for x in (nxt.get("do") or [])[:3]], "read": nxt.get("read"),
         "done": [(p["id"], s["phases"][p["id"]].get("at", "")[:10], _proof(root, p["id"], s)) for p in STATE.PHASES if s["phases"][p["id"]]["status"] == "done"],
         "skipped": [p for p in STATE.PHASE_IDS if s["phases"][p]["status"] == "skipped"],
-        "gates": [(g, v.get("at", "")[:10], v.get("by"), v.get("note", "")) for g, v in s.get("gates", {}).items() if v.get("status") == "passed"],
+        "gates": [(g, v.get("at", "")[:10], v.get("by"), (f"owner: {v['quote']}" if v.get("quote") else v.get("note", "")))
+                  for g, v in s.get("gates", {}).items() if v.get("status") == "passed"],
+        "services": _services(root),
+        "workflow": (nxt.get("workflow") or {}).get("line"),
         **safety_facts(root), "head": _git(root, "log", "-1", "--format=%h %s (%cr)"),
         "sessions": _sessions(root),
         "doing": last["doing"], "note_next": last["next"],
@@ -263,6 +276,10 @@ def render(st: dict) -> str:
         prog.append(f"- uncommitted: {', '.join(st['dirty'][:8])}" + (f" (+{len(st['dirty']) - 8})" if len(st["dirty"]) > 8 else ""))
     for k in ("tryon", "tune", "drafts"):
         prog += [f"- open: {x} — the helper (`tryon serve`) does not survive a new session: restart it" if k == "tryon" else f"- open: {x}" for x in st["sessions"][k][:4]]
+    down = [x for x in st.get("services") or [] if not x["up"]]
+    if down:
+        prog.append("- services DOWN: " + ", ".join(x["name"] + (f" (port {x['port']})" if x.get("port") else "") for x in down)
+                    + " — `dh dev start` restarts them (it reuses what is up)")
     f = st["failure"]
     if f:
         prog.append(f"- last failure {f['at'][:16].replace('T', ' ')}: `{f['cmd']}` → {f['error']}" + (f" (known fix {', '.join(f['known_fix'])}: `dh learn match`)" if f["known_fix"] else ""))
@@ -272,7 +289,12 @@ def render(st: dict) -> str:
     L += ["", "## Owner decisions (latest first — honour them)"]
     L += [f"- {d['at'][:10]}: {_short(d['text'], 150)}" for d in st["decisions"]] or ["- none recorded (`dh note decision \"…\"` the moment one is made)"]
     L += ["", f"## Waiting on the owner — {st['pending']['open']} open (end every report with these)"]
-    L += [f"- {_short(i['item'], 120)}" + (f" · {i['age_days']} d" if i.get("age_days") is not None else "") for i in st["pending"]["items"][:8]] or ["- nothing"]
+    L += [f"- {i.get('id', '')} {_short(i['item'], 120)}".replace("-  ", "- ") + (f" · {i['age_days']} d" if i.get("age_days") is not None else "")
+          + (" · yours, all projects" if i.get("from") == "machine" else "") for i in st["pending"]["items"][:8]] or ["- nothing"]
+    if st["pending"].get("deferred"):
+        L.append(f"- (+{st['pending']['deferred']} deferred until their trigger — `dh pending list --all`)")
+    if st.get("workflow"):
+        L += ["", f"`{st['workflow']}` — the last line of every report (`dh workflow todo` for the checklist)"]
     L += ["", "## Recent"]
     L += [f"- {at[:16].replace('T', ' ')} {e}" for at, e in st["timeline"]] or ["- —"]
     L += ["", "## Where to look (only if the step needs it)",

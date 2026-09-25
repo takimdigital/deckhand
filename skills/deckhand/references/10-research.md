@@ -27,8 +27,9 @@
    --agent ID`. It names the card (`references/research-card.md` — the only search guidance to read), the questions
    pre-filled from the brief, the budget and what other agents already read.
 2. Solo: work the focuses one after another as agent `A1`. Parallel: one agent per focus, at most 5 at once; each
-   writes ONLY `.deckhand/research/agents/ID.json` and registers every page it opens (`dh research add`), so no
-   page is read twice (`dh research seen URL` first).
+   writes ONLY `.deckhand/research/agents/ID.json` and registers every page it opens (`dh research add URL --by ID
+   --note "the dense facts found there"` — a note like "opened" is refused), so no page is read twice (`dh research
+   seen URL` first). Queries use `brief.category` (3–5 words), never the whole business pitch.
 3. Fill the summary fields (competitors, audience, conversion, discovery, features) from the claims.
 4. `dh research verify` merges the agents' files, fetches every cited page and checks each quote is on it.
    A mismatch is fixed (copy the real sentence) or relabelled; a page that blocks robots or draws itself with

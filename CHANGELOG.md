@@ -1,5 +1,83 @@
 # Changelog
 
+## [2.2.0] — 2026-09-25 — proven paths, and runs that improve them
+
+A real run on Hermes (Windows, git-bash: a cleaning-company boilerplate sold as a product) was dissected to the tool
+call. Each of its 20 problems is fixed in code with a regression test (`tests/test_field.py`), and the path it took
+became the first workflow.
+
+### Workflows — the path any AI follows, step by step
+- **`dh workflow query`** returns the 3 workflows that fit the project best, from three pools: yours
+  (`~/.deckhand/workflows/`, never shared), the base set shipped with Deckhand, and the community pool
+  (`workflows/community/`, read through its index — thousands of workflows cost 3 rows of context). Scores explain
+  themselves; trades match through families (`data/industries.json`: a plumbing kit finds the cleaning one).
+- A workflow is one JSON file: what it fits, its proof (levels computed from runs: draft → proven → trusted), the
+  questions to ask up front (including those past runs learned too late), and phases → steps with the exact command,
+  what it must print and what to do when it does not; `creative` names what it leaves to the AI.
+- **`dh workflow use REF`** pins it; `dh next` then prints its open steps, and every `dh` command ticks the step it
+  completes. A state-changing command no step names is recorded as a deviation. `dh workflow todo` exports the
+  checklist for any harness's todo list; RESUME and `dh next` carry a `WORKFLOW …` status line.
+- **Lint** refuses what an AI must not run: private calls, one user's absolute paths, credential-shaped values, `dh`
+  commands that do not exist (checked against the real parser) and, for base/community, anything off the allow-list.
+  Non-dh commands in your own workflows are shown to the owner before a first run (`--accept`). A community file must
+  match its index hash. Rendered text never holds `{x}` or `<x>` (Hermes' `delegate_task` refuses a batch that does).
+- `dh workflow new --from-run` turns a run into a draft; `dh workflow publish` writes a strict bundle for a community
+  pull request (nothing is sent). `scripts/workflows_index.py` builds and checks the community index (CI).
+- Base workflow **home-services-saas-product** (draft), from that run and its review.
+
+### The workflow autopsy — runnable at any moment
+- **`dh autopsy --workflow`**: the timeline (active time, pauses, every gate and whether it passed on the owner's
+  words), every question put to the owner with the answer and what it changed — LATE (asked after define),
+  DIRECTION-CHANGE (it re-opened work), PARAPHRASED (a gate passed on an agent's note), LOST (the harness dropped the
+  message) —, deviations from the workflow, what each failure cost (minutes, attempts, the step it hit), the
+  sub-agent batches, counts on how the AI talked to the owner, then **proposals with their reason and evidence**.
+  `--part` hands one section to a sub-agent. A separate report collects Deckhand's own issues for its maintainer.
+- **`dh workflow save --from-autopsy W --proposals P1,P3 [--public]`** applies the accepted ones (a learned question
+  asked in the define round from now on, an added or optional step, a pitfall), adds the run as proof, bumps the
+  version and records why. The skill itself is never edited.
+- **The autopsy reads Hermes**: its `state.db` (read-only; the current session inside Hermes, its compression lineage,
+  its sub-agent batches), `hermes sessions export` files, and any chat JSONL — the plain `dh autopsy` too.
+
+### Fixes from the field run
+- **Gates pass on the owner's words**: `dh gate pass Gx --quote "…"` in phased mode; a change request ("make it like a
+  real business") is refused and points to `dh reopen` (the run passed G1 on the agent's paraphrase).
+- **A base lands in the planning folder**: clone and scaffold accept a folder holding only Deckhand's files (they step
+  aside and come back); `dh base record` states a base built another way (the run imported a private function).
+- **Services**: `dh dev add db --cmd … --port N` — started before the app, restarted when dead, stopped together,
+  shown DOWN in RESUME (the run kept its database alive by hand for hours, then lost it in a pause).
+- **Ports**: bind-tested, Windows reserved ranges skipped (`verify`'s fixed 4100 sat inside one on the owner's
+  machine), `HOSTNAME=127.0.0.1` for servers Deckhand starts (git-bash exports the machine name), a port the dev script
+  pins is kept; `dh dev port --from N`.
+- **`dh plan split --agents N`** writes exactly N `AGENT-n.md` packages grouped by the routes each owns — never two
+  agents in one folder — plus `CONVENTIONS.md` (frozen files, the dev server is the orchestrator's, no production
+  build, scratch and test-data rules, reporting). `dh bb flag|wait` hand off between builders (the run got 22 packages
+  for 4 builders and wrote its own conventions by hand).
+- **`brief.deliverable` own | client | product**: a product's fictional demo company is allowed in its seed, the SEO
+  facts are the buyer's (not PENDING), and `dh verify` checks the buyer's kit (README, LICENSE, CUSTOMIZE.md, seed and
+  reset scripts).
+- `dh run -- dh …` resolves `dh`; research notes must carry a fact; research queries use a short `category`;
+  `dh pool add D:/project --mine` measures the owner's own folders and `pool list --mine` filters.
+- Windows and PGlite lessons seeded (HOSTNAME, EBUSY under `.next/standalone`, reserved ports, `/tmp`, MSYS paths,
+  one-connection PGlite): `dh run` prints the fix the moment one reappears.
+
+### Any harness, its own syntax
+- `dh next` returns `harness`: the detected harness's syntax for what the phase needs (`data/harness.json`).
+  `references/harness.md`: Hermes in full (background terminals + `process_manage`, the 180/600 s limits,
+  `execute_code` state loss, `delegate_task` rules, `browser_navigate` and localhost, `write_file` refusals, where
+  sessions live), Claude Code, Codex, Cursor and the rest. The installers update a Hermes copy filed under a category
+  folder instead of adding a second one.
+- `references/team.md`: parallel builders on Deckhand's rails (foundation first, one batch, packages sized to finish,
+  re-cut at the artifact seam, trust only what you re-ran, panels on demand). `docs/FIELD-TESTS.md`: how to test the
+  skill itself with a team of agents.
+
+### The owner's own files (the v1 `deckhand-profile` skill, fully absorbed)
+- **`dh pending add|decide|done|drop|wait|list`**: this project's `PENDING.md` or the owner's cross-project
+  `~/.deckhand/pending.md` (`--machine`), same line format as before; HOW and WHERE required; `when:` deferrals are not
+  re-asked; `dh next` and RESUME list both ledgers with ages.
+- `dh profile show|doctor` read `~/.deckhand/profile.md` (`notes_md`): what it answers is never asked again.
+- SKILL.md: access before asks (do what access allows, prove a wall with a probe), a secret pasted in chat is vaulted
+  and the owner told it sits in the history, an unclear ask is re-issued as one labelled line.
+
 ## [2.1.0] — 2026-09-25 — research you can check, not trust
 
 - **Claims with proof.** Research facts live in `research.json → claims[]`, each with a label (VERIFIED ·

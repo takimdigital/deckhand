@@ -801,7 +801,11 @@ def sync_pending(root: Path, rep: dict) -> dict:
     score = f"{rep['score']}/100" if rep["score"] is not None else "not measured yet (no app to inspect — `dh seo audit` after the build)"
     lines = [f"- FYI · SEO readiness {score} · {len(rep['blockers'])} launch-breakers · "
              f"{len([x for x in rep['findings'] if x['auto']])} fixes the agent makes with `dh seo apply` · details: .deckhand/SEO.md"]
-    for o in rep["owner"]:
+    product = (read_json(Path(root) / ".deckhand" / "brief.json", {}) or {}).get("deliverable") == "product"
+    if product and rep["owner"]:
+        lines.append("- FYI · a product: these facts belong to each buyer — the app's settings must let the buyer enter them "
+                     "(and CUSTOMIZE.md says where): " + ", ".join(o["label"] for o in rep["owner"]))
+    for o in ([] if product else rep["owner"]):
         tag = "ACTION NEEDED" if o["kind"] == "action" or o["required"] else "RECOMMENDED"
         lines.append(f"- [ ] P-SEO-{o['key']} · {tag} — {o['label']} · WHY: {o['why']} · HOW: {o['how']} · asked {asked.get(o['key'], today())}")
     block = "\n".join(["## Detected by `dh seo` — to be found on Google and in AI answers", BEGIN, *lines, END])
@@ -812,7 +816,7 @@ def sync_pending(root: Path, rep: dict) -> dict:
     else:
         text = text.rstrip("\n") + "\n\n" + block + "\n"
     p.write_text(text, encoding="utf-8")
-    return {"open": len(rep["owner"])}
+    return {"open": 0 if product else len(rep["owner"])}
 
 
 def pending_summary(root: Path) -> dict:

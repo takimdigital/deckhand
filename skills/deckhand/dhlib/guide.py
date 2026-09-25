@@ -14,6 +14,7 @@ TRYON = f'node "{SKILL / "tryon" / "cli.mjs"}"'
 
 STEPS = {
     "define": ["{dh} profile doctor            # what access exists (never ask for what a token already covers)",
+               "{dh} workflow query            # the 3 proven paths that fit: show them, the owner picks one (dh workflow use REF) or none",
                "{dh} brief set business=\"…\" shape=saas|booking|catalogue|marketplace|leadgen|internal languages=en,… audience=\"…\" brand.name=\"…\"",
                "ask ONLY what the brief + profile cannot answer — one batched message, defaults proposed",
                "{dh} phase done define"],
@@ -25,13 +26,15 @@ STEPS = {
     "plan": ["{dh} pool query                     # path=pool/mine: top 3 bases for this brief (reasons + gaps)",
              "write .deckhand/sitemap.json: every page, section, action and its target, every form's success+error (template in .deckhand/ after `{dh} plan init`)",
              "{dh} plan lint                      # until 0 errors — no dead ends, no orphan pages, no un-owned API",
-             "{dh} plan render && {dh} plan split --agents 3   # PLAN.md for the owner; work packages for parallel agents",
+             "{dh} plan render && {dh} plan split --agents N   # PLAN.md for the owner; N = the sub-agents you will really run (AGENT-n.md + CONVENTIONS.md)",
              "{dh} phase done plan  → show .deckhand/PLAN.md + the chosen base; wait for the owner's go (G1)"],
-    "build": ["path=pool|mine: {dh} clone <template> --to <projects_root>/<slug>",
+    "build": ["path=pool|mine: {dh} clone <template> --to <dir>   (the planning folder itself is fine: Deckhand's files step aside and come back)",
               "path=existing: {dh} adopt <folder|git-url>     path=scratch: {dh} scaffold --to <dir> && {dh} compose --sections hero,features,pricing,faq,cta,footer --copy .deckhand/copy.json",
-              "implement the work packages (.deckhand/work/WP-*.md); agents coordinate ONLY via `{dh} bb post|read`",
-              "{dh} dev start                      # prints the local URL for the owner",
-              "{dh} phase done build  → give the owner the URL; wait for their go (G2)"],
+              "built another way (by hand, another generator)? {dh} base record --kind scratch|existing --note \"how\"   (never a private function)",
+              "the app needs a database/queue running? {dh} dev add db --cmd \"…\" --port N [--env-file .env]   # once; dev start/stop/status then handle it",
+              "build the shell (WP-00: layout, nav, shared UI, schema, seed) yourself; then one sub-agent per .deckhand/work/AGENT-n.md (references/team.md)",
+              "{dh} dev start                      # services first, then the app; prints the local URL for the owner",
+              "{dh} phase done build  → give the owner the URL, logins, what you tested; wait for their go (G2)"],
     "brand": ["{dh} rebrand scan && {dh} rebrand apply     # brand from the brief: name, tagline, primary colour, icon",
               "{dh} rebrand check                  # template names, demo copy, fake logos, placeholders",
               "{dh} phase done brand"],
@@ -81,8 +84,31 @@ def _seo_steps(path: str) -> list:
 
 
 def _pending(root: Path) -> dict:
-    from . import seo as SEO
-    return SEO.pending_summary(root)
+    from . import pending as PEND
+    return PEND.summary(root)
+
+
+HARNESS_KEYS = {"build": ("background", "delegate", "limits", "browser"), "research": ("delegate", "limits"), "plan": ("delegate",),
+                "review": ("background", "browser"), "tryon": ("background",), "define": ("todo",)}
+
+
+def harness_notes(phase: str) -> dict | None:
+    """D12: one generic harness line was wrong for Hermes. The detected harness's own syntax, only what this phase needs."""
+    from . import workflow as WF
+    name = WF.harness()
+    data = read_json(SKILL / "data" / "harness.json", {}) or {}
+    row = data.get(name) or data.get("unknown") or {}
+    keys = HARNESS_KEYS.get(phase, ())
+    notes = {k: row[k] for k in keys if row.get(k)}
+    return {"name": name, **notes} if notes else None
+
+
+def _workflow(root: Path) -> dict | None:
+    from . import workflow as WF
+    try:
+        return WF.progress(root)
+    except Exception:  # noqa: BLE001 — guidance never breaks on a workflow problem
+        return None
 
 
 def _fresh_session(root: Path) -> str | None:
@@ -107,8 +133,12 @@ def next_step(root: Path) -> dict:
     cur = STATE.current(s)
     if gate:
         out = {"state": "waiting for the owner", "gate": gate, "what": STATE.GATES[gate],
-               "do": [f"show the owner what {gate} is about; on their go: {DH} gate pass {gate} --note \"…\"",
-                      f"changes requested instead: {DH} reopen <phase> --reason \"…\""], "dh": DH, "pending": _pending(root)}
+               "do": [f"show the owner what {gate} is about; ask ONE question; on their go: {DH} gate pass {gate} --quote \"<their words, verbatim>\"",
+                      f"their words ask for changes (\"make it…\", \"add…\", \"but…\"): {DH} reopen <phase> --reason \"<their words>\" — not a go"],
+               "dh": DH, "pending": _pending(root)}
+        wfp = _workflow(root)
+        if wfp:
+            out["workflow"] = wfp
         seo = read_json(root / ".deckhand" / "seo.json", None)
         if gate == "G4" and seo:
             out["seo"] = {"score": seo.get("score"), "launch_breakers": len(seo.get("blockers", [])), "agent_fixable": seo.get("auto_fixable", [])}
@@ -121,9 +151,21 @@ def next_step(root: Path) -> dict:
     out = {"phase": cur["id"], "n": f"{STATE.PHASE_IDS.index(cur['id']) + 1}/{len(STATE.PHASES)}", "title": cur["title"],
            "mode": s["mode"], "path": s["path"], "read": str(SKILL / cur["ref"]), "do": steps,
            "lessons": LEARN.preflight(root, cur["id"]), "dh": DH, "pending": _pending(root)}
+    wfp = _workflow(root)
+    if wfp and wfp.get("remaining_here") is not None:
+        out["do"] = wfp["remaining_here"] or [f"{DH} phase done {cur['id']}   # every step of this phase in the workflow is done"]
+        out["workflow"] = {k: wfp[k] for k in ("ref", "line", "next_step", "pitfalls") if wfp.get(k)}
+        out["say"] = "follow the workflow's steps in order (each has the command and what it must print); end every report with PENDING and the WORKFLOW line"
+    elif wfp:
+        out["workflow"] = wfp
+    elif cur["id"] in ("research", "plan"):
+        out["workflow_hint"] = f"{DH} workflow query   # a proven path for this kind of project: top 3, the owner picks (or none)"
     fresh = _fresh_session(root)
     if fresh:
         out["fresh_session"] = fresh
+    h = harness_notes(cur["id"])
+    if h:
+        out["harness"] = h
     books = _playbook(cur["id"])
     if books:
         out["worked_before"] = books

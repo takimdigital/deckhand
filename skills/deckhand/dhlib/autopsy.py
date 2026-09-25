@@ -72,8 +72,23 @@ def _text(content) -> str:
     return ""
 
 
+def _epoch(v) -> float | None:
+    if isinstance(v, (int, float)):
+        return float(v)
+    if not v:
+        return None
+    try:
+        import datetime as _dt
+        return _dt.datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+INJECTED = re.compile(r"^(ASYNC DELEGATION BATCH COMPLETE|\[SYSTEM|<system-reminder>|<command-|Caveat:|\[Request interrupted)", re.I)
+
+
 def load_claude(path: Path) -> tuple[list, dict]:
-    events, uses, meta = [], {}, {"cwd": None, "session": None}
+    events, uses, meta = [], {}, {"cwd": None, "session": None, "messages": []}
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         try:
             d = json.loads(line)
@@ -83,6 +98,11 @@ def load_claude(path: Path) -> tuple[list, dict]:
         meta["session"] = meta["session"] or d.get("sessionId")
         msg = d.get("message") or {}
         content = msg.get("content")
+        ts = _epoch(d.get("timestamp"))
+        if d.get("type") in ("user", "assistant") and msg.get("role") in ("user", "assistant") and not d.get("isMeta"):
+            text = content if isinstance(content, str) else _text(content)
+            if text.strip() and not (isinstance(content, list) and any(isinstance(x, dict) and x.get("type") == "tool_result" for x in content)):
+                meta["messages"].append({"i": len(meta["messages"]), "role": msg["role"], "text": text, "ts": ts, "injected": bool(INJECTED.match(text.strip()))})
         if not isinstance(content, list):
             continue
         for x in content:
@@ -97,6 +117,7 @@ def load_claude(path: Path) -> tuple[list, dict]:
                 else:
                     ev = {"kind": "tool", "tool": name}
                 ev["i"] = len(events)
+                ev["ts"] = ts
                 events.append(ev)
                 uses[x.get("id")] = ev
             elif x.get("type") == "tool_result":
@@ -125,11 +146,195 @@ def load_runs(path: Path) -> tuple[list, dict]:
         cmd = r.get("cmd") or ""
         code = r.get("exit", r.get("code"))
         events.append({"i": len(events), "kind": "cmd", "cmd": cmd, "exit": code if isinstance(code, int) else (0 if code is None else 1),
-                       "out": r.get("out") or r.get("tail") or "", "trusted": True})
+                       "out": r.get("out") or r.get("tail") or "", "trusted": True, "ts": _epoch(r.get("at"))})
     return events, {"cwd": str(path.parent.parent) if path.parent.name == ".deckhand" else None, "session": path.stem}
 
 
+def _hermes_rows(rows: list, meta: dict) -> list:
+    """Hermes messages (state.db rows or an export's messages): role, content, tool_calls (JSON), tool_call_id,
+    tool_name, timestamp. `terminal` calls become commands (exit from the result's exit_code), the rest tool calls."""
+    events, uses = [], {}
+    for r in rows:
+        role, content, ts = r.get("role"), r.get("content"), _epoch(r.get("timestamp"))
+        text = content if isinstance(content, str) else _text(content) if content else ""
+        calls = r.get("tool_calls")
+        if isinstance(calls, str):
+            try:
+                calls = json.loads(calls)
+            except ValueError:
+                calls = []
+        if role in ("user", "assistant") and text and text.strip():
+            meta["messages"].append({"i": len(meta["messages"]), "role": role, "text": text, "ts": ts, "id": r.get("id"),
+                                     "injected": bool(INJECTED.match(text.strip()))})
+        for c in calls or []:
+            fn = c.get("function") or c
+            name, args = fn.get("name"), fn.get("arguments") or {}
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except ValueError:
+                    args = {"command": args}
+            if name == "terminal":
+                ev = {"kind": "cmd", "cmd": str(args.get("command", "")), "bg": bool(args.get("background"))}
+            elif name in ("write_file", "patch"):
+                ev = {"kind": "edit", "file": str(args.get("path", ""))}
+            else:
+                ev = {"kind": "tool", "tool": name}
+            ev.update({"i": len(events), "ts": ts})
+            events.append(ev)
+            uses[c.get("id")] = ev
+        if role == "tool":
+            ev = uses.get(r.get("tool_call_id"))
+            if not ev:
+                continue
+            res = None
+            try:
+                res = json.loads(text) if text.strip().startswith("{") else None
+            except ValueError:
+                res = None
+            if isinstance(res, dict):
+                code = res.get("exit_code", res.get("returncode"))
+                bad = res.get("status") == "error" or res.get("success") is False or (res.get("error") not in (None, "", False) and code in (None, 0) and ev["kind"] != "cmd")
+                ev["exit"] = int(code) if isinstance(code, int) else (1 if bad else 0)
+                ev["out"] = str(res.get("output") or res.get("error") or "")[-6000:]
+            else:
+                ev["exit"] = 1 if re.match(r"^\s*(error|Error|ERROR)\b", text or "") else 0
+                ev["out"] = (text or "")[-6000:]
+            if ev.get("bg") and ev["kind"] == "cmd" and ev["exit"] == 0:
+                ev["exit"] = None                                   # a background start says nothing yet
+    return events
+
+
+def hermes_home() -> Path:
+    if os.environ.get("HERMES_HOME"):
+        return Path(os.environ["HERMES_HOME"])
+    if os.name == "nt" and os.environ.get("LOCALAPPDATA"):
+        return Path(os.environ["LOCALAPPDATA"]) / "hermes"
+    return Path.home() / ".hermes"
+
+
+def load_hermes_db(path: Path, session: str | None = None, project: Path | None = None) -> tuple[list, dict]:
+    """Hermes' own store (read-only): the session (HERMES_SESSION_ID, or the latest one run in this project), its
+    compression lineage, and the sub-agent batches it dispatched (async_delegations + their live logs)."""
+    import sqlite3
+    try:
+        con = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
+        con.execute("select 1 from sqlite_master limit 1")
+    except sqlite3.Error:
+        con = sqlite3.connect(_db_copy(Path(path)))          # a live, locked store: read a copy (with its WAL)
+    con.row_factory = sqlite3.Row
+    try:
+        tables = {r[0] for r in con.execute("select name from sqlite_master where type='table'")}
+        if "messages" not in tables or "sessions" not in tables:
+            raise DhError("UNKNOWN_SOURCE", f"{path}: not a Hermes state.db (no sessions/messages tables)")
+        scols = {r[1] for r in con.execute("pragma table_info(sessions)")}
+        sid = session or os.environ.get("HERMES_SESSION_ID")
+        if not sid:
+            q = "select id from sessions" + (" where cwd like ?" if project and "cwd" in scols else "") + " order by started_at desc limit 1"
+            row = con.execute(q, ((str(Path(project).resolve()).replace("\\", "/") + "%",) if project and "cwd" in scols else ())).fetchone()
+            if not row and project and "cwd" in scols:
+                row = con.execute("select id from sessions where replace(cwd, '\\', '/') like ? order by started_at desc limit 1",
+                                  (str(Path(project).resolve()).replace("\\", "/") + "%",)).fetchone()
+            if not row:
+                raise DhError("NO_SOURCE", "no Hermes session found for this project — pass --session ID (hermes sessions list)")
+            sid = row[0]
+        ids, cur = [], sid
+        while cur and cur not in ids:                        # compression lineage: the ancestors first
+            ids.insert(0, cur)
+            r = con.execute("select parent_session_id from sessions where id = ?", (cur,)).fetchone()
+            cur = r[0] if r and "parent_session_id" in scols else None
+        frontier = [sid]
+        while frontier and "parent_session_id" in scols:      # and the continuations after a split (not the sub-agents)
+            nxt = []
+            for f in frontier:
+                q = "select id from sessions where parent_session_id = ?" + (" and source != 'subagent'" if "source" in scols else "")
+                nxt += [r[0] for r in con.execute(q, (f,)) if r[0] not in ids]
+            ids += nxt
+            frontier = nxt
+        mcols = {r[1] for r in con.execute("pragma table_info(messages)")}
+        want = [c for c in ("id", "role", "content", "tool_calls", "tool_call_id", "tool_name", "timestamp") if c in mcols]
+        rows = [dict(r) for r in con.execute(f"select {', '.join(want)} from messages where session_id in ({','.join('?' * len(ids))}) order by timestamp, id", ids)]
+        meta = {"cwd": None, "session": sid, "lineage": ids, "messages": [], "harness": "hermes"}
+        if "cwd" in scols:
+            r = con.execute("select cwd from sessions where id = ?", (sid,)).fetchone()
+            meta["cwd"] = r[0] if r else None
+        meta["delegations"] = []
+        if "async_delegations" in tables:
+            dcols = {r[1] for r in con.execute("pragma table_info(async_delegations)")}
+            key = "parent_session_id" if "parent_session_id" in dcols else "origin_session"
+            for d in con.execute(f"select * from async_delegations where {key} in ({','.join('?' * len(ids))})", ids):
+                d = dict(d)
+                tasks, results = _jl(d.get("task_json")), _jl(d.get("result_json"))
+                meta["delegations"].append({"id": d.get("delegation_id"), "state": d.get("state"), "at": d.get("dispatched_at"), "done_at": d.get("completed_at"),
+                                            "tasks": len(tasks) if isinstance(tasks, list) else None,
+                                            "results": [str((x or {}).get("status") or (x or {}).get("state") or "?") for x in results] if isinstance(results, list) else [],
+                                            "logs": str(Path(path).parent / "cache" / "delegation" / "live" / str(d.get("delegation_id")))})
+    finally:
+        con.close()
+    return _hermes_rows(rows, meta), meta
+
+
+def _db_copy(path: Path) -> str:
+    import shutil
+    import tempfile
+    d = Path(tempfile.mkdtemp(prefix="dh-hermes-"))
+    for suffix in ("", "-wal", "-shm"):
+        src = Path(str(path) + suffix)
+        if src.exists():
+            shutil.copy2(src, d / (path.name + suffix))
+    return str(d / path.name)
+
+
+def _jl(v):
+    if isinstance(v, str):
+        try:
+            v = json.loads(v)
+        except ValueError:
+            return None
+    if isinstance(v, dict):
+        return v.get("tasks") or v.get("results") or v
+    return v
+
+
+def load_hermes_export(path: Path, session: str | None = None) -> tuple[list, dict]:
+    """`hermes sessions export --format jsonl`: one JSON object per session, its messages inside."""
+    sess = [d for d in read_jsonl(path) if isinstance(d.get("messages"), list)]
+    if session:
+        sess = [d for d in sess if session in (d.get("id"), d.get("session_id"))] or sess
+    if not sess:
+        raise DhError("UNKNOWN_SOURCE", f"{path}: no session with messages")
+    d = sess[-1]
+    meta = {"cwd": d.get("cwd"), "session": d.get("id") or d.get("session_id"), "messages": [], "harness": "hermes", "delegations": []}
+    return _hermes_rows(d["messages"], meta), meta
+
+
+def load_chat(path: Path) -> tuple[list, dict]:
+    """Any harness: JSONL of {"role": "user"|"assistant", "content"|"text": "…", "ts": …} — the conversation only."""
+    meta = {"cwd": None, "session": path.stem, "messages": []}
+    for d in read_jsonl(path):
+        text = d.get("content") if isinstance(d.get("content"), str) else _text(d.get("content")) if d.get("content") else d.get("text", "")
+        if d.get("role") in ("user", "assistant") and str(text).strip():
+            meta["messages"].append({"i": len(meta["messages"]), "role": d["role"], "text": str(text), "ts": _epoch(d.get("ts") or d.get("timestamp")),
+                                     "injected": bool(INJECTED.match(str(text).strip()))})
+    return [], meta
+
+
+def load(path: Path, kind: str, session: str | None = None, project: Path | None = None) -> tuple[list, dict]:
+    if kind == "claude":
+        return load_claude(path)
+    if kind == "hermes-db":
+        return load_hermes_db(path, session, project)
+    if kind == "hermes-export":
+        return load_hermes_export(path, session)
+    if kind == "chat":
+        return load_chat(path)
+    return load_runs(path)
+
+
 def detect(path: Path) -> str:
+    with open(path, "rb") as fb:
+        if fb.read(16).startswith(b"SQLite format 3"):
+            return "hermes-db"
     with path.open(encoding="utf-8", errors="replace") as f:
         for line in f:
             line = line.strip()
@@ -139,11 +344,15 @@ def detect(path: Path) -> str:
                 d = json.loads(line)
             except ValueError:
                 continue
+            if isinstance(d.get("messages"), list):
+                return "hermes-export"
             if "sessionId" in d or "message" in d or d.get("type") in ("user", "assistant", "summary", "attachment"):
                 return "claude"
             if "cmd" in d or "edit" in d:
                 return "runs"
-    raise DhError("UNKNOWN_SOURCE", f"{path}: not a Claude Code transcript nor a deckhand/plain run log")
+            if d.get("role") in ("user", "assistant", "system") and ("content" in d or "text" in d):
+                return "chat"
+    raise DhError("UNKNOWN_SOURCE", f"{path}: not a Claude Code transcript, a Hermes state.db or export, a chat log nor a deckhand run log")
 
 
 def claude_dir_for(project: Path) -> Path:
@@ -151,6 +360,8 @@ def claude_dir_for(project: Path) -> Path:
 
 
 def latest_source(root: Path) -> Path:
+    if os.environ.get("HERMES_SESSION_ID") and (hermes_home() / "state.db").exists():
+        return hermes_home() / "state.db"                    # inside Hermes: this very session, read-only
     cands = sorted(claude_dir_for(root).glob("*.jsonl"), key=lambda p: p.stat().st_mtime) if claude_dir_for(root).exists() else []
     if cands:
         return cands[-1]
@@ -470,6 +681,9 @@ def analyze(events: list, meta: dict, lessons: list | None = None) -> dict:
             named = [st for st in recipe if len(stem(st[1])) > 3 and stem(st[1]) in said]
             recipe = named + [st for st in recipe[-4:] if st not in named]
             files = [st[1] for st in recipe if st[0] == "edit"]
+        t0, t1 = events[ep["first"]].get("ts"), events[min(end, len(events) - 1)].get("ts")
+        if t0 and t1 and t1 >= t0:
+            ep["minutes"] = round((t1 - t0) / 60, 1)
         ep.update({"recipe": recipe[:10] if resolved else [], "tried": (tried + ([] if resolved else recipe))[:6], "fix_files": sorted(set(files)) if resolved else [],
                    "calls": end - ep["first"], "resolved": resolved,
                    "resolved_by": display(events[ep["resolved"]]["cmd"], meta) if resolved else None,
@@ -520,7 +734,8 @@ def analyze(events: list, meta: dict, lessons: list | None = None) -> dict:
         "masked_failures": len(masked_idx), "blind_retries": blind, "calls_in_failure_windows": sum(e["calls"] for e in eps),
         "tool_errors": [{"tool": t, "signature": sg, "count": n} for (t, sg), n in sorted(tools.items(), key=lambda x: (-x[1], x[0]))][:12],
         "episodes": [{k: e[k] for k in ("id", "owner", "rung", "why", "signature", "first_cmd", "exit", "masked", "attempts", "occurrences", "calls",
-                                        "resolved", "resolved_by", "recipe", "tried", "fix_files", "test_in_fix", "tail")} | ({"known": e["known"]} if e.get("known") else {})
+                                        "resolved", "resolved_by", "recipe", "tried", "fix_files", "test_in_fix", "tail", "first")}
+                     | ({"known": e["known"]} if e.get("known") else {}) | ({"minutes": e["minutes"]} if e.get("minutes") is not None else {})
                      for e in eps],
         "playbooks": [] if meta.get("dev") else playbooks(events, failed_idx, meta),
     }
@@ -593,7 +808,7 @@ def render(rep: dict, name: str) -> str:
     return "\n".join(L).rstrip() + "\n"
 
 
-def autopsy(root: Path | None, source: str | None = None, latest: bool = False, apply: bool = False) -> dict:
+def autopsy(root: Path | None, source: str | None = None, latest: bool = False, apply: bool = False, session: str | None = None) -> dict:
     root = Path(root) if root else Path.cwd()
     if source:
         path = Path(source).expanduser()
@@ -606,12 +821,12 @@ def autopsy(root: Path | None, source: str | None = None, latest: bool = False, 
     if not path.exists():
         raise DhError("NO_SOURCE", f"{path} does not exist")
     kind = detect(path)
-    events, meta = load_claude(path) if kind == "claude" else load_runs(path)
+    events, meta = load(path, kind, session, root)
     meta["dev"] = bool(meta.get("cwd") and (Path(meta["cwd"]) / "skills" / "deckhand" / "SKILL.md").exists())
     from . import learn as LE
     rep = redact_obj(analyze(events, meta, LE.all_lessons(root)), LE.secret_values())
     rep["kind"] = kind
-    rid = "A-" + hashlib.sha1(path.read_bytes()).hexdigest()[:10]
+    rid = "A-" + hashlib.sha1(path.read_bytes() + (meta.get("session") or "").encode()).hexdigest()[:10]
     out = root / ".deckhand" / "autopsy"
     out.mkdir(parents=True, exist_ok=True)
     write_json(out / f"{rid}.json", rep)

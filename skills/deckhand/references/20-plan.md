@@ -29,9 +29,19 @@ action. Warnings: W1 empty page, W3 data page without empty/loading/error, W4 fe
 2. `path=pool|mine`: `dh pool query` → take the top base; its routes seed the map (keep what the base already
    does well; note `weak_for` gaps as features to build). Nothing fits (`gap`) → propose `scratch`.
 3. Write `sitemap.json`; loop `dh plan lint` to 0 errors; then `dh plan render` (PLAN.md + mermaid).
-4. `dh plan split --agents N` (N = parallel builders available, usually 2–4): WP-00 shell + one WP per feature.
+4. `dh plan split --agents N` (N = the sub-agents the harness will really run, usually 2–4): exactly N
+   `work/AGENT-n.md` packages grouped by the routes each owns (fewer when fewer independent groups exist) +
+   `work/CONVENTIONS.md`; WP-00 (shell, schema, shared UI) is yours, before dispatch (`references/team.md`).
 5. `dh phase done plan` → present PLAN.md + chosen base (name, why, gaps, swap cost) → ONE question:
-   "approve, or what changes?" Two revision rounds max; beyond that it is a `later` item, not a blocker.
+   "approve, or what changes?" The go: `dh gate pass G1 --quote "<their words>"`. Words asking for a change are not a
+   go: `dh reopen plan --reason "<their words>"`, change it, show it again. Two revision rounds max; beyond that it is
+   a `later` item (`dh pending add … --when`), not a blocker.
+
+## A product (brief.deliverable=product)
+The plan carries the buyer's kit: a settings area where the buyer enters their own facts (name, address, hours,
+logo, SEO profiles — never hard-coded), a seed with ONE fictional demo company and a reset script that wipes it, and
+README / LICENSE / CUSTOMIZE.md in the review. PENDING holds the seller's items (price, licence terms), not a real
+company's address or insurance.
 
 ## Copy
 Write `.deckhand/copy.json` now if `path=scratch` (it feeds `dh compose`): per section slot

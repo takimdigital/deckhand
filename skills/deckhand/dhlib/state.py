@@ -8,6 +8,7 @@ the agent never needs to re-read the whole skill to know what to do.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from .util import DhError, now, read_json, write_json, append_jsonl, ensure_gitignore, SKILL
@@ -148,14 +149,45 @@ def phase_skip(root: Path, phase: str, reason: str) -> dict:
     return summary(root, s)
 
 
-def gate_pass(root: Path, gate: str, note: str = "") -> dict:
+# the owner's own words decide a gate: a go passes it, a change request re-opens the work instead
+APPROVE_RX = re.compile(r"(?i)(^|\b)(go|go ahead|ok|okay|oki|yes|yep|yeah|yup|approved?|approve it|looks (good|great|right|fine)|lgtm|ship( it)?|proceed|continue|"
+                        r"fine|good|great|perfect|agreed|validated?|confirm(ed)?|do it|let'?s go|g[1-4] ok|go live|"
+                        r"oui|d'accord|vas-?y|valid[ée]|parfait|c'est bon|نعم|موافق|s[ií]|vale|adelante|genehmigt|passt)(\b|$)|👍|✅")
+CHANGE_RX = re.compile(r"(?i)\b(change|make it|instead|but|however|add|remove|replace|rename|move|fix|not (yet|good|ok|right)|no\b|"
+                       r"should|must|needs? to|wrong|redo|rather|prefer|modif|chang|ajout|enl[eè]v|pas encore|plut[oô]t|mais)\b")
+
+
+def classify_quote(quote: str) -> str:
+    """approve | approve_with_changes | change_request — deterministic, from the owner's own words."""
+    q = (quote or "").strip()
+    ok, change = bool(APPROVE_RX.search(q)), bool(CHANGE_RX.search(q))
+    if ok and not change:
+        return "approve"
+    if ok and change:
+        return "approve_with_changes"
+    return "change_request"
+
+
+def gate_pass(root: Path, gate: str, note: str = "", quote: str | None = None) -> dict:
+    """`quote` = the owner's message, verbatim. A change request does not pass the gate (D2: an agent once passed
+    G1 on its own paraphrase of "make it like a real business")."""
     s = load(root)
     if gate not in GATES:
         raise DhError("BAD_GATE", f"gate must be one of {list(GATES)}")
-    s["gates"][gate] = {"status": "passed", "at": now(), "by": "owner", "note": note}
+    verdict = classify_quote(quote) if quote is not None else None
+    if verdict == "change_request":
+        phase = next(p["id"] for p in PHASES if p.get("gate") == gate)
+        raise DhError("CHANGE_REQUEST", f"the owner's words read as a change request, not a go: {quote!r}",
+                      gate=gate, do=[f"dh reopen {phase} --reason \"{(quote or '')[:80]}\"", "make the change, show it again, ask for the go",
+                                     "the owner did say go? quote the words that say it (\"ok go\", \"approved\", \"G1 ok\")"])
+    s["gates"][gate] = {"status": "passed", "at": now(), "by": "owner", "note": note,
+                        **({"quote": quote, "verdict": verdict} if quote is not None else {})}
     save(root, s)
-    log(root, {"event": "gate", "gate": gate, "note": note})
-    return summary(root, s)
+    log(root, {"event": "gate", "gate": gate, "note": note, **({"quote": quote, "verdict": verdict} if quote is not None else {})})
+    out = summary(root, s)
+    if verdict == "approve_with_changes":
+        out["changes_asked"] = f"the go came with a change: record it now — dh note decision \"{quote[:100]}\" — and do it in the next phase"
+    return out
 
 
 def reopen(root: Path, phase: str, reason: str) -> dict:

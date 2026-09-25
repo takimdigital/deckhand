@@ -1,6 +1,8 @@
 # {{ID}} — {{TITLE}}
 
-**Bounded context:** `{{CONTEXT}}` · **Agent lane:** {{AGENT}} · **Status:** open
+**Bounded context:** `{{CONTEXT}}` · **Agent:** {{AGENT}} (0 = the orchestrator, before dispatch) · **Status:** open
+
+Builders start from their `AGENT-n.md` and `CONVENTIONS.md`; this file is the detail of one package.
 
 ## Objective
 Implement this context end to end so every page below renders, every action reaches its declared
@@ -22,6 +24,7 @@ target, and every call has a visible success AND error state. Nothing outside th
 
 ## Constraints
 - MUST NOT edit files owned by another package; shared UI goes through WP-00 (post a `contract` first).
+- MUST follow `.deckhand/work/CONVENTIONS.md` (frozen files, the dev server is the orchestrator's, scratch and test-data rules).
 - MUST read the blackboard before starting and after every 30 minutes of work:
   `dh bb read --wp {{ID}}` — decisions and contracts there are binding.
 - MUST post every cross-package decision: `dh bb post --wp {{ID}} --kind contract --msg "…"`.

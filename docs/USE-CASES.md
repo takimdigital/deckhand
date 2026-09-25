@@ -24,6 +24,8 @@ Install once first ([README](../README.md#-start-in-2-minutes)). In any case, th
 | 10 | work on it as a developer | [→](#10-for-developers) |
 | 11 | get found on Google and in AI answers | [→](#11-get-found-on-google-and-in-ai-answers) |
 | 12 | start a fresh session (or switch AI) without losing anything | [→](#12-start-a-fresh-session-or-switch-ai-without-losing-anything) |
+| 13 | build a product to sell, then reuse the path for the next trade | [→](#13-build-a-product-to-sell-then-reuse-the-path-for-the-next-trade) |
+| 14 | find out what went wrong (and what I should have been asked) | [→](#14-ask-what-went-wrong-and-what-i-should-have-been-asked) |
 
 ---
 
@@ -272,6 +274,55 @@ pick up the summary on its own.
 tokens) · `dh note decision|doing|next "…"` · `dh resume` (verdict: SAFE TO START A FRESH SESSION) ·
 `dh resume --check` (re-proves the claims) · `AGENTS.md` block written by `dh init` · SessionStart hook
 `dh resume --hook` · `dh init --for client` + `dh vault set NAME` (project layer).
+
+## 13. Build a product to sell, then reuse the path for the next trade
+
+**Say:**
+> Build me a premium, production-ready boilerplate for cleaning companies that I will sell. Phased mode.
+
+**What happens:** before any question, the agent asks Deckhand for the 3 proven paths that fit ("a multi-role SaaS
+product for a home-services trade") and shows them to you with their proof. You pick one; from then on it follows
+that path step by step. All its questions come in ONE message, including the ones earlier runs learned too late
+("a fictional demo company, or yours?"). The demo company lives only in the seed, with a script that wipes it; each
+buyer's own details go in the app's settings; the review checks the buyer's kit (README, licence, customization
+guide). For a bigger app it builds the foundation itself, then splits the rest across parallel builders who never
+touch the same folder, and re-checks their work before showing you.
+
+**Next time:**
+> Now the same for plumbing companies.
+
+The cleaning path comes back first ("same family: the path transfers, the words change"), improved by what the first
+run taught it.
+
+**You do:** answer the first message, approve the plan and the running app.
+
+**Under the hood:** `dh workflow query` · `dh workflow use` · `dh brief set deliverable=product` · `dh plan split
+--agents N` (AGENT-n.md + CONVENTIONS.md) · `dh dev add db …` · `dh verify` (row product-kit) · `dh harvest --push`.
+
+## 14. Ask what went wrong (and what I should have been asked)
+
+**Say** (at any moment — mid-build is fine):
+> Run the workflow autopsy.
+
+**What happens:** Deckhand replays the session with no AI involved. You see:
+- every question the agent asked you and what you answered;
+- which answers came too late and made it redo work;
+- where it left its workflow;
+- what each failure cost, in minutes.
+
+Then comes a short list of proposed fixes to the workflow, each with the reason and the evidence. You choose where the
+ones you accept go:
+- **your own workflows**, on your computer only;
+- **the community**, as a reviewed pull request;
+- **nowhere**.
+
+Anything that is Deckhand's own bug goes into a separate report you can send to its maintainer. The autopsy never
+changes Deckhand itself.
+
+**You do:** read the list, say which ones to keep and where.
+
+**Under the hood:** `dh autopsy --workflow [--part questions]` (reads Claude Code sessions, Hermes' `state.db` or any
+chat log) · `dh workflow save --from-autopsy W-… --proposals P1,P3 [--public]` · `.deckhand/autopsy/W-….maintainer.md`.
 
 Stuck, or found a better way? [Open an issue](https://github.com/takimdigital/deckhand-skill/issues).
 That's how this gets better for everyone.

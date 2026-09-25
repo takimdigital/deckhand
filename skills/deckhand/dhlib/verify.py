@@ -38,6 +38,23 @@ def _get(url: str):
         return getattr(e, "code", None) or 0, ""
 
 
+def product_kit(root: Path, scripts: dict) -> list:
+    """What a boilerplate sold to other businesses must carry (brief.deliverable=product)."""
+    miss = []
+    if not (root / "README.md").exists():
+        miss.append("README.md (what it is, the stack, the quick start)")
+    if not any(p.name.upper().startswith(("LICENSE", "LICENCE")) for p in root.iterdir()):
+        miss.append("LICENSE (the terms the buyer gets)")
+    if not ((root / "CUSTOMIZE.md").exists() or (root / "docs").is_dir() and any((root / "docs").glob("*custom*"))):
+        miss.append("CUSTOMIZE.md (rebrand, the buyer's own facts, where each setting lives)")
+    names = " ".join(scripts)
+    if not re.search(r"seed", names):
+        miss.append("a seed script (package.json) that loads the demo company")
+    if not re.search(r"reset|wipe|clean", names):
+        miss.append("a reset/wipe script (package.json) that removes the demo company for the buyer")
+    return miss
+
+
 def run_verify(root: Path, url: str | None = None, skip: tuple = (), allow: tuple = ()) -> dict:
     root = Path(root)
     rows = []
@@ -107,6 +124,11 @@ def run_verify(root: Path, url: str | None = None, skip: tuple = (), allow: tupl
     if sw.get("rows"):
         row("swaps", sw["ok"], "every rented service replaced or kept by decision" if sw["ok"] else "vendor SDKs still present",
             evidence="\n".join(f"{r['vendor']}: {r['detail']}" for r in sw["rows"] if not r["ok"]) or None)
+    brief = read_json(root / ".deckhand" / "brief.json", {}) or {}
+    if brief.get("deliverable") == "product" and "product-kit" not in skip:
+        kit = product_kit(root, scripts)
+        row("product-kit", not kit, "the buyer's kit is complete (README, LICENSE, CUSTOMIZE, seed + reset scripts)" if not kit
+            else "missing for the buyer: " + "; ".join(kit), evidence="\n".join(kit) or None)
     b = BRAND.check(root, allow=allow)
     row("honesty", b["ok"], f"{b['blocking']} blocking findings, {b['warnings']} warnings (template names, demo content, fake logos, placeholders)",
         evidence="\n".join(f"{f['severity']} {f['file']}:{f['line']} {f['kind']}: {f['text']}" for f in b["findings"][:15]) or None)
@@ -115,7 +137,7 @@ def run_verify(root: Path, url: str | None = None, skip: tuple = (), allow: tupl
     prod, base, where = None, url, "the given URL"
     if not base and built and "start" in scripts and "routes" not in skip:
         log = root / ".deckhand" / "verify-serve.log"
-        prod, purl, pst = BUILD.serve(root, "start", BUILD._free_port(4100), log, wait=120)
+        prod, purl, pst = BUILD.serve(root, "start", BUILD._free_port(4100), log, wait=120, keep_pinned=False)   # bind-tested, never a reserved range
         if pst and pst < 500:
             base, where = purl, f"the production build, {purl}"
         else:

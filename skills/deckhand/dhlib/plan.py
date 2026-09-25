@@ -277,15 +277,26 @@ def split(root: Path, agents: int = 3) -> dict:
                     if k == "api" and v not in wp["api"]:
                         consumes.add(f"api {v}")
         wp["consumes"] = sorted(consumes)
-    lanes = [[] for _ in range(max(1, agents))]
-    for wp in sorted(wps, key=lambda w: -len(w["pages"]) - 2 * len(w["api"])):
-        min(lanes, key=lambda l: sum(len(w["pages"]) + 2 * len(w["api"]) for w in l)).append(wp)
+    # the shell (layout, nav, shared UI, schema) is the orchestrator's: written and frozen BEFORE any dispatch
+    shell_wp, feats = wps[0], wps[1:]
+    shell_wp["agent"] = 0
+    for wp in feats:
+        wp["owns"] = _collapse({_prefix(pages[pid]["route"]) for pid in wp["pages"]} | {_prefix(a.split(" ", 1)[-1]) for a in wp["api"]})
+    # packages that share a folder go to the same agent: two agents never write the same directory
+    groups = _groups(feats)
+    n = min(max(1, agents), len(groups))                 # 0 when the plan has no feature: the shell is the whole build
+    lanes = [[] for _ in range(n)]
+    weight = lambda g: sum(len(w["pages"]) + 2 * len(w["api"]) for w in g)  # noqa: E731
+    for g in sorted(groups, key=lambda g: (-weight(g), g[0]["id"])):
+        min(lanes, key=lambda l: (sum(weight([w]) for w in l), lanes.index(l))).extend(g)
     wdir = Path(root) / ".deckhand" / "work"
     wdir.mkdir(parents=True, exist_ok=True)
+    for old_ in wdir.glob("AGENT-*.md"):
+        old_.unlink()
     tpl = (SKILL / "templates" / "work-package.md").read_text(encoding="utf-8")
-    for lane_i, lane in enumerate(lanes):
+    for lane_i, lane in enumerate([[shell_wp]] + lanes):
         for wp in lane:
-            wp["agent"] = lane_i + 1
+            wp["agent"] = lane_i
             body = tpl
             rep = {
                 "{{ID}}": wp["id"], "{{TITLE}}": wp["title"], "{{CONTEXT}}": wp["context"], "{{AGENT}}": str(wp["agent"]),
@@ -301,13 +312,111 @@ def split(root: Path, agents: int = 3) -> dict:
             for k, v in rep.items():
                 body = body.replace(k, v)
             (wdir / f"{wp['id']}-{wp['context']}.md").write_text(body, encoding="utf-8")
-    index = {"at": now(), "agents": len(lanes), "packages": [{k: wp[k] for k in ("id", "context", "title", "agent", "pages", "api", "consumes")} for lane in lanes for wp in lane]}
+    agents_out = []
+    for i, lane in enumerate(lanes, 1):
+        owns = _collapse({o for wp in lane for o in wp["owns"]})
+        body = _agent_package(i, lane, owns, pages)
+        (wdir / f"AGENT-{i}.md").write_text(body, encoding="utf-8")
+        agents_out.append({"id": f"A{i}", "package": f".deckhand/work/AGENT-{i}.md", "owns": owns, "wps": [w["id"] for w in lane]})
+    (wdir / "CONVENTIONS.md").write_text(_conventions(agents_out, shell_wp, pages), encoding="utf-8")
+    index = {"at": now(), "agents": n, "asked": agents,
+             **({"note": f"{agents} agents asked, {n} independent folder groups exist: {n} agents"
+                        + ("" if n else " — build it yourself, no dispatch")} if n < agents else {}),
+             "orchestrator_first": {"wp": "WP-00", "pages": [pages[p]["route"] for p in shell_wp["pages"]],
+                                    "why": "layout, navigation, shared UI, schema and seed are written and frozen BEFORE dispatch"},
+             "dispatch": [{"agent": a["id"], "give": a["package"], "then": ".deckhand/work/CONVENTIONS.md"} for a in agents_out],
+             "packages": [{k: wp.get(k) for k in ("id", "context", "title", "agent", "pages", "api", "consumes", "owns")} for lane in [[shell_wp]] + lanes for wp in lane],
+             "next": "build WP-00 yourself, then give each sub-agent exactly ONE AGENT-n.md (references/team.md)"}
     write_json(wdir / "index.json", index)
     return index
 
 
+def _prefix(route: str) -> str:
+    """The folder a route lives in, as a route prefix: /dashboard/clients/[id] → /dashboard/clients (2 static segments)."""
+    segs = [x for x in str(route).split("?")[0].split("#")[0].strip("/").split("/") if x and not x.startswith("[") and not x.startswith("(")]
+    return "/" + "/".join(segs[:2]) if segs else "/"
+
+
+def _collapse(prefixes) -> list:
+    """/order and /order/thanks → /order (the deeper one is already inside)."""
+    ps = set(prefixes)
+    return sorted(p for p in ps if not any(q != p and q != "/" and p.startswith(q + "/") for q in ps))
+
+
+def _groups(wps: list) -> list:
+    """Union packages whose owned prefixes overlap (one is a prefix of the other)."""
+    parent = list(range(len(wps)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def overlap(a, b):
+        return a == b or (a != "/" and b != "/" and (a.startswith(b + "/") or b.startswith(a + "/")))
+    for i in range(len(wps)):
+        for j in range(i + 1, len(wps)):
+            if any(overlap(a, b) for a in wps[i]["owns"] for b in wps[j]["owns"]):
+                parent[find(i)] = find(j)
+    out = {}
+    for i, wp in enumerate(wps):
+        out.setdefault(find(i), []).append(wp)
+    return list(out.values())
+
+
+def _agent_package(i: int, lane: list, owns: list, pages: dict) -> str:
+    L = [f"# AGENT-{i} — your whole assignment (A{i})", "",
+         "You are one of several builders working in the SAME folder at the same time. Your context is this file.", "",
+         "## Read first, in this order", "",
+         "1. `.deckhand/work/CONVENTIONS.md` — the hard rules (frozen files, ports, test data, scratch, reporting). Binding.",
+         f"2. `dh bb read --wp A{i}` — decisions and contracts other builders already posted.",
+         "3. The work packages below (each links its page list, actions, APIs) — nothing else in `.deckhand/work/`.", "",
+         "## You own (create or edit files ONLY for these routes; their folders in app/, route groups included)", ""]
+    L += [f"- `{o}/**`" if o != "/" else "- `/` (home only)" for o in owns]
+    L += ["", "## Your work packages", ""]
+    for wp in lane:
+        L.append(f"- **{wp['id']} {wp['title']}** — `.deckhand/work/{wp['id']}-{wp['context']}.md` · pages: "
+                 + ", ".join(f"`{pages[p]['route']}`" for p in wp["pages"]) + (f" · APIs: {', '.join(wp['api'])}" if wp["api"] else ""))
+    cons = sorted({c for wp in lane for c in wp.get("consumes", [])})
+    L += ["", "## You consume (link to these, never edit them)", ""] + ([f"- {c}" for c in cons] or ["- (nothing)"])
+    L += ["", "## Report", "",
+          f"- after EACH page works: `dh bb post --wp A{i} --kind progress --msg \"<route> done: <evidence>\"`",
+          f"- finished: `dh bb post --wp A{i} --kind done --msg \"<routes shipped> · tsc clean · <what is left>\"` then `dh bb flag A{i}-done`",
+          f"- blocked (a frozen file must change, a fact is missing): `dh bb post --wp A{i} --kind blocker --msg \"<exact need>\"` and stop",
+          "- your final answer to the orchestrator: ONE line of status + the routes + evidence. Never raw logs.", ""]
+    return "\n".join(L)
+
+
+def _conventions(agents: list, shell_wp: dict, pages: dict) -> str:
+    L = ["# CONVENTIONS — every builder reads this first (written by `dh plan split`)", "",
+         "## Frozen (the orchestrator wrote them before dispatch; you READ them, never edit)", "",
+         "- `package.json` + the lockfile (no new dependency without a `question` on the board)",
+         "- the database schema, migrations and seed (`db/`, `prisma/`, `drizzle/`…) — a new column is a `question`",
+         "- `app/layout.tsx`, `globals.css`, `components/ui/**`, `lib/**`, `middleware.*`, `.env*`",
+         "- shell pages (WP-00): " + (", ".join(f"`{pages[p]['route']}`" for p in shell_wp["pages"]) or "(none)"), "",
+         "## Who owns what (write ONLY inside your routes; new shared components go in `components/<your-agent-id>/`)", "",
+         "| agent | package | owns |", "|---|---|---|"]
+    L += [f"| {a['id']} | `{a['package']}` | " + ", ".join(f"`{o}`" for o in a["owns"]) + " |" for a in agents]
+    L += ["", "## Hard rules", "",
+          "- The dev server belongs to the orchestrator: use its URL (`dh dev status`), never start, stop or restart it.",
+          "- Never run a production build (`next build`, `npm run build`) — it rewrites `.next/` under the running dev server.",
+          "  Type-check instead: `npx tsc --noEmit` — errors in files you do not own are reported, not fixed.",
+          "- Scratch files (probes, cookies, screenshots): `.deckhand/work/tmp/<your-agent-id>/` only — never a shared temp path.",
+          "- Test data: every row you create is named `TEST-<your-agent-id>-…` and deleted before you post `done`.",
+          "- Owner facts (prices, addresses, reviews) are never invented: missing → `dh bb post --kind question`.",
+          "- Check pages with `curl` (signed in when needed: cookie jar in your scratch folder). Some harness browsers",
+          "  refuse localhost (Hermes `browser_navigate`): curl + the HTML is the evidence, not a screenshot.",
+          "- On Windows run native tools with `D:/…` paths (forward slashes); `/d/…` works only inside bash.",
+          "- Waiting on another builder: `dh bb wait <flag> --max 170` (exit 1 = timeout: proceed and post a note).", "",
+          "## Report protocol", "",
+          "- progress after each page · `done` with evidence · `blocker` with the exact need — all via `dh bb post`.",
+          "- The orchestrator re-runs your key claims (routes answer, tsc clean) before trusting them.", ""]
+    return "\n".join(L)
+
+
 # ------------------------------------------------------------------ blackboard (shared memory)
-BB_KINDS = ("decision", "contract", "blocker", "question", "done", "note")
+BB_KINDS = ("decision", "contract", "blocker", "question", "done", "note", "progress")
 
 
 def bb_post(root: Path, wp: str, kind: str, msg: str, refs=None) -> dict:
@@ -316,6 +425,35 @@ def bb_post(root: Path, wp: str, kind: str, msg: str, refs=None) -> dict:
     entry = {"at": now(), "wp": wp, "kind": kind, "msg": msg, **({"refs": refs} if refs else {})}
     append_jsonl(Path(root) / ".deckhand" / "blackboard.jsonl", entry)
     return entry
+
+
+def _flag_dir(root: Path) -> Path:
+    return Path(root) / ".deckhand" / "work" / "state"
+
+
+def bb_flag(root: Path, name: str, msg: str = "") -> dict:
+    """A handoff flag (`A1-done`, `schema-frozen`): one file, created once. Cross-platform — no shell script."""
+    if not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$", name or ""):
+        raise DhError("BAD_FLAG", "flag name: letters, digits, dot, dash, underscore")
+    f = _flag_dir(root) / name
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(now() + (" " + msg if msg else "") + "\n", encoding="utf-8")
+    append_jsonl(Path(root) / ".deckhand" / "blackboard.jsonl", {"at": now(), "wp": "all", "kind": "note", "msg": f"flag {name} set" + (f": {msg}" if msg else "")})
+    return {"flag": name, "path": str(f)}
+
+
+def bb_wait(root: Path, name: str, max_s: int = 170) -> dict:
+    """Bounded wait for a flag. Default 170 s stays under Hermes' 180 s foreground default. Timeout → exit 1:
+    the consumer proceeds and posts a note — it never waits in a loop."""
+    import time as _t
+    f = _flag_dir(root) / name
+    t0 = _t.time()
+    while _t.time() - t0 < max_s:
+        if f.exists():
+            return {"flag": name, "present": True, "waited_s": int(_t.time() - t0), "set": f.read_text(encoding="utf-8").strip()}
+        _t.sleep(2)
+    have = sorted(x.name for x in _flag_dir(root).glob("*")) if _flag_dir(root).exists() else []
+    raise DhError("TIMEOUT", f"flag {name} not set after {max_s}s — proceed, and post a note on the board", flags_present=have)
 
 
 def bb_read(root: Path, wp: str | None = None, kind: str | None = None, last: int = 40) -> list:

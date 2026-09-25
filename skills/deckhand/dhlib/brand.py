@@ -127,15 +127,24 @@ def apply(root: Path, brand: dict | None = None, dry: bool = False) -> dict:
     return {"brand": name, "changes": changes, "dry": dry, "next": "dh rebrand check"}
 
 
+# a product (a boilerplate sold to many businesses) ships a fictional demo company — in its seed, nowhere else
+DEMO_PATHS = r"(^|/)(db/seed|seeds?/|seed\.|demo/|demo-data|fixtures/|sample-data)"
+
+
 def check(root: Path, allow: tuple = ()) -> dict:
     """Findings with severity: block (fails the gate) | warn."""
     root = Path(root)
     names = _template_names(root)
     findings = []
+    brief = read_json(root / ".deckhand" / "brief.json", {}) or {}
+    product = brief.get("deliverable") == "product"
+    demo_rx = re.compile(DEMO_PATHS + "".join(f"|{re.escape(x)}" for x in ((brief.get("demo") or {}).get("paths") or [])))
 
     def add(rel, i, kind, text, sev="block"):
         if kind in allow:
             return
+        if product and kind in ("demo-content", "lorem") and demo_rx.search(rel):
+            sev, text = "warn", "demo data of a product (the buyer's reset script wipes it): " + text.strip()
         findings.append({"file": rel, "line": i, "kind": kind, "text": text.strip()[:140], "severity": sev})
     for rel, p, text in _iter_text(root):
         is_doc = rel.lower().endswith((".md", ".mdx")) or rel.startswith("docs/")

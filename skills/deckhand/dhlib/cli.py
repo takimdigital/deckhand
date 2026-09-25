@@ -28,7 +28,10 @@ def _kv(pairs):
     return out
 
 
-LIST_KEYS = ("languages", "features", "assumed", "template_names", "brand.social", "seo.keywords", "seo.locations", "seo.profiles",
+# own: the owner's business · client: built for a client · product: a boilerplate sold to many (demo company in the seed,
+# the buyer's facts in settings, a product kit checked by `dh verify`)
+BRIEF_CHOICES = {"deliverable": ("own", "client", "product")}
+LIST_KEYS = ("languages", "demo.paths", "features", "assumed", "template_names", "brand.social", "seo.keywords", "seo.locations", "seo.profiles",
              "seo.photos", "seo.local.hours")
 
 
@@ -38,6 +41,8 @@ def cmd_brief(a):
     b = read_json(path, None) or json.loads((SKILL / "templates" / "brief.json").read_text(encoding="utf-8"))
     if a.action == "set":
         for k, v in _kv(a.pairs).items():
+            if k in BRIEF_CHOICES and v not in BRIEF_CHOICES[k]:
+                raise DhError("BAD_VALUE", f"{k} must be one of {', '.join(BRIEF_CHOICES[k])}")
             val = [x.strip() for x in v.split(",") if x.strip()] if k in LIST_KEYS else v
             cur = b
             parts = k.split(".")
@@ -46,6 +51,63 @@ def cmd_brief(a):
             cur[parts[-1]] = val
         write_json(path, b)
     return b
+
+
+def cmd_workflow(a, root: Path):
+    from . import workflow as WF
+    act = a.action
+    if act == "query":
+        brief = read_json(root / ".deckhand" / "brief.json", {}) or {}
+        opts = {"deliverable": a.deliverable, "industry": a.industry, "shape": a.shape, "harness": a.harness, "os": a.os, "min_level": a.min_level,
+                "features": [x.strip() for x in (a.features or "").split(",") if x.strip()] or None}
+        return WF.query(brief, opts, a.top, refresh=a.refresh)
+    if act == "list":
+        return {"workflows": [{k: r.get(k) for k in ("id", "version", "title", "source", "level", "green", "runs", "steps")} for r in WF.rows(a.refresh)]}
+    if act == "sync":
+        return WF.sync()
+    if act == "use":
+        if not a.target:
+            raise DhError("USAGE", "dh workflow use <ref> [--set name=value] [--accept]")
+        return WF.use(root, a.target, accept=a.accept, sets=_kv(a.set))
+    if act == "status":
+        return WF.progress(root) or {"pinned": None, "next": "dh workflow query"}
+    if act == "todo":
+        return WF.todo(root, a.format, a.phase)
+    if act == "step":
+        if not a.target or not a.state:
+            raise DhError("USAGE", "dh workflow step <ID> done|skip [--why \"…\"]")
+        return WF.step(root, a.target, a.state, a.why or "")
+    if act == "show":
+        wf, src = WF.load(a.target) if a.target else WF._pinned_wf(root)[0:1] + ("pinned",)
+        vals = WF.params_for(wf, root if (root / ".deckhand").exists() else None)
+        if a.format == "md":
+            return {"ref": f"{src}:{wf['id']}@{wf.get('version', 1)}", "markdown": WF.render_md(wf, vals, a.phase)}
+        return {"ref": f"{src}:{wf['id']}@{wf.get('version', 1)}", "level": WF.level(wf), "workflow": wf}
+    if act == "lint":
+        if not a.target:
+            raise DhError("USAGE", "dh workflow lint <ref|file.json>")
+        wf, src = WF.load(a.target)
+        r = WF.lint(wf, strict=src != "mine")
+        if not r["ok"]:
+            raise DhError("WORKFLOW_INVALID", f"{len(r['errors'])} errors", **r)
+        return r
+    if act == "new":
+        if not a.from_run:
+            raise DhError("USAGE", "dh workflow new --from-run [--id ID] [--title T]   (extracts this project's run as a draft in your pool)")
+        return WF.new_from_run(root, a.id, a.title)
+    if act == "save":
+        if a.from_autopsy:
+            from . import wfautopsy as WA
+            return WA.workflow_save(root, a.from_autopsy, [x.strip() for x in a.proposals.split(",") if x.strip()], public=a.public, wid=a.id)
+        if not a.target:
+            raise DhError("USAGE", "dh workflow save <file.json> [--public]  ·  dh workflow save --from-autopsy ID --proposals P1,P3 [--public]")
+        wf, _ = WF.load(a.target)
+        return WF.save(wf, "public" if a.public else "mine")
+    if act == "publish":
+        if not a.target:
+            raise DhError("USAGE", "dh workflow publish <ref>")
+        return WF.publish_bundle(WF.load(a.target)[0])
+    raise DhError("USAGE", act)
 
 
 def build_parser():
@@ -70,6 +132,7 @@ def build_parser():
     p = sub.add_parser("phase"); p.add_argument("action", choices=["done", "skip"]); p.add_argument("phase", choices=STATE.PHASE_IDS)
     p.add_argument("--reason"); p.add_argument("--force", help="record done despite a red check (the reason is kept and shown)")
     p = sub.add_parser("gate"); p.add_argument("action", choices=["pass"]); p.add_argument("gate"); p.add_argument("--note", default="")
+    p.add_argument("--quote", help="the owner's own words, verbatim (required in phased mode; a change request re-opens instead)")
     p = sub.add_parser("reopen"); p.add_argument("phase", choices=STATE.PHASE_IDS); p.add_argument("--reason", required=True)
 
     where = argparse.ArgumentParser(add_help=False)
@@ -78,18 +141,47 @@ def build_parser():
     w.add_argument("--machine", dest="where", action="store_const", const="machine", help="~/.deckhand (every project)")
     p = sub.add_parser("profile", parents=[where]); p.add_argument("action", choices=["show", "set", "doctor"]); p.add_argument("pairs", nargs="*"); p.add_argument("--offline", action="store_true")
     p = sub.add_parser("vault", parents=[where]); p.add_argument("action", choices=["set", "list"]); p.add_argument("name", nargs="?")
+    p = sub.add_parser("pending", help="what only the owner can do: list · add · done · drop · wait (waiting-confirm) · decide — project PENDING.md or --machine")
+    p.add_argument("action", choices=["list", "add", "done", "drop", "wait", "decide"]); p.add_argument("text", nargs="*", help="add/decide: what · done/drop/wait: the ID")
+    for f in ("--why", "--how", "--where", "--when", "--rec", "--reason"):
+        p.add_argument(f, default="")
+    p.add_argument("--for-project", dest="for_project", help="machine item that powers one project")
+    p.add_argument("--machine", action="store_true", help="~/.deckhand/pending.md: the owner's own cross-project items")
+    p.add_argument("--all", action="store_true", help="list: include deferred (when:) and nag: no items")
 
     p = sub.add_parser("pool"); p.add_argument("action", choices=["query", "show", "vet", "add", "list", "sync"]); p.add_argument("target", nargs="?")
     p.add_argument("--shape"); p.add_argument("--features"); p.add_argument("--languages"); p.add_argument("--top", type=int, default=3); p.add_argument("--mine", action="store_true"); p.add_argument("--lane", default="web")
 
     p = sub.add_parser("plan"); p.add_argument("action", choices=["init", "lint", "render", "split"]); p.add_argument("--agents", type=int, default=3); p.add_argument("--force", action="store_true")
-    p = sub.add_parser("bb"); p.add_argument("action", choices=["post", "read"]); p.add_argument("--wp", default="all"); p.add_argument("--kind", default="note"); p.add_argument("--msg"); p.add_argument("--last", type=int, default=40)
+    p = sub.add_parser("bb", help="shared memory for parallel agents: post · read · flag NAME · wait NAME --max S")
+    p.add_argument("action", choices=["post", "read", "flag", "wait"]); p.add_argument("name", nargs="?"); p.add_argument("--wp", default="all"); p.add_argument("--kind", default="note")
+    p.add_argument("--msg"); p.add_argument("--last", type=int, default=40); p.add_argument("--max", type=int, default=170)
 
     p = sub.add_parser("clone"); p.add_argument("template"); p.add_argument("--to", required=True); p.add_argument("--no-install", action="store_true")
     p = sub.add_parser("adopt"); p.add_argument("source"); p.add_argument("--to"); p.add_argument("--install", action="store_true")
     p = sub.add_parser("scaffold"); p.add_argument("--to", required=True); p.add_argument("--pm", default="npm", choices=["npm", "pnpm", "bun", "yarn"])
     p = sub.add_parser("compose"); p.add_argument("--page", default="app/page.tsx"); p.add_argument("--sections", default="hero,features,pricing,faq,cta,footer"); p.add_argument("--copy")
-    p = sub.add_parser("dev"); p.add_argument("action", choices=["start", "stop", "status"]); p.add_argument("--port", type=int)
+    p = sub.add_parser("dev", help="start|stop|status the app and the services it needs · add|remove NAME a service (database, queue…)")
+    p.add_argument("action", choices=["start", "stop", "status", "add", "remove", "port"]); p.add_argument("name", nargs="?"); p.add_argument("--port", type=int)
+    p.add_argument("--from", dest="from_port", type=int, default=3000, help="port: the first port to try")
+    p.add_argument("--cmd", dest="svc_cmd", help="add: the command that starts the service")   # dest: `cmd` is the subcommand
+    p.add_argument("--ready", help="add: regex of the log line that says it is up")
+    p.add_argument("--env-file", help="add: KEY=VALUE file loaded into the service's environment (e.g. .env)")
+    p = sub.add_parser("workflow", help="proven paths: query (top 3) · use · next steps · todo · step · show · list · lint · new --from-run · save · publish · sync")
+    p.add_argument("action", choices=["query", "use", "show", "todo", "step", "list", "lint", "new", "save", "publish", "sync", "status"])
+    p.add_argument("target", nargs="?", help="a workflow ref (id, id@v, mine:|base:|community:id, or a .json file) · a step id for `step`")
+    p.add_argument("state", nargs="?", choices=["done", "skip"], help="step: done | skip")
+    for f in ("--deliverable", "--industry", "--shape", "--features", "--harness", "--os", "--why", "--id", "--title", "--phase"):
+        p.add_argument(f)
+    p.add_argument("--min-level", choices=["draft", "proven", "trusted"]); p.add_argument("--top", type=int, default=3)
+    p.add_argument("--refresh", action="store_true"); p.add_argument("--accept", action="store_true", help="use: the owner saw the non-dh commands and said OK")
+    p.add_argument("--set", action="append", default=[], help="use: a param, name=value (repeatable)")
+    p.add_argument("--format", choices=["json", "md"], default="json"); p.add_argument("--from-run", action="store_true")
+    p.add_argument("--from-autopsy", help="save: the workflow autopsy id whose proposals to apply"); p.add_argument("--proposals", default="", help="save: P1,P3 (the ones the owner accepted)")
+    p.add_argument("--public", action="store_true", help="save: a bundle for the community pool (a PR), not your own pool")
+    p = sub.add_parser("base", help="record the base of a project built another way (by hand, another tool)")
+    p.add_argument("action", choices=["record", "show"]); p.add_argument("--kind", choices=["scratch", "existing", "template"], default="scratch")
+    p.add_argument("--note", default=""); p.add_argument("--source")
 
     p = sub.add_parser("rebrand"); p.add_argument("action", choices=["scan", "apply", "check"]); p.add_argument("pairs", nargs="*"); p.add_argument("--dry", action="store_true"); p.add_argument("--allow", default="")
     p = sub.add_parser("swap"); p.add_argument("action", choices=["scan", "check"])
@@ -108,6 +200,9 @@ def build_parser():
     p = sub.add_parser("autopsy", help="deterministic session analysis: failures -> recipes, lessons, skill proposals, playbooks")
     p.add_argument("source", nargs="?", help="a Claude Code transcript .jsonl or a run log (default: .deckhand/runs.jsonl, else the latest transcript)")
     p.add_argument("--latest", action="store_true"); p.add_argument("--apply", action="store_true")
+    p.add_argument("--session", help="a Hermes session id (state.db); default: HERMES_SESSION_ID, else the latest in this project")
+    p.add_argument("--workflow", action="store_true", help="the workflow autopsy: timeline, questions asked + answers, deviations, cost, proposals")
+    p.add_argument("--part", help="with --workflow: only one section (timeline|questions|deviations|errors|delegation|guidance|proposals)")
 
     p = sub.add_parser("harvest"); p.add_argument("--name", required=True); p.add_argument("--to"); p.add_argument("--repo"); p.add_argument("--public", action="store_true")
     p.add_argument("--push", action="store_true", help="secret scan, then a private repo on your GitHub + your library index")
@@ -155,7 +250,11 @@ def dispatch(a):
             raise DhError("CHECK_FAILED", f"phase {a.phase} is not done yet", check=r["check"])
         return r
     if c == "gate":
-        return STATE.gate_pass(root, a.gate, a.note)
+        s = STATE.load(root)
+        if s.get("mode") == "phased" and not a.quote:
+            raise DhError("NEED_QUOTE", f"a gate passes on the owner's own words: dh gate pass {a.gate} --quote \"<their message, verbatim>\"",
+                          why="an agent once passed G1 on its own paraphrase of a change request")
+        return STATE.gate_pass(root, a.gate, a.note, quote=a.quote)
     if c == "reopen":
         return STATE.reopen(root, a.phase, a.reason)
     if c == "profile":
@@ -163,10 +262,14 @@ def dispatch(a):
         if a.action == "set":
             return PR.set_fields(a.pairs, where=a.where)
         if a.action == "doctor":
-            return PR.doctor(online=not a.offline)
+            from . import pending as PEND
+            md = PEND.profile_md()
+            return {**PR.doctor(online=not a.offline), **({"notes_md": md} if md else {})}
         pp = PR.project_profile_path()
+        from . import pending as PEND
+        md = PEND.profile_md()
         return {"profile": PR.load(), "scope": PR.scope(), "path": str(PR.profile_path()),
-                "project_layer": str(pp) if pp and pp.exists() else None}
+                "project_layer": str(pp) if pp and pp.exists() else None, **({"notes_md": md} if md else {})}
     if c == "vault":
         from . import profile as PR
         if a.action == "list":
@@ -176,6 +279,21 @@ def dispatch(a):
         if not a.name:
             raise DhError("USAGE", "dh vault set NAME [--here|--machine]   (value on stdin or prompted — never on the command line)")
         return PR.vault_set(a.name, where=a.where)
+    if c == "pending":
+        from . import pending as PEND
+        text = " ".join(a.text).strip()
+        if a.action == "list":
+            return PEND.summary(root, include_deferred=a.all)
+        if a.action in ("add", "decide"):
+            return PEND.add(root, text, a.why, a.how, a.where, machine=a.machine, when=a.when or None, project=a.for_project,
+                            decide=a.action == "decide", rec=a.rec or None)
+        if not text:
+            raise DhError("USAGE", f"dh pending {a.action} P-0NN")
+        if a.action == "wait":
+            return PEND.set_status(root, text, "waiting-confirm", machine=a.machine)
+        if a.action == "drop" and not a.reason:
+            raise DhError("NEED_REASON", "a dropped item keeps its reason: --reason \"…\"")
+        return PEND.close(root, text, machine=a.machine, drop_reason=a.reason if a.action == "drop" else None)
     if c == "pool":
         from . import pool as POOL
         if a.action == "query":
@@ -195,8 +313,18 @@ def dispatch(a):
         if a.action == "vet":
             return POOL.vet(a.target, mine=a.mine)
         if a.action == "add":
+            if Path(a.target).expanduser().is_dir():                    # the owner's own project folder: measured on disk
+                if not a.mine:
+                    raise DhError("USAGE", f"{a.target} is a local folder: `dh pool add {a.target} --mine` (your own projects only)")
+                row = POOL.measure_local(Path(a.target).expanduser())
+                if a.shape:
+                    row["shape"] = a.shape
+                if a.features:
+                    row["features"] = sorted(set(row["features"]) | {x.strip() for x in a.features.split(",") if x.strip()})
+                return {**POOL.add_local(Path(a.target), row), "row": row}
             return POOL.add(a.target, mine=a.mine, shape=a.shape, features=[x.strip() for x in (a.features or "").split(",") if x.strip()])
-        return {"templates": [{k: r.get(k) for k in ("name", "source", "shape", "lane", "license", "stars")} for r in POOL.rows()]}
+        return {"templates": [{k: r.get(k) for k in ("name", "source", "shape", "lane", "license", "stars", "path")} for r in POOL.rows()
+                              if not a.mine or r.get("source") == "mine"]}
     if c == "plan":
         from . import plan as PL
         if a.action == "init":
@@ -211,6 +339,10 @@ def dispatch(a):
         return PL.split(root, a.agents)
     if c == "bb":
         from . import plan as PL
+        if a.action in ("flag", "wait"):
+            if not a.name:
+                raise DhError("USAGE", f"dh bb {a.action} NAME" + (" --max SECONDS" if a.action == "wait" else ""))
+            return PL.bb_flag(root, a.name, a.msg or "") if a.action == "flag" else PL.bb_wait(root, a.name, a.max)
         if a.action == "post":
             if not a.msg:
                 raise DhError("USAGE", "--msg required")
@@ -232,7 +364,23 @@ def dispatch(a):
         from . import build as B
         if c == "compose":
             return B.compose(root, a.page, [s.strip() for s in a.sections.split(",")], a.copy)
+        if a.action == "port":
+            from .util import free_port, reserved_ports
+            return {"port": free_port(a.from_port), "reserved": reserved_ports(), "why": "bind-tested; Windows reserved ranges skipped"}
+        if a.action == "add":
+            return B.service_add(root, a.name, a.svc_cmd, a.port, a.ready, a.env_file)
+        if a.action == "remove":
+            if not a.name:
+                raise DhError("USAGE", "dh dev remove NAME")
+            return B.service_remove(root, a.name)
         return {"start": lambda: B.dev_start(root, a.port), "stop": lambda: B.dev_stop(root), "status": lambda: B.dev_status(root)}[a.action]()
+    if c == "workflow":
+        return cmd_workflow(a, root)
+    if c == "base":
+        from . import build as B
+        if a.action == "show":
+            return {"base": (STATE.load(root)).get("base")}
+        return B.record_base(root, a.kind, a.note, a.source)
     if c == "rebrand":
         from . import brand as BR
         if a.action == "scan":
@@ -304,8 +452,11 @@ def dispatch(a):
             raise DhError("COMMAND_FAILED", f"exit {r['code']}", exit=r["code"], **{k: v for k, v in r.items() if k not in ("code", "ok")})
         return r
     if c == "autopsy":
+        if a.workflow:
+            from . import wfautopsy as WA
+            return WA.run(root, a.source, latest=a.latest, part=a.part, session=a.session)
         from . import autopsy as AU
-        return AU.autopsy(root, a.source, latest=a.latest, apply=a.apply)
+        return AU.autopsy(root, a.source, latest=a.latest, apply=a.apply, session=a.session)
     if c == "harvest":
         from . import harvest as H
         return H.harvest(root, a.name, Path(a.to) if a.to else None, a.repo, private=not a.public, push=a.push)
@@ -396,6 +547,7 @@ def main(argv=None) -> int:
             _log(a, shown, out.get("exit", 0))
             return out.get("exit", 0)
         _log(a, shown, 0)
+        _observe(a, root, shown)
         return emit({"ok": True, **out} if isinstance(out, dict) else {"ok": True, "result": out})
     except DhError as e:
         _log(a, shown, 1, f"{e.code}: {e.message}")
@@ -404,6 +556,14 @@ def main(argv=None) -> int:
         return emit({"ok": False, "code": "INTERRUPTED"}, 130)
     finally:
         _refresh(a, root, out)
+
+
+def _observe(a, root: Path, shown: str) -> None:
+    """A pinned workflow ticks the step this command completes (or records a deviation)."""
+    if a.cmd in ("next", "status", "resume", "note", "workflow", "autopsy"):
+        return
+    from . import workflow as WF
+    WF.observe(root, shown, 0)
 
 
 def _refresh(a, root: Path, out) -> None:

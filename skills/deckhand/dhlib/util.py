@@ -153,6 +153,51 @@ def ensure_gitignore(root: Path) -> bool:
     return True
 
 
+_RESERVED = None
+
+
+def reserved_ports() -> list:
+    """Windows keeps TCP port ranges for Hyper-V/WSL/Docker (`netsh … show excludedportrange`); a server cannot
+    listen there even though nothing answers. The owner's machine had 4097–4196 reserved: verify's old fixed
+    4100 fell inside it. Empty on other systems. Cached per process."""
+    global _RESERVED
+    if _RESERVED is None:
+        _RESERVED = []
+        if os.name == "nt":
+            try:
+                r = subprocess.run(["netsh", "interface", "ipv4", "show", "excludedportrange", "protocol=tcp"],
+                                   capture_output=True, text=True, timeout=10)
+                _RESERVED = [(int(a), int(b)) for a, b in re.findall(r"^\s*(\d+)\s+(\d+)", r.stdout, re.M)]
+            except Exception:  # noqa: BLE001
+                pass
+    return _RESERVED
+
+
+def port_free(port: int) -> bool:
+    """Free = not reserved, nothing answers, and we can really bind it (a connect test alone misses reserved ranges)."""
+    import socket
+    if any(a <= port <= b for a, b in reserved_ports()):
+        return False
+    with socket.socket() as s:
+        s.settimeout(0.5)
+        if s.connect_ex(("127.0.0.1", port)) == 0:
+            return False
+    for host in ("0.0.0.0", "127.0.0.1"):
+        with socket.socket() as s:
+            try:
+                s.bind((host, port))
+            except OSError:
+                return False
+    return True
+
+
+def free_port(start: int = 3000, span: int = 200) -> int:
+    for p in range(start, start + span):
+        if port_free(p):
+            return p
+    raise DhError("NO_PORT", f"no free port in {start}-{start + span - 1} (reserved ranges: {reserved_ports() or 'none'})")
+
+
 def which(cmd: str):
     """Resolve a launcher to a real executable (Windows PATH carries npm.cmd, not npm)."""
     return shutil.which(cmd)

@@ -12,7 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <a href="https://github.com/takimdigital/deckhand-skill/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/takimdigital/deckhand-skill/ci.yml?branch=main&label=CI"></a>
-  <img alt="Version: 2.1.0" src="https://img.shields.io/badge/version-2.1.0-blueviolet.svg">
+  <img alt="Version: 2.2.0" src="https://img.shields.io/badge/version-2.2.0-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes, OpenCode, Gemini CLI" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
@@ -106,6 +106,29 @@ It finds every failure (including the ones hidden behind `| tail`), what actuall
 often it came back. The next session gets the fix before the error happens, and a safe fix can replay
 itself (`dh run --fix`). Workflows that worked twice show up as *"this worked last time"*.
 
+**Proven paths instead of improvisation.** AIs are good at words and design, bad at planning 40 steps ahead
+without a slip. So Deckhand keeps **workflows**: the exact path that worked before, from the first question to the
+last command, each step with what it must print. At the start, the agent asks Deckhand for the 3 workflows that fit
+your project best (a plumbing kit finds the cleaning one: same roles, same flows, other words), you pick one, and it
+walks it step by step. Your own workflows stay on your computer; good ones can be shared with everyone through a
+reviewed pull request.
+
+**An autopsy that tells you what you should have been asked.** At any moment, `dh autopsy --workflow` replays the
+session with no AI involved: every question the agent asked you and what you answered, which answers came too late
+and forced work to be redone, where the run left its workflow, what each failure cost in minutes. Then it proposes
+fixes to the workflow, each with the reason and the evidence, and asks you where to save the ones you accept: your
+own workflows, the community's, or nowhere. It reads Claude Code sessions, Hermes' own session store, or any chat
+log, and it never edits Deckhand itself: Deckhand's own bugs go into a separate report for its maintainer.
+
+**Parallel builders that don't collide.** For a bigger app, the plan is cut into exactly as many packages as your
+agent can run in parallel, grouped so two builders never touch the same folder, with one shared rules file. The
+agent builds the foundation first, dispatches the builders, then re-checks their work itself instead of trusting
+their summaries.
+
+**Build a product to sell, not only a business.** Tell it *"a boilerplate for cleaning companies that I'll sell"*:
+the demo company is fictional and lives only in the seed (with a script that wipes it), each buyer's own details go in
+the app's settings, and the review checks the buyer's kit (README, licence, customization guide).
+
 **Nothing joins on trust.** A template or component library someone found is checked first. Copyleft,
 no licence, paywalls, paid packages, committed passwords and dead repos are refused, with the reason and
 what would be accepted instead.
@@ -176,7 +199,11 @@ Run for real in this release:
 - Session resume, tested in CI on Ubuntu and Windows: the summary is rebuilt after every command, the "safe to start fresh"
   verdict turns NO on unexplained edits and failures, the re-check catches a stale verify or a plan edited after
   approval, and one client's keys are invisible from another client's project.
-- CI on every push, Ubuntu and Windows: 46 try-on + 76 control-plane + 40 server-client + 17 repo tests.
+- A real run on Hermes (Windows, a cleaning-company boilerplate) was dissected step by step. Its 20 problems are fixed
+  in code, each with a test: a gate passed on the agent's paraphrase of a change request, a base that could not land
+  in the planning folder, a database kept alive by hand for hours, ports Windows reserves, 22 work packages for 4
+  builders, and a Windows `HOSTNAME` trap.
+- CI on every push, Ubuntu and Windows: 46 try-on + 118 control-plane + 40 server-client + 17 repo tests.
 
 Not yet proven live: a full `dh deploy ship` against a real server (it uses the same Coolify client that
 was proven live in v1), the first real run of the $0 Oracle track, and the Claude Code session hook inside a
@@ -222,7 +249,13 @@ new session, with any AI, and say *"continue my site"*. →
 in one file, written for a model and regenerated from the code on every change, so a brand-new session starts
 with full context.
 
-**Coming from v1?** The five skills are now one (`skills/deckhand`). See the [changelog](CHANGELOG.md).
+**Does it work with Hermes, not only Claude Code?** Yes. `dh` detects the agent it runs in and prints that agent's
+own syntax (Hermes: background terminals, `process_manage`, `delegate_task`; Claude Code: background tasks, sub-agents,
+todo list). The autopsy reads Hermes' own session store directly.
+
+**Coming from v1?** The five skills are now one (`skills/deckhand`), including `deckhand-profile`: your
+`~/.deckhand/profile.md` and `~/.deckhand/pending.md` keep working (`dh profile show`, `dh pending`). If an agent still
+has an old copy of one of those skills installed, delete it. See the [changelog](CHANGELOG.md).
 
 ## 📄 License
 
