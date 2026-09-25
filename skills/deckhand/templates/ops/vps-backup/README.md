@@ -45,7 +45,7 @@ Enable: `systemctl daemon-reload && systemctl enable --now coolify-backup.timer 
 
 - **Coolify DB users are per-container** (`coolify-db` → `coolify`; app DBs → the app name) — the script auto-detects via `printenv`; never assume `postgres`.
 - **Executions endpoint can be empty** for on-demand Coolify dumps — list the bucket; the object is the proof. Re-triggering via `PATCH {backup_now:true}` is unreliable — DELETE + re-POST the config.
-- **Wrong bucket class = 0-byte reads**: a GLACIER-class bucket lists objects (HEAD size correct) but every GET >~1 KB returns HTTP 200 + 0 bytes to every client (rclone `unexpected EOF`, python `IncompleteRead`). Create buckets via API (default STANDARD) — never accept a console default without verifying with a 512 KB round-trip (`scripts/tigris_bucket.py` does exactly that).
+- **Wrong bucket class = 0-byte reads**: a GLACIER-class bucket lists objects (HEAD size correct) but every GET >~1 KB returns HTTP 200 + 0 bytes to every client (rclone `unexpected EOF`, python `IncompleteRead`). Create buckets via API (default STANDARD) — never accept a console default without verifying with a 512 KB round-trip (`ops/scripts/tigris_bucket.py` does exactly that).
 - **restic has no per-repo credentials** — inject `AWS_ACCESS_KEY_ID/SECRET` + `AWS_DEFAULT_REGION` per invocation (Tigris `auto`, B2 the bucket region).
 - **The mail router rejects link-less bodies** — the alert route must append the app URL.
 
@@ -59,7 +59,7 @@ Enable: `systemctl daemon-reload && systemctl enable --now coolify-backup.timer 
 
 ## Provider traps
 
-- **B2:** lifecycle “keep only the last version” (set at bucket create, `scripts/b2_setup.py`) — restic's S3 backend hides deletions; hidden versions keep accruing. Card-less accounts are hard-capped — alert on `cap_exceeded`.
+- **B2:** lifecycle “keep only the last version” (set at bucket create, `ops/scripts/b2_setup.py`) — restic's S3 backend hides deletions; hidden versions keep accruing. Card-less accounts are hard-capped — alert on `cap_exceeded`.
 - **Tigris:** create buckets via API (STANDARD); deleted names sit in a ~10-min cooldown (`409 BucketInaccessible`) — pick a new name. 5 GB free — size the pruned set accordingly.
 - **systemd runs have NO `$HOME`** (live-hit 2026-09-21): restic 0.19 hard-fails (`unable to open cache: unable to locate cache directory: neither $XDG_CACHE_HOME nor $HOME are defined`) — the FIRST scheduled run dies while every manual SSH test passes. The script pins `RESTIC_CACHE_DIR` itself; keep that line.
 - **Failure emails tail the append-only LOG** (live-hit 2026-09-21): a step that doesn't tee its output leaves `die()`'s email showing the PREVIOUS run's tail (the failed nightly emailed the last drill's output — useless for diagnosis). Every restic step appends to `$LOG`; every run opens with a `=== run start ===` marker.

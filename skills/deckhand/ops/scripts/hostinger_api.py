@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""vps-ops — thin Hostinger API client (stdlib only).
+"""Thin Hostinger API client (stdlib only) — used by the ops runbooks (references/ops/10 and 20).
 
 Token: HOSTINGER_API_TOKEN env or --token. Base URL: https://developers.hostinger.com
 Schemas pinned from the official OpenAPI spec (github.com/hostinger/api).
@@ -69,8 +69,25 @@ def a_entries(names, ip, ttl=14400):
 
 def update_payload(names, ip, ttl=14400):
     # overwrite=true scoped to the name+type entries we send: exact desired state for those A names,
-    # every other record (MX/TXT/other names) is untouched. See references/20-domain-dns-ssl.md.
+    # every other record (MX/TXT/other names) is untouched. See references/ops/20-domain-dns-ssl.md.
     return {"overwrite": True, "zone": a_entries(names, ip, ttl)}
+
+
+def _vault_token():
+    """HOSTINGER_API_TOKEN from the deckhand vault, else v1's ~/.vps-ops/secrets/env.sh."""
+    import shlex
+    dk = Path(os.environ.get("DECKHAND_HOME") or (Path.home() / ".deckhand"))
+    legacy = Path(os.environ.get("VPS_OPS_HOME") or (Path.home() / ".vps-ops")) / "secrets" / "env.sh"
+    for f in (dk / "vault.env", legacy):
+        if f.exists():
+            for line in f.read_text(encoding="utf-8").splitlines():
+                k, _, v = line.replace("export ", "", 1).partition("=")
+                if k.strip() == "HOSTINGER_API_TOKEN" and v.strip():
+                    try:
+                        return shlex.split(v.strip())[0]
+                    except (ValueError, IndexError):
+                        return v.strip().strip("'\"")
+    return None
 
 
 def ensure_key(token, key_material, vm_id, name="vps-ops", http=None):
@@ -191,7 +208,7 @@ def run_vm(token, a):
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(prog="hostinger_api.py", description="vps-ops Hostinger client")
+    p = argparse.ArgumentParser(prog="hostinger_api.py", description="deckhand Hostinger client")
     p.add_argument("--token")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -223,9 +240,9 @@ def main(argv=None):
     ac = sub.add_parser("actions"); ac.add_argument("vm"); ac.add_argument("action_id", nargs="?")
 
     a = p.parse_args(argv)
-    token = a.token or os.environ.get("HOSTINGER_API_TOKEN")
+    token = a.token or os.environ.get("HOSTINGER_API_TOKEN") or _vault_token()
     if not token:
-        raise SystemExit("config error: set HOSTINGER_API_TOKEN or pass --token")
+        raise SystemExit("config error: `dh vault set HOSTINGER_API_TOKEN` (or set the env var, or pass --token)")
 
     if a.cmd == "vm":
         return run_vm(token, a)

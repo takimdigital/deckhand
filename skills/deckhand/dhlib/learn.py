@@ -15,7 +15,7 @@ import os
 import re
 from pathlib import Path
 
-from .util import DATA, DhError, append_jsonl, home, now, read_jsonl, run, write_json
+from .util import DATA, DhError, append_jsonl, home, now, read_jsonl, redact, run
 from . import state as STATE
 
 RUNGS = ("eliminate", "preflight", "reorder", "gate", "pitfall")
@@ -112,11 +112,23 @@ def preflight(root: Path | None, phase: str, limit: int = 8) -> list:
             + ("  (auto: dh run --fix replays it)" if l.get("auto") else "") for l in out[:limit]]
 
 
+def secret_values() -> list:
+    """Every secret value the owner stored (vault + legacy ops keyring): exact strings to redact."""
+    from . import profile as PROFILE
+    return list(PROFILE.vault_read().values()) + list(PROFILE.legacy_read().values())
+
+
+def scrub(text: str) -> str:
+    return redact(text or "", secret_values())
+
+
 def log_run(root: Path | None, cmd: str, code: int, out: str = "", phase: str | None = None) -> None:
-    """Every command, success or not, in .deckhand/runs.jsonl — the harness-neutral source `dh autopsy` reads."""
+    """Every command, success or not, in .deckhand/runs.jsonl — the harness-neutral source `dh autopsy` reads.
+    Credentials are redacted before anything touches the disk (the file is also gitignored by `dh init`)."""
     if not root or not (Path(root) / ".deckhand").is_dir():
         return
-    append_jsonl(Path(root) / ".deckhand" / "runs.jsonl", {"at": now(), "cmd": cmd, "exit": code, "out": out[-1500:] if code else out[-200:],
+    append_jsonl(Path(root) / ".deckhand" / "runs.jsonl", {"at": now(), "cmd": scrub(cmd), "exit": code,
+                                                           "out": scrub(out[-1500:] if code else out[-200:]),
                                                            **({"phase": phase} if phase else {})})
 
 
@@ -126,12 +138,13 @@ def run_cmd(root: Path | None, argv: list, phase: str | None = None, fix: bool =
     r = run(argv, cwd=root, timeout=3600)
     log_run(root, r["cmd"], r["code"], (r["err"] + "\n" + r["out"]) if r["code"] else r["out"], phase)
     if r["code"] == 0:
-        return {"ok": True, "cmd": r["cmd"], "ms": r["ms"], "tail": r["out"][-600:]}
+        return {"ok": True, "cmd": scrub(r["cmd"]), "ms": r["ms"], "tail": scrub(r["out"][-600:])}
     tail = (r["err"] + "\n" + r["out"])[-4000:]
     known = match(root, tail)
+    tail = scrub(tail)
     if root:
         s = STATE.load(root, required=False) or {}
-        append_jsonl(Path(root) / ".deckhand" / "failures.jsonl", {"at": now(), "cmd": r["cmd"], "code": r["code"],
+        append_jsonl(Path(root) / ".deckhand" / "failures.jsonl", {"at": now(), "cmd": scrub(r["cmd"]), "code": r["code"],
                                                                      "phase": phase or (STATE.current(s)["id"] if s else None), "tail": tail[-2000:]})
     auto = next((k for k in known if k.get("auto") and k.get("recipe")), None)
     if fix and auto:
@@ -147,9 +160,9 @@ def run_cmd(root: Path | None, argv: list, phase: str | None = None, fix: bool =
                 break
         again = run(argv, cwd=root, timeout=3600)
         log_run(root, again["cmd"], again["code"], (again["err"] + "\n" + again["out"]) if again["code"] else again["out"], phase)
-        return {"ok": again["code"] == 0, "cmd": again["cmd"], "code": again["code"], "fixed_by": auto["id"], "replayed": steps,
-                "tail": (again["err"] + "\n" + again["out"])[-1500:] if again["code"] else again["out"][-600:]}
-    return {"ok": False, "cmd": r["cmd"], "code": r["code"], "tail": tail[-1500:], "known_fixes": known,
+        return {"ok": again["code"] == 0, "cmd": scrub(again["cmd"]), "code": again["code"], "fixed_by": auto["id"], "replayed": steps,
+                "tail": scrub((again["err"] + "\n" + again["out"])[-1500:] if again["code"] else again["out"][-600:])}
+    return {"ok": False, "cmd": scrub(r["cmd"]), "code": r["code"], "tail": tail[-1500:], "known_fixes": known,
             "next": (f"`dh run --fix -- …` replays the proven recipe of {auto['id']}" if auto else "apply the known fix") if known
             else "fix it, then `dh learn from-failure --fix \"…\" --cause \"…\"` (or `dh autopsy --apply` after the session) so it never costs tokens again"}
 

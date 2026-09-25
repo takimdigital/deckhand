@@ -29,8 +29,8 @@ VPS minimum: **Ubuntu 24.04 LTS**, KVM / full-virtualised, root SSH allowed. Coo
 
 The agent does the rest via `https://developers.hostinger.com`: SSH-key register + attach, firewall
 create/rules/activate/sync, DNS records, snapshots, metrics, restarts — see `10-bootstrap-vps.md`
-Steps 1a/3/7 and `20-domain-dns-ssl.md`. The token is stored in `~/.vps-ops/secrets/env.sh`
-(chmod 600), never in a repo.
+Steps 1a/3/7 and `20-domain-dns-ssl.md`. The token is stored with `dh vault set HOSTINGER_API_TOKEN`
+(`~/.deckhand/vault.env`, chmod 600), never in a repo.
 
 ## 3. Generic path (any other provider)
 
@@ -100,7 +100,7 @@ still nothing that runs on the server.
 | Offsite backups — Backblaze B2 (primary, ref 55) | Free account → enable B2 → copy the master key ONCE (no card; skip Caps & Alerts — card-gated) | provider dashboard | offsite backups — agent then creates bucket + scoped key via API |
 | Offsite backups — Tigris (default second target, ref 55) | Free account (no card) → create bucket + access keys | tigrisdata.com | second offsite target; 5 GB, zero egress, official MCP |
 | Offsite backups — Cloudflare R2 (optional; REQUIRES a card to activate) | only if a card is acceptable: enable R2 → one token | dash.cloudflare.com → R2 | richer second target for users fine with a card |
-| Cloudflare API token — DNS + brand mailboxes (refs 20/21) | Create ONE token with `Zone → Zone → Read` + `Zone → DNS → Edit` + `Zone → Email Routing → Edit` (all zones in the account) → save as `CF_API_TOKEN` in `~/.vps-ops/secrets/env.sh` | dash.cloudflare.com → My Profile → API Tokens → Create Token | DNS records, brand mailboxes (`support@`), future zone work — one token covers every phase by design; a scope a later phase needs is provisioned in the same ask, so the pipeline never bounces back |
+| Cloudflare API token — DNS + brand mailboxes (refs 20/21) | Create ONE token with `Zone → Zone → Read` + `Zone → DNS → Edit` + `Zone → Email Routing → Edit` (all zones in the account) → `dh vault set CLOUDFLARE_API_TOKEN` | dash.cloudflare.com → My Profile → API Tokens → Create Token | DNS records, brand mailboxes (`support@`), future zone work — one token covers every phase by design; a scope a later phase needs is provisioned in the same ask, so the pipeline never bounces back |
 | SMTP | host, port, user, pass | your mail provider's SMTP settings | apps that only speak SMTP |
 | OAuth (GitHub / Google) | OAuth app → client id + secret (redirect URI = app domain) | provider developer console | social login |
 | Analytics (Plausible / Umami / PostHog) | site id / project API key | provider dashboard | product analytics |
@@ -108,7 +108,7 @@ still nothing that runs on the server.
 
 Login-email apps: the email row is the ONLY human step — create the three free accounts in one sitting
 (email signup, no card), then hand the keys over ONE of two ways (offer, default first): paste to the
-agent — it vaults them (`~/.vps-ops/secrets/`, chmod 600) and sets the Coolify env, values never echoed
+agent — it vaults them (`dh vault set NAME` → `~/.deckhand/vault.env`, chmod 600) and sets the Coolify env, values never echoed
 again; or ask for the click-by-click Coolify guide. Which key per provider: ref 70 §2. DNS records,
 env wiring, and the failover router are agent work (refs 70 + 80).
 
@@ -126,7 +126,7 @@ you ask. `WHERE` = the exact file path / URL / menu chain — the user must not 
 open list** (short, with ages). Never silently drop an item — that is the one failure this exists to prevent.
 
 Rule: the agent reads `.env.example` in the repo and asks for exactly those values — nothing more.
-Secrets go only into `~/.vps-ops/secrets/` and Coolify env vars, never into a repo, commit, or chat echo.
+Secrets go only into the deckhand vault (`dh vault set`) and Coolify env vars, never into a repo, commit, or chat echo.
 
 ## 6. What the user will NEVER have to do
 

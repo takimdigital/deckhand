@@ -11,8 +11,9 @@ green on every blocking row; `.deckhand/VERIFY.md`. **Gate G4:** the owner says 
 | build | yes | the production build fails |
 | prod-clean | yes | a try-on stamp is in the build output |
 | tryon-closed | yes | a session is still open |
-| secrets | yes | a credential-shaped value or a committed `.env` exists in the repo |
+| secrets | yes | a credential-shaped value (policy: `data/secrets.json`) or a committed `.env` is in the repo — `.deckhand/` included |
 | env-ignored | yes | `.env` is not gitignored |
+| logs-ignored | yes | deckhand's run logs (`.deckhand/runs.jsonl`, `failures.jsonl`, `*.log`, `autopsy/`, `tryon/`) are not gitignored — `dh init` adds the block |
 | swaps | yes | a vendor SDK marked for replacement is still installed/imported |
 | honesty | yes | template names, demo companies/people, lorem ipsum, fake logos, try-on leftovers |
 | routes | yes | a planned public route or a home-page link answers ≥ 400 — checked on the production build (served on a free port and stopped after; `--url` checks a live site instead) |

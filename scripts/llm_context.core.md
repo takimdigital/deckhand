@@ -84,7 +84,9 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
 | <project>/NOTICE · THIRD_PARTY_NOTICES.md | [[dhlib/build.py#clone]] · [[tryon/lib/engine.mjs#recordNotice]] | never rewritten | upstream + licence of the base and of every kept design |
 | <project>/<components>/sections/ or ui-kit/<slug>/ · dh-tryon/ | keep · open | the app | kept designs · staging (removed on keep/discard/clean) |
 | <project>/globals.css marked blocks | [[tryon/lib/theme.mjs#tokenLayer]] (deckhand:tokens) · [[tryon/lib/engine.mjs#open]] (dh:css per variant) · [[tryon/lib/sitetheme.mjs#themeCss]] (dh:theme) | the app | derived tokens · variant CSS · Site knobs |
-| ~/.deckhand/profile.json · vault.env (0600) | [[dhlib/profile.py#set_fields]] · [[dhlib/profile.py#vault_set]] | [[dhlib/profile.py#secret]] (env first, then vault) | owner facts · secrets (COOLIFY_TOKEN, GITHUB_TOKEN, …), never printed |
+| ~/.deckhand/profile.json · vault.env (0600) | [[dhlib/profile.py#set_fields]] · [[dhlib/profile.py#vault_set]] | [[dhlib/profile.py#secret]] (env → vault → v1 keyring), [[ops/scripts/coolify_api.py#resolve]] | owner facts · secrets as `NAME='value'` (single-quoted: `set -a; . vault.env; set +a` is safe), never printed |
+| ~/.vps-ops/ssh/ · ~/.vps-ops/secrets/*.env.sh (v1 keyring) | the ops runbooks (SSH keys) · v1 | [[dhlib/profile.py#legacy_read]] (fallback), backup scripts | SSH keys for the servers · the backup keyring (backup.env.sh, b2-scoped.env.sh) · v1 tokens still honoured |
+| <project>/.gitignore (deckhand block) | [[dhlib/util.py#ensure_gitignore]] (dh init, every build path) | git, verify `logs-ignored` | keeps runs.jsonl, failures.jsonl, *.log, dev.json, autopsy/, tryon/ out of git |
 | ~/.deckhand/pool.json · bases/<name>/ | [[dhlib/pool.py#add_local]] · [[dhlib/harvest.py#harvest]] | [[dhlib/pool.py#rows]] (ranked first) | personal bases (source mine) |
 | ~/.deckhand/lessons.jsonl · playbooks.jsonl · autopsy/proposals/E-*.md | [[dhlib/learn.py#add]] · [[dhlib/autopsy.py#apply_report]] | match/preflight · [[dhlib/guide.py#_playbook]] · a human | global lessons (+recipe, auto) · steps that finished a phase ≥2× · skill-fix proposals |
 | ~/.deckhand/library/ (components/, components.index.json) | [[tryon/lib/library.mjs#saveToLibrary]] | [[tryon/lib/catalog.mjs#loadCatalog]] (r=mine, ranked first) | the owner's saved components |
@@ -111,7 +113,14 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
    ([[dhlib/brand.py#check]], [[tryon/lib/engine.mjs#demoTexts]], [[tryon/lib/engine.mjs#literalFit]]).
 7. Secrets stay in the vault or env. They never appear on a command line, in a remote URL, stdout, a commit or
    HANDOFF.md. The GitHub token reaches git through GIT_CONFIG_* env ([[dhlib/github.py#git_env]]).
-   `harvest --push` refuses on any secret-shaped file or string ([[dhlib/harvest.py#secret_scan]], [[!SECRETS_IN_BASE]]).
+   One policy, [[data/secrets.json]], drives every scanner and the redaction:
+   - [[dhlib/util.py#SECRET_RX]] feeds verify, harvest and vet; [[tryon/lib/library.mjs]] is strict.
+   - [[dhlib/util.py#redact]] scrubs runs.jsonl, failures.jsonl and `dh run` output ([[dhlib/learn.py#scrub]]), plus
+     every autopsy report, lesson and playbook. A recipe with a redacted step is never auto-replayed.
+   - `harvest --push` refuses on any secret-shaped file or string ([[dhlib/harvest.py#secret_scan]], [[!SECRETS_IN_BASE]]).
+   - Every project gitignores the run logs ([[dhlib/util.py#ensure_gitignore]]); verify blocks when they're not ignored.
+   Helper/CLI inputs are validated before they become CSS, class lists or paths: [[tryon/lib/sitetheme.mjs#cleanTheme]]
+   ([[!BAD_THEME]]), [[tryon/lib/tune.mjs#dialsOf]] ([[!BAD_DIAL]]), safe ids ([[!BAD_ID]]).
 8. One licence policy ([[data/licenses.json]]) for bases, registries and the catalog. NOTICE and
    THIRD_PARTY_NOTICES.md are never deleted or rewritten ([[dhlib/brand.py#NEVER]]). AI-generated variants carry a
    provenance header and no third-party notice.
@@ -254,6 +263,8 @@ F8 TUNE (one element; the Impeccable verbs as deterministic knobs)
 - Knobs: [[tryon/lib/tune.mjs#DIALS]]. Presets: quieter/bolder/airy/compact/clarity/softer/sharper
   ([[tryon/lib/tune.mjs#PRESETS]]).
 - Keep = stop tracking. Reset = byte-exact. [[!FILE_CHANGED]] if the file was edited meanwhile.
+- From chat, no browser: [[tryon:tune]] `--file F --line N --col C --preset airy` (or `--density 1 …`) →
+  `tune --id T --keep|--reset`.
 
 F9 SITE (whole look)
 - Knobs ([[tryon/lib/sitetheme.mjs#KNOBS]]): accent ([[tryon/lib/sitetheme.mjs#ACCENTS]] or any hex), neutrals,
@@ -267,6 +278,8 @@ F9 SITE (whole look)
     --font-heading;
   - backs up to theme/last.json.
 - Undo is byte-exact.
+- From chat, no browser: [[tryon:theme]] (state and allowed values) · `theme --neutrals warm --corners round …` ·
+  `theme --undo`.
 
 F10 REVIEW `dh verify` → [[dhlib/verify.py#run_verify]]
 - Rows: typecheck · lint (advisory) · build · prod-clean · tryon-closed · secrets · leaks/honesty
@@ -375,6 +388,8 @@ F16 BRAND
 | the shipped catalog | [[tryon/catalog-build.mjs]] (maintainer, network) → [[data/components.index.json]] | engine.test.mjs |
 | installer | [[install.sh]] · [[install.ps1]] | manual |
 | owner-facing docs | [[README.md]] · [[docs/USE-CASES.md]] · [[skills/deckhand/SKILL.md]] | [[scripts/version_check.py]] (versions) |
+| secret patterns / redaction / project gitignore | [[data/secrets.json]] · [[dhlib/util.py#redact]] · [[dhlib/util.py#ensure_gitignore]] | [[skills/deckhand/tests/test_security.py]], [[skills/deckhand/tryon/test/hardening.test.mjs]] |
+| docs ↔ commands, README numbers | whatever changed (docs, SKILL.md §4, README) | [[scripts/test_repo_coherence.py]] |
 | this file | code (generated part) · [[scripts/llm_context.core.md]] (curated part) · [[scripts/llm_context.py]] | [[scripts/test_llm_context.py]] |
 
 ## DEV — working on this repo
@@ -404,6 +419,10 @@ F16 BRAND
   - Regex `(?:\s+.*\n)+` backtracks catastrophically (\s matches \n). Use `[ \t]+`.
   - Python heredoc patch scripts collide with `"""` quoting. Write the patch to a file, then run it.
   - A GITHUB_TOKEN in the env overrides the vault ([[dhlib/profile.py#secret]] reads env first). Tests must pop it.
+  - [[dhlib/util.py#DhError]] takes code and message positional-only. Its extra may carry its own `code`
+    (a subprocess result). The CLI prints extra first, so ok/code/message always win. `dh run` used to crash here.
+  - Env-assignment redaction must stay case-sensitive (`MY_TOKEN=`). Case-insensitive, it ate `api_key=…&ok=1`
+    query strings.
   - A bare repo's HEAD may be master. Push and clone explicit branches (main).
   - Empty dirs are not tracked by git (a fixture's public/). [[tryon/lib/engine.mjs#ensurePlaceholder]] creates
     public/.

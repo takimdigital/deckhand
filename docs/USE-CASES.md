@@ -76,11 +76,13 @@ swapped for ones you own.
   spacing, headline size, corners, depth, contrast. It changes live. **Keep** or **Reset**.
 - **Site** (button next to Try-on): accent colour, warm or cool greys, corners, density, headline size,
   fonts, for the whole site at once. Preview, then **Apply** (or **Undo**).
+- **No browser handy?** Say it in chat: *"make the hero airier"*, *"warmer greys and rounder corners"*.
+  The agent applies the same changes, and you can undo them just as easily.
 
 **You do:** click and choose. That's the whole job.
 
 **Under the hood:** `dh adopt <path>` → `tryon setup` → `tryon serve`. Swap, Tune and Site write your code
-directly (with byte-exact undo). No AI runs per click.
+directly (with byte-exact undo). No AI runs per click. From chat: `tryon tune …` / `tryon theme …`.
 
 ## 4. A design no library has
 

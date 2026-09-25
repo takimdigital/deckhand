@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """repo_presence.py — render an app's public face from ONE filled JSON.
 
-Takes a filled copy of ``templates/repo-presence/repo.example.json`` and writes:
+Takes a filled copy of ``templates/ops/repo-presence/repo.example.json`` and writes:
 
 - ``README.md``   from ``README.template.md`` — sections with no content are dropped,
                   placeholders that never got data fail loudly (no half-READMEs).
@@ -15,8 +15,8 @@ with ``--gh`` runs them (and, when repo.json carries enough info, tells you the
 release command to finish the pass).
 
 Usage:
-  py scripts/repo_presence.py init repo.json [--dir <project>] [--dry-run] [--gh]
-  python3 scripts/repo_presence.py init repo.json
+  py ops/scripts/repo_presence.py init repo.json [--dir <project>] [--dry-run] [--gh]
+  python3 ops/scripts/repo_presence.py init repo.json
 
 Exit codes: 0 ok · 2 bad input (missing field, leftover placeholder, bad license mode).
 
@@ -220,7 +220,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="repo_presence.py", description="Render an app repo's public face from one filled JSON.")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("init", help="render README/LICENSE/package.json metadata from a filled repo.json")
-    p.add_argument("data", help="path to your filled copy of templates/repo-presence/repo.example.json")
+    p.add_argument("data", help="path to your filled copy of templates/ops/repo-presence/repo.example.json")
     p.add_argument("--dir", default=".", help="project directory to write into (default: current directory)")
     p.add_argument("--dry-run", action="store_true", help="show what would be written, write nothing")
     p.add_argument("--gh", action="store_true", help="also run the gh commands (set-default/description/topics)")

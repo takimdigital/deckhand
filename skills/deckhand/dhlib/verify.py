@@ -12,11 +12,9 @@ import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
 
-from .util import git_files, is_text, now, package_json, pm_run, read_json, run, write_json
+from .util import RUNTIME_STATE, SECRET_RX, git_files, is_text, now, package_json, pm_run, read_json, run, write_json
 from . import brand as BRAND
 from . import build as BUILD
-
-SECRET_RX = re.compile(r"(sk_live_[0-9a-zA-Z]{10,}|rk_live_[0-9a-zA-Z]{10,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|AIza[0-9A-Za-z_-]{35}|re_[A-Za-z0-9]{20,}_[A-Za-z0-9]{10,})")
 
 
 class _Links(HTMLParser):
@@ -83,7 +81,7 @@ def run_verify(root: Path, url: str | None = None, skip: tuple = (), allow: tupl
         rel = str(p.relative_to(root)).replace("\\", "/")
         if re.search(r"(^|/)\.env($|\.local$|\.production$)", rel):
             tracked_env.append(rel)
-        if not p.is_file() or not is_text(p) or rel.startswith(".deckhand/"):
+        if not p.is_file() or not is_text(p) or rel.startswith(".deckhand/tryon/"):
             continue
         try:
             for i, line in enumerate(p.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
@@ -98,6 +96,12 @@ def run_verify(root: Path, url: str | None = None, skip: tuple = (), allow: tupl
         evidence="\n".join(leaked[:10] + env_committed) or None)
     if ".env" not in gi:
         row("env-ignored", False, ".env is not in .gitignore", blocking=True)
+    # deckhand's own run logs hold command output: they must never reach the owner's git history
+    if (root / ".git").exists():
+        loose = [show for probe, show in RUNTIME_STATE.items() if run(["git", "check-ignore", "-q", probe], cwd=root)["code"] == 1]
+        row("logs-ignored", not loose, "deckhand's run logs are gitignored" if not loose
+            else f"not gitignored (they hold command output): {', '.join(loose)} — re-run `dh init --name <name>` (idempotent) to add the block",
+            blocking=True)
     from . import swap as SWAP
     sw = SWAP.check(root)
     if sw.get("rows"):

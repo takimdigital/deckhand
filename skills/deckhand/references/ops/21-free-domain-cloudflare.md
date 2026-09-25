@@ -49,15 +49,15 @@ Let's Encrypt]`. The Let's Encrypt mechanics are unchanged from `20-domain-dns-s
 ## B. Agent steps
 
 1. After the zone is Active, create the records — DNS-only (grey cloud) is MANDATORY for Coolify's
-   HTTP-01 certs. User clicks, or use the API with the token in `~/.vps-ops/secrets/env.sh`
-   (`$CF_API_TOKEN`). **Create that token with the FULL pipeline scope set in one go:**
+   HTTP-01 certs. User clicks, or use the API with the token from the vault (`dh vault set CLOUDFLARE_API_TOKEN`,
+   then `set -a; . ~/.deckhand/vault.env; set +a` → `$CLOUDFLARE_API_TOKEN`). **Create that token with the FULL pipeline scope set in one go:**
    `Zone → Zone → Read` + `Zone → DNS → Edit` + **`Zone → Email Routing → Edit`** — the last is what
    brand mailboxes (`support@`) need later; without it every future mail phase bounces back to the
    user (live-seen). Missing a scope later? **EDIT the same token** (dash.cloudflare.com → My
    Profile → API Tokens → Edit → add the permission) — no new token, no new paste:
    ```bash
    curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
-     -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" \
      -d '{"type":"A","name":"@","content":"'"$SERVER_IP"'","ttl":120,"proxied":false}'
    ```
    Records: `@` → server IP · `www` → server IP · optionally `coolify` → server IP (for the dashboard

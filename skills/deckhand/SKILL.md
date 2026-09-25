@@ -57,8 +57,12 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
    unknown → `PENDING.md` (format in the file). A demo value the owner did not confirm is a defect.
 2. **Access before asks.** Run `dh profile doctor` before asking for anything; ask ONLY for what no
    token/script covers, ONE batched message, exact click path, labeled `ACTION NEEDED`/`DECISION NEEDED`.
-3. **Secrets** live in `~/.deckhand/vault.env` (0600) or the platform's env store. MUST NOT appear in chat,
-   the profile, commits, logs or HANDOFF.md (write locations, not values).
+3. **Secrets** live in the vault `~/.deckhand/vault.env` (0600; `dh vault set NAME`; values single-quoted, so
+   `set -a; . ~/.deckhand/vault.env; set +a` is safe for curl lines) or the platform's env store. Server ops keep
+   SSH keys in `~/.vps-ops/ssh/` and the backup keyring in `~/.vps-ops/secrets/backup*.env.sh`; v1's
+   `~/.vps-ops/secrets/env.sh` is still read as a fallback. Secrets MUST NOT appear in chat, the profile,
+   commits, logs or HANDOFF.md (write locations, not values). Run logs and autopsy reports are redacted with one
+   policy (`data/secrets.json`), and `dh init` gitignores deckhand's run logs in every project.
 4. **Licences.** Bases and components come from permissive licences only (`data/licenses.json`: MIT,
    Apache-2.0, BSD-2/3, ISC, 0BSD, Unlicense); `NOTICE` and `THIRD_PARTY_NOTICES.md` are never deleted or
    rewritten. Nothing enters the pool or the catalog unvetted: `dh pool vet|add owner/repo` and `tryon registry
@@ -89,7 +93,7 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
 | plan | `dh plan init\|lint\|render\|split --agents N` · `dh bb post\|read` (shared memory for parallel agents) |
 | build | `dh clone T --to DIR` · `dh adopt PATH\|URL` · `dh scaffold --to DIR` · `dh compose --sections … --copy .deckhand/copy.json` · `dh swap scan\|check` · `dh dev start\|stop\|status` |
 | brand | `dh rebrand scan\|apply\|check` |
-| try-on | `node <skill>/tryon/cli.mjs setup\|serve\|try\|show\|keep\|discard\|save\|query\|doctor\|clean` (or `dh tryon …`) · AI draft: `drafts [--wait]\|draft-check\|draft-done --id D` |
+| try-on | `node <skill>/tryon/cli.mjs setup\|serve\|try\|show\|keep\|discard\|save\|query\|doctor\|clean` (or `dh tryon …`) · inspect: `inspect\|slots\|status\|library` · adjust: `tune --file F --line N --col C --preset P` · `theme --accent X --corners Y` · `theme --undo` · AI draft: `drafts [--wait]\|draft-check\|draft-done --id D` |
 | review | `dh verify [--url U]` |
 | deploy | `dh deploy target --app UUID --url U` · `dh deploy ship` · `dh deploy smoke` · `dh deploy raw <coolify args>` · `dh handoff` |
 | operate | `dh ops suggest` · `dh ops add BOT --runner github\|cron` |
@@ -109,7 +113,8 @@ for an AI draft: you write it ONCE from the brief (`tryon drafts` → write → 
 it (every owner word and link, token colours, installed imports, no invented facts) and it is labelled
 AI-generated everywhere. **Tune it** adjusts instead of replacing (spacing, headlines, weight, corners, depth,
 contrast, width + presets like quieter/bolder), and **Site** tunes the whole look (accent, neutrals, radius,
-density, headline scale, fonts) — deterministic, previewed exactly, reversible byte-exact.
+density, headline scale, fonts) — deterministic, previewed exactly, reversible byte-exact. The owner can also
+just say it in chat ("make the hero airier", "warmer greys, rounder corners"): run `tryon tune` / `tryon theme`.
 Details: `references/50-tryon.md`.
 
 ## 6. Delegation protocol (parallel agents)

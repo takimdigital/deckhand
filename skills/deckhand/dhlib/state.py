@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .util import DhError, now, read_json, write_json, append_jsonl, SKILL
+from .util import DhError, now, read_json, write_json, append_jsonl, ensure_gitignore, SKILL
 
 PHASES = [
     {"id": "define", "title": "Define the business and the path", "ref": "references/00-define.md"},
@@ -59,6 +59,8 @@ def init(root: Path, name: str, mode: str = "phased", path: str = "pool") -> dic
         raise DhError("BAD_PATH", f"path must be one of {PATHS}")
     root = Path(root)
     existing = load(root, required=False)
+    root.mkdir(parents=True, exist_ok=True)
+    ensure_gitignore(root)                              # run logs hold command output: never in git
     if existing:
         return {"created": False, **summary(root, existing)}
     s = {"version": 2, "name": name, "mode": mode, "path": path, "created": now(),

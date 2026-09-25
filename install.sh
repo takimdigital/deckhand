@@ -55,4 +55,5 @@ SHIM
 chmod +x "$HOME/.deckhand/bin/dh"
 say "✓ dh shim → $HOME/.deckhand/bin/dh   (add to PATH: export PATH=\"\$HOME/.deckhand/bin:\$PATH\")"
 say ""
-say "Next: open your agent and say — \"Create my deckhand profile\", then \"Build me <your business>\"."
+say "Next: open your agent and say what you want, e.g. \"Build a website for my bakery. Phased mode.\""
+say "Step by step, copy-a-sentence: docs/USE-CASES.md"

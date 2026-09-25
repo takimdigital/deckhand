@@ -4,10 +4,10 @@
 
 **Purpose:** turn a Deckhand project into a running, HTTPS, auto-deploying app on the Coolify VPS.
 **Use when:** first deployment of a project — "deploy / host / go live / put this on my VPS".
-**Prerequisites:** `10-bootstrap-vps.md` done (Coolify live, token in `~/.vps-ops/secrets/env.sh`, `coolify` CLI context optional) · `20-domain-dns-ssl.md` A-record step done for `<domain>` **before** §5.
+**Prerequisites:** `10-bootstrap-vps.md` done (Coolify live, token stored with `dh vault set COOLIFY_TOKEN`, `coolify` CLI context optional) · `20-domain-dns-ssl.md` A-record step done for `<domain>` **before** §5.
 **Companion refs:** `40-change-pipeline.md` (every later change) · `50-ops-monitoring.md` (status/backups/incidents) · `00-user-checklist.md` (one-time browser approvals).
 
-Run from git-bash. `py ops/scripts/...` paths are relative to the skill root. REST fallbacks need `. ~/.vps-ops/secrets/env.sh` (`$COOLIFY_URL`, `$COOLIFY_TOKEN`) — never echo the token.
+Run from git-bash. `py ops/scripts/...` paths are relative to the skill root. REST fallbacks need the vault in the shell: `set -a; . ~/.deckhand/vault.env; set +a` (`$COOLIFY_URL`, `$COOLIFY_TOKEN`) — never echo the token.
 
 ## 0. Prerequisites on the repo
 
@@ -211,7 +211,7 @@ ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyCheck
 ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@$VPS_IP "docker exec <container> sh -lc 'cd /app && npx -y tsx scripts/create-owner.ts <real-email>'"
 ```
 
-The owner script prints the generated password **exactly once** — store it under `~/.vps-ops/secrets/`
+The owner script prints the generated password **exactly once** — store it with `dh vault set APP_OWNER_PASSWORD`
 and hand it to the user out-of-band. Re-run the smoke afterwards; the site is then prod-clean.
 
 ## 7. Auto-deploy on push

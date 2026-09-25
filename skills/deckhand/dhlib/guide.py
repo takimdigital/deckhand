@@ -3,7 +3,6 @@ the lessons that apply, and what makes the phase done. The agent never re-reads 
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 from .util import SKILL, read_json

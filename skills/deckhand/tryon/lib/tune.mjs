@@ -156,13 +156,33 @@ export function tuneElement(code, el, d) {
   return { code: out, changed: edits.length };
 }
 
-export const dialsOf = (dials = {}, preset = null) => ({ ...(preset ? PRESETS[preset] || {} : {}), ...dials });
+/** Preset + dials, validated: known dials only, steps are integers in range, choices from their list (BAD_DIAL). */
+export function dialsOf(dials = {}, preset = null) {
+  const bad = (m) => Object.assign(new Error(m), { code: 'BAD_DIAL' });
+  if (preset != null && preset !== '' && !PRESETS[preset]) throw bad(`preset: ${Object.keys(PRESETS).join(', ')}`);
+  const merged = { ...(preset ? PRESETS[preset] : {}), ...(dials || {}) };
+  const out = {};
+  for (const [k, v] of Object.entries(merged)) {
+    const spec = DIALS[k];
+    if (!spec) throw bad(`unknown dial "${k}" (${Object.keys(DIALS).join(', ')})`);
+    if (spec.kind === 'step') {
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < spec.min || n > spec.max) throw bad(`${k}: an integer from ${spec.min} to ${spec.max}`);
+      out[k] = n;
+    } else {
+      if (!spec.options.includes(v)) throw bad(`${k}: ${spec.options.join(', ')}`);
+      out[k] = v;
+    }
+  }
+  return out;
+}
 
 /* ------------------------------------------------------------------ sessions (file-level, reversible) */
 
 const dir = (root) => path.join(root, '.deckhand', 'tryon', 'tune');
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex');
 const load = (root, id) => {
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(String(id))) throw Object.assign(new Error('bad tune session id'), { code: 'BAD_ID' });
   const p = path.join(dir(root), id + '.json');
   if (!fs.existsSync(p)) throw Object.assign(new Error('no tune session ' + id), { code: 'NO_TUNE' });
   return JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -174,6 +194,7 @@ export function tuneOpen(rootIn, { file, line, col }) {
   const rel = String(file).replace(/\\/g, '/');
   const abs = path.resolve(root, rel);
   if (!abs.startsWith(root + path.sep)) throw Object.assign(new Error(rel + ' is outside the project'), { code: 'OUTSIDE_PROJECT' });
+  if (/(^|\/)(node_modules|\.next|dist|build)\//.test(rel)) throw Object.assign(new Error(rel + ' is generated/vendored — pick the element in your source'), { code: 'GENERATED_FILE' });
   const code = fs.readFileSync(abs, 'utf8');
   const el = findElementAt(parse(rel, code), code, Number(line), Number(col));
   if (!el) throw Object.assign(new Error(`no JSX element at ${rel}:${line}:${col}`), { code: 'ELEMENT_NOT_FOUND' });
@@ -202,9 +223,12 @@ export function tuneSet(rootIn, id, { dials = {}, preset = null } = {}) {
   return { id, dials: d, changed: r.changed };
 }
 
+const mustBeOpen = (s) => { if (s.state !== 'open') throw Object.assign(new Error('tune session ' + s.id + ' is ' + s.state), { code: 'TUNE_CLOSED' }); };
+
 export function tuneKeep(rootIn, id) {
   const root = detectProject(rootIn).root;
   const s = load(root, id);
+  mustBeOpen(s);
   s.state = 'kept';
   save(root, s);
   fs.rmSync(path.join(dir(root), id + '.orig'), { force: true });
@@ -214,6 +238,7 @@ export function tuneKeep(rootIn, id) {
 export function tuneReset(rootIn, id) {
   const root = detectProject(rootIn).root;
   const s = load(root, id);
+  mustBeOpen(s);
   const abs = path.join(root, s.file);
   const orig = fs.readFileSync(path.join(dir(root), id + '.orig'));
   if (sha(fs.readFileSync(abs)) !== s.shaNow) throw Object.assign(new Error(s.file + ' was edited by hand since tuning — not overwriting it'), { code: 'FILE_CHANGED' });

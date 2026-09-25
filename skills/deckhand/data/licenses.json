@@ -1,5 +1,5 @@
 {
- "_about": "One licence policy for bases (dh pool) and component registries (tryon registry). Permissive = anyone may use, modify, sell and keep the result closed, with attribution. Read by dhlib/vet.py and tryon/lib/vet.mjs.",
+ "_about": "One licence policy for bases (dh pool) and component registries (tryon registry). Permissive = anyone may use, modify, sell and keep the result closed, with attribution. Read by dhlib/vet.py and tryon/lib/vet.mjs. Committed-secret patterns live in data/secrets.json.",
  "accepted": {
   "MIT": "keep the copyright notice (THIRD_PARTY_NOTICES.md / NOTICE)",
   "Apache-2.0": "keep LICENSE + NOTICE; state changes you made",
@@ -29,6 +29,5 @@
  "package_license_refused": ["UNLICENSED", "SEE LICENSE IN", "PROPRIETARY", "COMMERCIAL"],
  "paid_packages": ["@tailwindplus/", "@fortawesome/pro-", "@fortawesome/fontawesome-pro", "@mui/x-data-grid-pro", "@mui/x-data-grid-premium", "@mui/x-date-pickers-pro",
                    "ag-grid-enterprise", "@ag-grid-enterprise/", "@tiptap-pro/", "@syncfusion/", "@progress/kendo", "handsontable", "@bryntum/", "@devexpress/", "highcharts"],
- "paywall_text": "(pro version|premium version|buy (a|the) licen[cs]e|purchase (a|the) licen[cs]e|licen[cs]e key|unlock (all|the full)|paid plan required|full version is available|get the full (source|code)|pro components)",
- "secret_files": "(^|/)(\\.env|\\.env\\.local|\\.env\\.production|\\.env\\.development|id_rsa|id_ed25519|credentials\\.json|service-account[\\w.-]*\\.json|[\\w.-]+\\.pem|[\\w.-]+\\.p12|[\\w.-]+\\.pfx)$"
+ "paywall_text": "(pro version|premium version|buy (a|the) licen[cs]e|purchase (a|the) licen[cs]e|licen[cs]e key|unlock (all|the full)|paid plan required|full version is available|get the full (source|code)|pro components)"
 }

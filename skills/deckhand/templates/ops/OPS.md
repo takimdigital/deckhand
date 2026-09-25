@@ -83,8 +83,8 @@ ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyCheck
 curl -s -X POST "$COOLIFY_URL/api/v1/deploy?uuid=<APP_UUID>" \
   -H "Authorization: Bearer $COOLIFY_TOKEN"
 # wait + smoke (from the vps-ops skill dir):
-py scripts/coolify_api.py wait <APP_UUID> --timeout 900
-py scripts/coolify_api.py smoke https://<domain>
+py <skill>/ops/scripts/coolify_api.py wait <APP_UUID> --timeout 900
+py <skill>/ops/scripts/coolify_api.py smoke https://<domain>
 
 # MIGRATIONS (only when new migrations exist)
 ssh -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@<IP> \

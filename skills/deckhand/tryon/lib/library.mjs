@@ -13,7 +13,9 @@ import { detectProject } from './project.mjs';
 import { loadSession } from './engine.mjs';
 import { kindOf } from './slots.mjs';
 
-const SECRET = /(sk_(live|test)_[A-Za-z0-9]{10,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.)/;
+// one secret policy (data/secrets.json, shared with dh verify / harvest / log redaction); strict: no JWT, no test keys either
+const POLICY = JSON.parse(fs.readFileSync(new URL('../../data/secrets.json', import.meta.url), 'utf8'));
+const SECRET = new RegExp([...POLICY.values, ...POLICY.strict_extra].map((v) => `(?:${v.rx})`).join('|'));
 
 function indexPath() { return path.join(libraryDir(), 'components.index.json'); }
 export function readIndex() {

@@ -32,7 +32,7 @@ import re
 import shlex
 from pathlib import Path
 
-from .util import DhError, append_jsonl, home, now, read_jsonl, write_json
+from .util import DhError, append_jsonl, home, now, read_jsonl, redact_obj, write_json
 
 RUNG_ORDER = ("pitfall", "gate", "reorder", "preflight", "eliminate")
 READ_ONLY = {"cd", "echo", "ls", "cat", "head", "tail", "grep", "rg", "egrep", "fgrep", "sed", "awk", "wc", "sort", "uniq", "cut",
@@ -609,7 +609,7 @@ def autopsy(root: Path | None, source: str | None = None, latest: bool = False, 
     events, meta = load_claude(path) if kind == "claude" else load_runs(path)
     meta["dev"] = bool(meta.get("cwd") and (Path(meta["cwd"]) / "skills" / "deckhand" / "SKILL.md").exists())
     from . import learn as LE
-    rep = analyze(events, meta, LE.all_lessons(root))
+    rep = redact_obj(analyze(events, meta, LE.all_lessons(root)), LE.secret_values())
     rep["kind"] = kind
     rid = "A-" + hashlib.sha1(path.read_bytes()).hexdigest()[:10]
     out = root / ".deckhand" / "autopsy"
@@ -639,7 +639,7 @@ def apply_report(root: Path, rep: dict, rid: str) -> dict:
         if not e["resolved"] or not e["recipe"]:
             continue
         runs = [v for k, v in e["recipe"] if k == "run"]
-        auto = bool(runs) and not any(k == "edit" for k, _ in e["recipe"]) and all(SAFE_RX.match(r) for r in runs)
+        auto = bool(runs) and not any(k == "edit" for k, _ in e["recipe"]) and all(SAFE_RX.match(r) and "***" not in r for r in runs)
         fix = " → ".join(f"{k} {v}" for k, v in e["recipe"])
         r = LE.add(root, phase, e["signature"], f"{e['owner']}: {e['why']}", fix, signature=sig_regex(e["signature"]),
                    command=runs[-1] if runs else None, rung=e["rung"], scope="global",

@@ -3,7 +3,6 @@ import base64
 import http.server
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -15,7 +14,7 @@ SKILL = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SKILL))
 
 from dhlib import build, harvest, pool, profile  # noqa: E402
-from dhlib.util import DhError, read_json, rmtree, write_json  # noqa: E402
+from dhlib.util import DhError, rmtree, write_json  # noqa: E402
 
 
 class MockGitHub(http.server.BaseHTTPRequestHandler):

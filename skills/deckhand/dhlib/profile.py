@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import stat
 import sys
 import urllib.request
@@ -100,7 +101,36 @@ def vault_read() -> dict:
         if not line or line.startswith("#") or "=" not in line:
             continue
         k, v = line.split("=", 1)
-        out[k.replace("export ", "").strip()] = v.strip().strip('"').strip("'")
+        out[k.replace("export ", "").strip()] = _unquote(v.strip())
+    return out
+
+
+def _unquote(v: str) -> str:
+    try:
+        parts = shlex.split(v, posix=True)
+        return parts[0] if len(parts) == 1 else v
+    except ValueError:
+        return v.strip('"').strip("'")
+
+
+def _quote(v: str) -> str:
+    """Single-quoted, so sourcing the vault in a shell never executes or splits a value (`1|abc`, `$x`, spaces)."""
+    return "'" + v.replace("'", "'\\''") + "'"
+
+
+def legacy_home() -> Path:
+    return Path(os.environ.get("VPS_OPS_HOME") or (Path.home() / ".vps-ops"))
+
+
+def legacy_read() -> dict:
+    """v1's ops keyring (~/.vps-ops/secrets/*.env.sh) — read-only compatibility, so existing servers keep working."""
+    out = {}
+    d = legacy_home() / "secrets"
+    for f in sorted(d.glob("*.sh")) if d.is_dir() else []:
+        for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
+            m = re.match(r"^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)=(.*)$", line)
+            if m and m.group(1) not in out:
+                out[m.group(1)] = _unquote(m.group(2).strip())
     return out
 
 
@@ -116,7 +146,7 @@ def vault_set(name: str, value: str | None = None) -> dict:
     p = vault_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text("# deckhand vault — secrets only; never commit, never paste into chat\n" +
-                 "\n".join(f"{k}={v}" for k, v in sorted(data.items())) + "\n", encoding="utf-8")
+                 "\n".join(f"{k}={_quote(v)}" for k, v in sorted(data.items())) + "\n", encoding="utf-8")
     try:
         os.chmod(p, stat.S_IRUSR | stat.S_IWUSR)
     except OSError:
@@ -125,8 +155,8 @@ def vault_set(name: str, value: str | None = None) -> dict:
 
 
 def secret(name: str):
-    """Env first (CI / harness secrets), then the vault. Never logged."""
-    return os.environ.get(name) or vault_read().get(name)
+    """Env first (CI / harness secrets), then the vault, then v1's ops keyring. Never logged."""
+    return os.environ.get(name) or vault_read().get(name) or legacy_read().get(name)
 
 
 # ------------------------------------------------------------------ doctor
@@ -150,7 +180,7 @@ def doctor(online: bool = True) -> dict:
         caps["coolify"] = {"ok": st == 200, "evidence": f"GET /api/v1/version -> {st}"}
     else:
         caps["coolify"] = {"ok": False, "evidence": "coolify.url + COOLIFY_TOKEN not both set"}
-    cf = secret("CLOUDFLARE_API_TOKEN")
+    cf = secret("CLOUDFLARE_API_TOKEN") or secret("CF_API_TOKEN")          # CF_API_TOKEN = v1's name
     if cf and online:
         st = _probe("https://api.cloudflare.com/client/v4/user/tokens/verify", {"Authorization": f"Bearer {cf}"})
         caps["cloudflare"] = {"ok": st == 200, "evidence": f"tokens/verify -> {st}"}

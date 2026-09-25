@@ -105,11 +105,9 @@ def harvest(root: Path, name: str, to: Path | None = None, repo: str | None = No
             "next": "dh pool query ranks it; dh clone " + name + " --to <dir> starts from it" + ("" if pushed else " · `--push` puts it in your private GitHub library")}
 
 
-SECRET_FILE = re.compile(r"(^|/)(\.env|id_rsa|id_ed25519|credentials\.json|service-account[\w.-]*\.json|[\w.-]+\.pem)$")
-
-
 def secret_scan(dest: Path) -> list:
-    from .verify import SECRET_RX
+    """Every credential-shaped file or value in a base about to be pushed (policy: data/secrets.json)."""
+    from .util import SECRET_RX, SECRET_FILE_RX as SECRET_FILE
     hits = []
     for p in sorted(dest.rglob("*")):
         rel = str(p.relative_to(dest)).replace("\\", "/")

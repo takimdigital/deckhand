@@ -3,7 +3,7 @@
 
 Reads:  ~/.vps-ops/secrets/env.sh            (COOLIFY_TOKEN, COOLIFY_URL — single-quoted!)
         ~/.vps-ops/secrets/backup.env.sh     (Tigris key pair, optional TIGRIS_BUCKET)
-        ~/.vps-ops/secrets/b2-scoped.env.sh  (B2 scoped key — run scripts/b2_setup.py first)
+        ~/.vps-ops/secrets/b2-scoped.env.sh  (B2 scoped key — run ops/scripts/b2_setup.py first)
 Usage:  python3 coolify_backup_setup.py <db_uuid> [--schedules]
 Exit: 0 = every storage/schedule leg succeeded · 1 = any leg failed — check it (live-hit 2026-09-21:
 this script exited 0 no matter what).

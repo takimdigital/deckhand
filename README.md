@@ -88,7 +88,8 @@ file back byte for byte. Catalog: 738 MIT components (Tailark, shadcn, Magic UI,
 **Tune it: don't replace it, adjust it.** Pick a section and choose *quieter · bolder · airier · clearer ·
 softer · sharper*, or dial spacing, headline size, weight, corners, depth, contrast and width. What you see
 is exactly what gets kept. **Site** does the same for the whole look: accent colour, warm or cool
-neutrals, corners, density, headline scale, fonts. No AI is needed for any of it, so none is charged.
+neutrals, corners, density, headline scale, fonts. Or just tell your agent *"make the hero airier"* or *"warmer
+greys, rounder corners"*. No AI is needed to apply any of it, so none is charged.
 
 **Nothing fits? Ask the AI, labelled.** Your agent writes one version, once. Deckhand checks it before you
 see it: all your words and links, only your colours, no invented facts, nothing to install. It shows up
@@ -134,7 +135,7 @@ Run for real in this release:
   - 23 failures a pipe had hidden;
   - a trap that recurred 3 times;
   - the exact edit that fixed a failed check.
-- CI on every push, Ubuntu and Windows: 38 try-on + 35 control-plane + 40 server-client tests.
+- CI on every push, Ubuntu and Windows: 42 try-on + 42 control-plane + 40 server-client + 17 repo tests.
 
 Not yet proven live: a full `dh deploy ship` against a real server (it uses the same Coolify client that
 was proven live in v1), and the first real run of the $0 Oracle track. I'd rather tell you than let you

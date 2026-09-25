@@ -34,4 +34,5 @@ if (Test-Path $stable) { Remove-Item -Recurse -Force $stable }
 if ($Link) { New-Item -ItemType Junction -Path $stable -Target $Src | Out-Null } else { Copy-Item -Recurse $Src $stable }
 Set-Content -Path "$bin\dh.cmd" -Value "@py `"$stable\dh.py`" %*" -Encoding ASCII
 Write-Host "✓ dh shim → $bin\dh.cmd  (add $bin to PATH)"
-Write-Host "Next: open your agent and say — 'Create my deckhand profile', then 'Build me <your business>'."
+Write-Host "Next: open your agent and say what you want, e.g. 'Build a website for my bakery. Phased mode.'"
+Write-Host "Step by step, copy-a-sentence: docs/USE-CASES.md"

@@ -88,7 +88,7 @@ def ship(root: Path, force: bool = False, timeout: int = 900) -> dict:
     d["last"] = {"commit": head, "at": now(), "result": {0: "finished", 3: "failed", 5: "timeout"}.get(rc, str(rc)), "log": log[-12:]}
     write_json(deploy_path(root), d)
     if rc != 0:
-        raise DhError("DEPLOY_FAILED", f"deployment {d['last']['result']} — `dh deploy logs` / references/ops/40-change-pipeline.md (rollback)", log=log[-12:])
+        raise DhError("DEPLOY_FAILED", f"deployment {d['last']['result']} — `dh deploy raw dlogs <app-uuid>` / references/ops/40-change-pipeline.md (rollback)", log=log[-12:])
     sm = smoke(root)
     if not sm["ok"]:
         raise DhError("SMOKE_FAILED", "deployed, but the live check failed — roll back per references/ops/40-change-pipeline.md §rollback", smoke=sm)

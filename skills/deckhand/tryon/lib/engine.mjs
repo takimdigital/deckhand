@@ -51,6 +51,7 @@ const now = () => new Date().toISOString();
 export function stateDir(root) { return path.join(root, '.deckhand', 'tryon'); }
 function sessionsDir(root) { return path.join(stateDir(root), 'sessions'); }
 export function loadSession(root, id) {
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(String(id))) throw new TryonError('BAD_ID', 'bad session id');
   const p = path.join(sessionsDir(root), id + '.json');
   if (!fs.existsSync(p)) throw new TryonError('NO_SESSION', 'no try-on session ' + id);
   return JSON.parse(fs.readFileSync(p, 'utf8'));

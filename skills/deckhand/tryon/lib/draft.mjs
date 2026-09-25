@@ -39,6 +39,7 @@ const TOKEN_CLASSES = ['bg-background', 'text-foreground', 'bg-card', 'text-card
 const TOOLING = /^(@types\/|typescript$|eslint|prettier|tailwindcss$|@tailwindcss\/|postcss|autoprefixer|tw-animate-css$|vite$|@vitejs\/)/;
 
 export function loadDraft(root, id) {
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(String(id))) throw new TryonError('BAD_ID', 'bad draft id');
   const p = docPath(root, id);
   if (!fs.existsSync(p)) throw new TryonError('NO_DRAFT', 'no AI draft request ' + id);
   return JSON.parse(fs.readFileSync(p, 'utf8'));

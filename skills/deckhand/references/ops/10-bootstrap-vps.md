@@ -8,8 +8,11 @@ Load when: the user's VPS + access method (+ provider API token) are known — i
 > Security List + ref 11 — that pair IS Track F's dashboard lock: never open 8000 there + the tunnel, ref 11 Steps 1/4) and **Step 7** (Hostinger-only). **Never run UFW on Oracle images.**
 Runs from the agent machine (git-bash on Windows; `py` = Python launcher). `ops/scripts/hostinger_api.py`
 and `ops/scripts/coolify_api.py` are stdlib-only — the contract; raw curl equivalents shown for every
-step. Secrets live only in `~/.vps-ops/secrets/env.sh` (chmod 600 — cosmetic on Windows git-bash;
-enforce for real with `icacls <file> /inheritance:r /grant:r "%USERNAME%:F"`).
+step. Secrets live only in the deckhand vault `~/.deckhand/vault.env` — stored with `dh vault set NAME` (chmod 600 —
+cosmetic on Windows git-bash; enforce for real with `icacls <file> /inheritance:r /grant:r "%USERNAME%:F"`). The scripts
+read the vault themselves; for the raw curl lines load it into the shell with `set -a; . ~/.deckhand/vault.env; set +a` (values are
+single-quoted, so this never executes or splits one). SSH keys stay in `~/.vps-ops/ssh/` and v1's
+`~/.vps-ops/secrets/env.sh` is still read as a fallback, so servers set up with v1 keep working.
 
 > **Optional — the Coolify CLI** (MIT, `coollabsio/coolify-cli`): some refs show `coolify …` commands for convenience; nothing requires it — every step also has a stdlib script/curl path. Install only if you want those commands: Linux/macOS `curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.sh | bash` · Windows PowerShell `irm https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.ps1 | iex` (user-local: prefix `$env:COOLIFY_USER_INSTALL=1; `) · or `go install github.com/coollabsio/coolify-cli/coolify@latest`.
 
@@ -19,7 +22,7 @@ never close port 22 (Coolify manages over SSH) · never touch Coolify's installe
 ## Step 0 — keygen on the agent machine
 
 ```bash
-mkdir -p ~/.vps-ops/ssh ~/.vps-ops/secrets && chmod 700 ~/.vps-ops ~/.vps-ops/ssh ~/.vps-ops/secrets
+mkdir -p ~/.vps-ops/ssh && chmod 700 ~/.vps-ops ~/.vps-ops/ssh
 [ -f ~/.vps-ops/ssh/id_ed25519 ] || ssh-keygen -t ed25519 -N "" -C "vps-ops" -f ~/.vps-ops/ssh/id_ed25519
 chmod 600 ~/.vps-ops/ssh/id_ed25519
 ```
@@ -30,7 +33,7 @@ note: on perms errors (`UNPROTECTED PRIVATE KEY`), `chmod 600`, use git-bash's `
 
 ## Step 1a — Hostinger: register + attach the key via API
 
-Store the provider token once: `printf 'export HOSTINGER_API_TOKEN=%s\n' '<token>' >> ~/.vps-ops/secrets/env.sh && chmod 600 ~/.vps-ops/secrets/env.sh && . ~/.vps-ops/secrets/env.sh`
+Store the provider token once: the owner runs `dh vault set HOSTINGER_API_TOKEN` (hidden prompt) — or, if they pasted it in chat, `printf '%s\n' '<token>' | dh vault set HOSTINGER_API_TOKEN` — then `set -a; . ~/.deckhand/vault.env; set +a`.
 
 ```bash
 PUB="$(cat ~/.vps-ops/ssh/id_ed25519.pub)"
@@ -194,21 +197,25 @@ Expected: install finishes (several minutes); health → `200`; container list =
 
 ## Step 5 — token handoff + storage
 
-Guide the user through `00-user-checklist.md` §4A (one browser session). Then — **append (`>>`), never clobber (Step 1a's provider token may already live in this file; Windows: use a `C:/…` path for `VPS_SSH_KEY`)**:
+Guide the user through `00-user-checklist.md` §4A (one browser session). Then store it in the vault (each `dh vault set`
+adds or replaces ONE name — nothing else in the vault is touched; Windows: use a `C:/…` path for `VPS_SSH_KEY`):
 
 ```bash
-printf "export COOLIFY_URL='%s'\nexport COOLIFY_TOKEN='%s'\n" "http://127.0.0.1:8000" "<token>" >> ~/.vps-ops/secrets/env.sh
-printf "export VPS_SSH_HOST='root@%s'\nexport VPS_SSH_KEY='%s/.vps-ops/ssh/id_ed25519'\n" "$VPS_IP" "$HOME" >> ~/.vps-ops/secrets/env.sh
-chmod 600 ~/.vps-ops/secrets/env.sh
-. ~/.vps-ops/secrets/env.sh
+dh profile set coolify.url=http://127.0.0.1:8000
+printf '%s\n' '<token>' | dh vault set COOLIFY_TOKEN        # or the owner runs `dh vault set COOLIFY_TOKEN` (hidden prompt)
+printf '%s\n' 'http://127.0.0.1:8000' | dh vault set COOLIFY_URL
+printf '%s\n' "root@$VPS_IP" | dh vault set VPS_SSH_HOST
+printf '%s\n' "$HOME/.vps-ops/ssh/id_ed25519" | dh vault set VPS_SSH_KEY
+set -a; . ~/.deckhand/vault.env; set +a
 curl -sS -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_URL/api/v1/applications"
 ```
 
 Expected: `[]` (fresh install) or a JSON array — via the tunnel: COOLIFY_URL is the tunnel's local end (`http://127.0.0.1:8000`); after Step 3b the public IP's :8000 is closed, so a public-IP URL here can never answer. `401` → API access still disabled or token wrong (§4A).
 Script check: `py ops/scripts/coolify_api.py health` → `coolify health: 200`. Never echo the token into
-chat, logs, or a repo file. The token contains `|` (Sanctum format `1|…`): the env file must hold it
-**single-quoted** (`export COOLIFY_TOKEN='1|…'`) or the shell splits it and every call answers
-`Unauthenticated.` (live-verified). `coolify_api.py` reads `$COOLIFY_URL`/`$COOLIFY_TOKEN`, then `~/.vps-ops/config.json` / `secrets/env.sh`.
+chat, logs, or a repo file. The token contains `|` (Sanctum format `1|…`): `dh vault set` stores it
+**single-quoted** (`COOLIFY_TOKEN='1|…'`); unquoted, the shell splits it and every call answers `Unauthenticated.`
+(live-verified). `coolify_api.py` reads flags > `$COOLIFY_URL`/`$COOLIFY_TOKEN` > the deckhand vault + profile > v1's
+`~/.vps-ops/config.json` / `secrets/env.sh`.
 
 ## Step 6 — harden (only after Step 2 proved key auth)
 
@@ -269,5 +276,5 @@ Hostinger's remote MCP (`https://mcp.hostinger.com`) is OAuth-based — fine in 
 | `Host key verification failed` after a VPS rebuild | stale entry for `$VPS_IP` in the vault known_hosts | `ssh-keygen -R $VPS_IP -f ~/.vps-ops/ssh/known_hosts`, retry Step 2 |
 | `:8000/api/health` not 200, or unreachable | install still running; AFTER Step 3b the port is loopback-only BY DESIGN (a timeout from the internet is the lock working) | wait 2–3 min; `docker ps`; from the agent machine run the tunnel (`py ops/scripts/coolify_api.py tunnel`) then `curl http://127.0.0.1:8000/api/health` — never re-open 8000 publicly |
 | Token curl → `401` | API access off / token scopes wrong | `00-user-checklist.md` §4A, recreate the token |
-| `config error: …` from a script | env not loaded | `. ~/.vps-ops/secrets/env.sh` |
+| `config error: …` from a script | token/URL not stored | `dh vault set COOLIFY_TOKEN` + `dh profile set coolify.url=…` (curl lines: `set -a; . ~/.deckhand/vault.env; set +a`) |
 | SSH lost after firewall change | rule for 22 missing | add TCP/22 + `…/sync`; recover via provider console |

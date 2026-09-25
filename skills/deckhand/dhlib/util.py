@@ -16,6 +16,16 @@ REFS = SKILL / "references"
 TEMPLATES = SKILL / "templates"
 TRYON = SKILL / "tryon"
 
+# one secret policy for every scanner and for log redaction (data/secrets.json, shared with try-on)
+SECRETS = json.loads((DATA / "secrets.json").read_text(encoding="utf-8"))
+SECRET_RX = re.compile("|".join(f"(?:{v['rx']})" for v in SECRETS["values"]))
+SECRET_STRICT_RX = re.compile("|".join(f"(?:{v['rx']})" for v in SECRETS["values"] + SECRETS["strict_extra"]))
+SECRET_FILE_RX = re.compile(SECRETS["files"])
+_REDACT_CTX = [re.compile(r"(?i)(\bauthorization:\s*(?:bearer|basic|token)\s+)[^\s'\"]+"),
+               re.compile(r"(?i)([?&](?:token|access_token|api_key|apikey|key|secret|password)=)[^&\s'\"]+"),
+               re.compile(r"(\b[A-Z][A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_KEY|PRIVATE_KEY)=)[^\s'\"]+"),
+               re.compile(r"(://[^/\s:@]+:)[^@\s/]+(@)")]
+
 
 def home() -> Path:
     """~/.deckhand (DECKHAND_HOME overrides) — the owner's portable state."""
@@ -75,9 +85,61 @@ def emit(obj, code: int = 0):
 
 
 class DhError(Exception):
-    def __init__(self, code: str, message: str, **extra):
+    def __init__(self, code: str, message: str, /, **extra):       # positional-only: extra may carry its own "code"
         super().__init__(message)
         self.code, self.message, self.extra = code, message, extra
+
+
+def redact(text: str, values=()) -> str:
+    """Credentials out of anything we write to disk (run logs, failures, autopsy reports): the shared patterns,
+    secret-looking assignments/headers/URL parts, and every exact value the caller knows is secret (the vault)."""
+    if not text:
+        return text
+    for v in sorted({v for v in values if v and len(v) >= 8}, key=len, reverse=True):
+        text = text.replace(v, "***")
+    text = SECRET_STRICT_RX.sub("***", text)
+    for rx in _REDACT_CTX:
+        text = rx.sub(lambda m: m.group(1) + "***" + (m.group(2) if rx.groups > 1 else ""), text)
+    return text
+
+
+def redact_obj(obj, values=()):
+    """redact() over every string of a JSON-like structure (a report before it is written anywhere)."""
+    if isinstance(obj, str):
+        return redact(obj, values)
+    if isinstance(obj, list):
+        return [redact_obj(x, values) for x in obj]
+    if isinstance(obj, tuple):
+        return tuple(redact_obj(x, values) for x in obj)
+    if isinstance(obj, dict):
+        return {k: redact_obj(v, values) for k, v in obj.items()}
+    return obj
+
+
+GITIGNORE_MARK = "# deckhand: run logs and local state"
+GITIGNORE_BLOCK = GITIGNORE_MARK + """ (they can hold command output — never commit them)
+.deckhand/runs.jsonl
+.deckhand/failures.jsonl
+.deckhand/*.log
+.deckhand/dev.json
+.deckhand/autopsy/
+.deckhand/tryon/
+"""
+# probe path -> what to show (a directory is probed through a file inside it)
+RUNTIME_STATE = {".deckhand/runs.jsonl": ".deckhand/runs.jsonl", ".deckhand/failures.jsonl": ".deckhand/failures.jsonl",
+                 ".deckhand/dev.log": ".deckhand/*.log", ".deckhand/dev.json": ".deckhand/dev.json",
+                 ".deckhand/autopsy/r.md": ".deckhand/autopsy/", ".deckhand/tryon/s.json": ".deckhand/tryon/"}
+
+
+def ensure_gitignore(root: Path) -> bool:
+    """Keep deckhand's run logs out of the owner's git history. Idempotent; returns True when it wrote."""
+    gi = Path(root) / ".gitignore"
+    text = gi.read_text(encoding="utf-8") if gi.exists() else ""
+    if GITIGNORE_MARK in text:
+        return False
+    gi.parent.mkdir(parents=True, exist_ok=True)
+    gi.write_text((text.rstrip("\n") + "\n\n" if text.strip() else "") + GITIGNORE_BLOCK, encoding="utf-8")
+    return True
 
 
 def which(cmd: str):

@@ -22,6 +22,40 @@ the measured template pool).
 | proxy-less overlay depended on patching the root layout | reverse proxy injects the overlay (any framework); Host/Origin rewritten to `localhost` so Next's dev guard allows HMR |
 | demo stock photos / fake "trusted by" logos / "Get a Demo" buttons shipped | replaced by a placeholder / hidden / removed on keep; `dh verify` blocks what remains |
 
+### Security (final audit)
+- **One secret policy** (`data/secrets.json`) for every scanner: verify, harvest, vet, tryon save. Now also
+  catches Coolify, Anthropic, OpenAI, GitLab, npm, SendGrid and Telegram tokens, Stripe webhooks, and
+  Slack/Discord webhooks.
+- **Run logs can no longer leak.**
+  - `.deckhand/runs.jsonl`, `failures.jsonl`, `dh run` output, autopsy reports, lessons and playbooks are redacted:
+    known patterns, credential-shaped assignments/headers/URL passwords, and every value in the vault.
+  - `dh init` and every build path gitignore deckhand's run logs.
+  - `dh verify` scans `.deckhand/` too and blocks when the logs are not ignored (row `logs-ignored`).
+- **One vault.** The server runbooks store tokens with `dh vault set` instead of v1's `~/.vps-ops/secrets/env.sh`.
+  - Values are single-quoted, so sourcing the vault is safe; Coolify tokens contain `|`.
+  - The Coolify and Hostinger clients read the vault.
+  - v1's keyring is still read as a fallback; SSH keys stay in `~/.vps-ops/ssh/`.
+  - `CF_API_TOKEN` became `CLOUDFLARE_API_TOKEN`; the old name is still accepted.
+- **Input validation.** Site knobs, Tune dials and session/draft ids from the helper API or the CLI are validated
+  (`BAD_THEME`, `BAD_DIAL`, `BAD_ID`). A crafted theme value can no longer break out of the stylesheet comment.
+  Tune refuses generated files, and a closed tune session stays closed.
+
+### Fixed (final audit)
+- `dh run -- <cmd>` crashed with a Python TypeError whenever the command failed, the exact moment it should print
+  the known fix. `DhError` now takes code/message positional-only, and the CLI output always keeps its own
+  ok/code/message.
+- Dangling references now point at real commands:
+  - `tryon theme --undo` exists now;
+  - `dh deploy logs` → `dh deploy raw dlogs <app-uuid>`;
+  - `dh verify --scope` is gone from the work-package template.
+- v1 paths in the ported ops scripts and templates (`references/10-…`, `scripts/…`, `templates/repo-presence/…`)
+  now point at their v2 locations. The installers end with the v2 first sentence.
+- `scripts/test_repo_coherence.py` makes this permanent. It fails CI when:
+  - a doc or hint names a dh/tryon command, action, flag or skill path that doesn't exist;
+  - a command is undocumented;
+  - a markdown link is dead;
+  - the README's test counts are wrong.
+
 ### Added
 - `dh` control plane (stdlib Python): phase state machine with gates, `dh next` (one instruction + one
   reference + the relevant lessons), brief, profile + vault + capability doctor, pool query/add (remote
@@ -72,6 +106,9 @@ the measured template pool).
     `symbol@path:line`. A renamed or removed symbol fails the build, so neither half can go stale silently.
   - Kept current automatically: the `.githooks/pre-commit` hook (from the index); CI `--check` on branches and
     PRs; `.github/workflows/llm-context.yml` regenerating `main`.
+- **Tune and Site from chat** (`tryon tune`, `tryon theme [--undo]`): the owner says "make the hero airier" or
+  "warmer greys, rounder corners" and the agent applies it without a browser. It's the same deterministic,
+  byte-exact reversible engine as the overlay.
 - `docs/USE-CASES.md`: ten scenarios, each with the sentence to say, what happens, and what you do.
 - `dh verify` proves routes on the production build it just made (served on a free port, stopped after).
 - Kokonut UI items fall back to the project's GitHub mirror when kokonutui.com is unreachable.

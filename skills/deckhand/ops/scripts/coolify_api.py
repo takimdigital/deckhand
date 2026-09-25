@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""vps-ops — thin Coolify REST client (stdlib only).
+"""Thin Coolify REST client (stdlib only) — used by `dh deploy` and the ops runbooks.
 
-Config precedence: --url/--token flags > COOLIFY_URL/COOLIFY_TOKEN env
-> ~/.vps-ops/config.json > token fallback in ~/.vps-ops/secrets/env.sh.
-See references/10-bootstrap-vps.md for setup, references/40-change-pipeline.md for usage.
+Config precedence: --url/--token flags > COOLIFY_URL/COOLIFY_TOKEN env > the deckhand vault
+(~/.deckhand/vault.env: COOLIFY_TOKEN; ~/.deckhand/profile.json: coolify.url) > v1's ~/.vps-ops/config.json
+> v1's token fallback in ~/.vps-ops/secrets/env.sh.
+See references/ops/10-bootstrap-vps.md for setup, references/ops/40-change-pipeline.md for usage.
 """
 import argparse
 import json
@@ -23,12 +24,39 @@ OK_STATUS = {"success", "finished"}
 FAIL_STATUS = {"failed", "cancelled"}
 
 
+def deckhand_config(dk):
+    """(vault dict, coolify.url) from a deckhand home — the same single-quoted KEY='value' format dh writes."""
+    import shlex
+    vault = {}
+    vf = Path(dk) / "vault.env"
+    if vf.exists():
+        for line in vf.read_text(encoding="utf-8").splitlines():
+            if "=" in line and not line.lstrip().startswith("#"):
+                k, v = line.split("=", 1)
+                try:
+                    parts = shlex.split(v.strip())
+                    vault[k.replace("export ", "").strip()] = parts[0] if len(parts) == 1 else v.strip()
+                except ValueError:
+                    vault[k.strip()] = v.strip().strip("'\"")
+    try:
+        prof = (json.loads((Path(dk) / "profile.json").read_text(encoding="utf-8")).get("coolify") or {}).get("url")
+    except (OSError, ValueError):
+        prof = None
+    return vault, prof
+
+
 def resolve(url_override=None, token_override=None, env=None, home=None):
     """Resolve Coolify URL + token, or raise SystemExit('config error: ...')."""
+    live = env is None
     env = os.environ if env is None else env
     home = Path(home) if home is not None else HOME
     url = url_override or env.get("COOLIFY_URL")
     token = token_override or env.get("COOLIFY_TOKEN")
+    dk = env.get("DECKHAND_HOME") or (str(Path.home() / ".deckhand") if live else None)
+    if dk and (not url or not token):
+        vault, prof = deckhand_config(Path(dk))
+        token = token or vault.get("COOLIFY_TOKEN")
+        url = url or vault.get("COOLIFY_URL") or prof
     cfg_path = home / "config.json"
     if cfg_path.exists():
         try:
@@ -48,7 +76,7 @@ def resolve(url_override=None, token_override=None, env=None, home=None):
     if not url or not token:
         raise SystemExit(
             "config error: need both Coolify URL and token — set COOLIFY_URL/COOLIFY_TOKEN, "
-            f"or create {cfg_path} / {home / 'secrets' / 'env.sh'} (see references/10-bootstrap-vps.md)"
+            "or `dh vault set COOLIFY_TOKEN` + `dh profile set coolify.url=…` (see references/ops/10-bootstrap-vps.md)"
         )
     return url.rstrip("/"), token
 
@@ -414,7 +442,7 @@ def cmd_tunnel(a, url, token):
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(prog="coolify_api.py", description="vps-ops Coolify client")
+    p = argparse.ArgumentParser(prog="coolify_api.py", description="deckhand Coolify client")
     p.add_argument("--url")
     p.add_argument("--token")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -454,7 +482,7 @@ def main(argv=None):
         msg = str(e)
         if isinstance(e, urllib.error.URLError) and ("10061" in msg or "refused" in msg.lower()):
             print("CONNECTION REFUSED — the Coolify dashboard tunnel is dead (this is the tunnel, not Coolify).")
-            print("Try: py scripts/coolify_api.py tunnel   (health-checks and auto-starts it when VPS_SSH_HOST/VPS_SSH_KEY are set)")
+            print("Try: py ops/scripts/coolify_api.py tunnel   (health-checks and auto-starts it when VPS_SSH_HOST/VPS_SSH_KEY are set)")
             print("Or restart it as a BACKGROUND process, then re-run:")
             print('  ssh -N -o ExitOnForwardFailure=yes -L 8000:127.0.0.1:8000 -o UserKnownHostsFile="$HOME/.vps-ops/ssh/known_hosts" -o StrictHostKeyChecking=yes -i ~/.vps-ops/ssh/id_ed25519 root@<VPS_IP>')
             print("  curl -s http://127.0.0.1:8000/api/health   # expect OK")

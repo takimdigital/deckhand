@@ -13,7 +13,7 @@ from pathlib import Path
 SKILL = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SKILL))
 
-from dhlib import brand, build, deploy, handoff, harvest, learn, ops, plan, pool, profile, state  # noqa: E402
+from dhlib import brand, deploy, handoff, harvest, learn, ops, plan, pool, profile, state  # noqa: E402
 from dhlib.cli import main  # noqa: E402
 from dhlib.util import DhError, read_json, write_json  # noqa: E402
 

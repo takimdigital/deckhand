@@ -16,12 +16,11 @@ import shutil
 import signal
 import socket
 import subprocess
-import sys
 import time
 import urllib.request
 from pathlib import Path
 
-from .util import DhError, SKILL, TEMPLATES, TRYON, now, package_json, package_manager, read_json, rmtree, run, slugify, write_json
+from .util import ensure_gitignore, DhError, TEMPLATES, TRYON, now, package_json, package_manager, read_json, rmtree, run, slugify, write_json
 from . import pool as POOL
 from . import state as STATE
 
@@ -64,6 +63,7 @@ def install(dest: Path) -> dict:
 
 
 def _record_base(dest: Path, base: dict, name: str, path: str) -> None:
+    ensure_gitignore(dest)                                # every way in keeps deckhand's run logs out of git
     s = STATE.load(dest, required=False)
     if not s:
         STATE.init(dest, name=name, path=path)

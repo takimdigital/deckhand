@@ -35,8 +35,16 @@ corners (`--radius`), density (`--spacing`, Tailwind 4), headline scale (`--text
 fonts. The preview sets the EXACT values apply writes (from the same function); **Apply** writes one marked
 `dh:theme` block at the end of the global stylesheet (light + dark) and, for fonts, rewrites `next/font` in
 the root layout by AST (the body rule beats a hard-coded `font-family`); **Undo last apply** restores both
-files byte-exact. Headless: `tune-*` / `theme-*` endpoints of the helper; engines in `lib/tune.mjs`,
-`lib/sitetheme.mjs`.
+files byte-exact. Engines: `lib/tune.mjs`, `lib/sitetheme.mjs` (helper endpoints `tune-*` / `theme-*`).
+**From chat, without a browser** — the owner says "make the hero airier" or "warmer greys, rounder corners":
+```bash
+$T tune  --file components/hero.tsx --line 12 --col 5 --preset airy    # or --density 1 --size -1 --corners round …
+$T tune  --id <T> --keep        # or --reset (byte-exact)
+$T theme                        # current knobs + every allowed value (accents, fonts)
+$T theme --neutrals warm --corners round [--accent teal|#0f766e] [--density airy] [--headlines larger] [--body Inter --heading Fraunces]
+$T theme --undo                 # byte-exact restore of the last apply
+```
+Unknown knobs or values are refused (`BAD_DIAL`, `BAD_THEME`) with the allowed list — nothing is written.
 
 ## No licensed design fits? The AI draft (labelled, gated)
 The owner can ask for an AI-written variant: "Ask AI to draft one" appears when a slot has no licensed

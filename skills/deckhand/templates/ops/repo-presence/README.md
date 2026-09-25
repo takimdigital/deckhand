@@ -7,9 +7,9 @@ script renders the rest.** Nobody hand-builds a README again.
 ## Use (at the first release, or any time the repo's face drifts)
 
 ```bash
-cp templates/repo-presence/repo.example.json repo.json   # then fill it — facts only, our style
-py scripts/repo_presence.py init repo.json --dir <project> --dry-run   # preview
-py scripts/repo_presence.py init repo.json --dir <project> --gh        # write + set gh description/topics
+cp templates/ops/repo-presence/repo.example.json repo.json   # then fill it — facts only, our style
+py ops/scripts/repo_presence.py init repo.json --dir <project> --dry-run   # preview
+py ops/scripts/repo_presence.py init repo.json --dir <project> --gh        # write + set gh description/topics
 ```
 
 Then finish with the release (ref 40 §6b): `git tag vX.Y.Z && git push origin vX.Y.Z && gh release create ...`

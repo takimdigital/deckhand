@@ -22,6 +22,13 @@
  *   node tryon/cli.mjs draft-check --id D                            run the gates, write nothing
  *   node tryon/cli.mjs draft-done  --id D                            gate + show it (labelled AI-generated)
  *
+ * Tune one element / the whole Site without a browser (same engine as the overlay; deterministic, reversible):
+ *   node tryon/cli.mjs tune  --file f --line n --col c [--preset quieter] [--density 1 --size -1 --corners round …]
+ *   node tryon/cli.mjs tune  --id T --keep | --reset          (an open tune: --id T with new dials re-applies)
+ *   node tryon/cli.mjs theme                                  current knobs, choices, fonts
+ *   node tryon/cli.mjs theme --accent teal --neutrals warm --corners soft --density airy --headlines larger --body Inter --heading Fraunces
+ *   node tryon/cli.mjs theme --undo                           byte-exact restore of the last apply
+ *
  * A registry someone found — vetted (licence, paywall, schema, usable items) before it is indexed:
  *   node tryon/cli.mjs registry vet|add --index https://…/registry.json --repo owner/name [--id x]
  *   node tryon/cli.mjs registry list | registry remove --id x
@@ -36,6 +43,8 @@ import { saveToLibrary, listLibrary } from './lib/library.mjs';
 import { startServer, detectTarget } from './server.mjs';
 import * as draft from './lib/draft.mjs';
 import { vetRegistry, addRegistry, listRegistries, removeRegistry } from './lib/vet.mjs';
+import { tuneOpen, tuneSet, tuneKeep, tuneReset, DIALS, PRESETS } from './lib/tune.mjs';
+import { themeState, themeApply, themeUndo } from './lib/sitetheme.mjs';
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -130,6 +139,27 @@ async function main() {
       if (act === 'vet') { const { _reg, _items, ...v } = await vetRegistry(o); return out({ ok: v.verdict === 'accepted', ...v }, v.verdict === 'accepted' ? 0 : 1); }
       return out({ ok: true, ...(await addRegistry(o)) });
     }
+    case 'tune': {
+      const dials = Object.fromEntries(Object.keys(DIALS).filter((k) => flags[k] !== undefined && flags[k] !== true).map((k) => [k, flags[k]]));
+      const preset = typeof flags.preset === 'string' ? flags.preset : null;
+      if (flags.id) {
+        if (flags.keep) return out({ ok: true, ...tuneKeep(project, flags.id) });
+        if (flags.reset) return out({ ok: true, ...tuneReset(project, flags.id) });
+        return out({ ok: true, ...tuneSet(project, flags.id, { dials, preset }) });
+      }
+      need('file', 'line', 'col');
+      if (!preset && !Object.keys(dials).length) return out({ ok: false, code: 'USAGE', dials: DIALS, presets: Object.keys(PRESETS) }, 2);
+      const t = tuneOpen(project, flags);
+      const r = tuneSet(project, t.id, { dials, preset });
+      return out({ ok: true, ...r, file: t.file, next: `look at it (HMR); then \`tune --id ${t.id} --keep\` or \`--reset\` (byte-exact)` });
+    }
+    case 'theme': {
+      if (flags.undo) return out({ ok: true, ...themeUndo(project) });
+      const knobs = Object.fromEntries(['accent', 'neutrals', 'corners', 'density', 'headlines', 'body', 'heading']
+        .filter((k) => typeof flags[k] === 'string').map((k) => [k, flags[k]]));
+      if (!Object.keys(knobs).length) return out({ ok: true, ...themeState(project) });
+      return out({ ok: true, ...themeApply(project, knobs), next: 'restart not needed (HMR); `theme --undo` restores the previous files byte-exact' });
+    }
     case 'show': need('id', 'idx'); return out({ ok: true, ...engine.show(project, flags.id, flags.idx) });
     case 'keep': need('id'); return out(engine.keep(project, flags.id, flags.idx));
     case 'discard': need('id'); return out(engine.discard(project, flags.id));
@@ -149,7 +179,7 @@ async function main() {
       return out({ ok: true, discarded, ...r, restartDevServer: true });
     }
     default:
-      return out({ ok: false, code: 'USAGE', commands: ['setup', 'serve', 'doctor', 'slots', 'query', 'inspect', 'try', 'show', 'keep', 'discard', 'save', 'library', 'status', 'clean', 'draft', 'drafts', 'draft-check', 'draft-done', 'registry'] }, 2);
+      return out({ ok: false, code: 'USAGE', commands: ['setup', 'serve', 'doctor', 'slots', 'query', 'inspect', 'try', 'show', 'keep', 'discard', 'save', 'library', 'status', 'clean', 'draft', 'drafts', 'draft-check', 'draft-done', 'tune', 'theme', 'registry'] }, 2);
   }
 }
 

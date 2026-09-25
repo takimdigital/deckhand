@@ -22,7 +22,7 @@ import json
 import re
 import time
 
-from .util import DATA
+from .util import DATA, SECRET_FILE_RX
 
 POLICY = json.loads((DATA / "licenses.json").read_text(encoding="utf-8"))
 ACCEPTED = POLICY["accepted"]
@@ -106,7 +106,7 @@ def evidence(pkg: dict, tree: list, readme: str, has_package: bool) -> dict:
     return {
         "has_package": has_package, "package_license": lic, "scripts": {k: True for k in (pkg.get("scripts") or {})},
         "node_engine": (pkg.get("engines") or {}).get("node"), "file_count": len(tree),
-        "secret_files": sorted(p for p in tree if re.search(POLICY["secret_files"], p) and not re.search(r"\.(example|sample|template)$", p))[:10],
+        "secret_files": sorted(p for p in tree if SECRET_FILE_RX.search(p) and not re.search(r"\.(example|sample|template)$", p))[:10],
         "paid_packages": sorted(d for d in deps if any(d == p or d.startswith(p) for p in POLICY["paid_packages"])),
         "git_deps": sorted(d for d, v in deps.items() if re.match(r"^(git\+|git:|github:|ssh:|https?://)", str(v))),
         "paywall_hits": sorted(set(m.group(0).lower() for m in re.finditer(POLICY["paywall_text"], readme or "", re.I)))[:5],

@@ -40,6 +40,33 @@ export const KNOBS = {
   density: { 'compact': '0.22rem', 'snug': '0.235rem', 'as is': null, 'airy': '0.27rem', 'spacious': '0.29rem' },
   headlines: { 'smaller': 0.88, 'as is': 1, 'larger': 1.12, 'display': 1.25 },
 };
+const HEX = /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i;
+const OKLCH = /^oklch\(\s*[0-9.]+%?\s+[0-9.]+\s+[0-9.]+\s*\)$/i;
+
+/** Validate Site knobs: known keys, known values (or a #hex / oklch() accent). Throws BAD_THEME with what is allowed. */
+export function cleanTheme(v = {}) {
+  const bad = (m) => Object.assign(new Error(m), { code: 'BAD_THEME' });
+  const out = {};
+  for (const [k, val] of Object.entries(v || {})) {
+    if (val == null || val === '') continue;
+    const s = String(val);
+    if (k === 'accent') {
+      if (!(s === 'as is' || ACCENTS[s] || HEX.test(s) || OKLCH.test(s))) throw bad(`accent: ${Object.keys(ACCENTS).join(', ')}, a #hex or oklch(L C H)`);
+    } else if (k === 'neutrals') {
+      if (!KNOBS.neutrals.includes(s)) throw bad(`neutrals: ${KNOBS.neutrals.join(', ')}`);
+    } else if (k === 'corners' || k === 'density' || k === 'headlines') {
+      if (!Object.prototype.hasOwnProperty.call(KNOBS[k], s)) throw bad(`${k}: ${Object.keys(KNOBS[k]).join(', ')}`);
+    } else if (k === 'body' || k === 'heading') {
+      if (s !== 'as is' && !FONTS.some((f) => f.id === s)) throw bad(`${k}: ${FONTS.map((f) => f.id).join(', ')}`);
+      if (s === 'as is') continue;
+    } else {
+      throw bad(`unknown knob "${k}" (accent, neutrals, corners, density, headlines, body, heading)`);
+    }
+    out[k] = s;
+  }
+  return out;
+}
+
 const TEXT = { '2xl': 1.5, '3xl': 1.875, '4xl': 2.25, '5xl': 3, '6xl': 3.75, '7xl': 4.5, '8xl': 6, '9xl': 8 };
 const BEGIN = '/* dh:theme — written by deckhand try-on (Site); edit freely or `tryon theme --undo` */';
 const END = '/* /dh:theme */';
@@ -71,7 +98,8 @@ function neutrals(kind) {
 }
 
 /** The exact variable values for a choice of knobs — the overlay previews these, apply writes these. */
-export function themeVars(v = {}) {
+export function themeVars(vIn = {}) {
+  const v = cleanTheme(vIn);
   const light = {}, dark = {};
   const acc = v.accent && v.accent !== 'as is' ? (ACCENTS[v.accent] || v.accent) : null;
   const o = acc && oklchOf(acc);
@@ -93,7 +121,8 @@ export function themeVars(v = {}) {
   return { light, dark };
 }
 
-export function themeCss(v, fonts = {}) {
+export function themeCss(vIn, fonts = {}) {
+  const v = cleanTheme(vIn);
   const { light, dark } = themeVars(v);
   const rules = [];
   // the body font must win over a stylesheet that hard-codes one (create-next-app: `body { font-family: Arial }`)
@@ -233,7 +262,8 @@ export function themeState(rootIn) {
   };
 }
 
-export function themeApply(rootIn, v = {}) {
+export function themeApply(rootIn, vIn = {}) {
+  const v = cleanTheme(vIn);
   const prof = detectProject(rootIn);
   if (!prof.globalsCss) throw Object.assign(new Error('no global stylesheet found (app/globals.css, src/index.css…)'), { code: 'NO_GLOBALS_CSS' });
   const cssPath = path.join(prof.root, prof.globalsCss);

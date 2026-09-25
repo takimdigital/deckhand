@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -258,7 +257,7 @@ def dispatch(a):
         argv = a.argv[1:] if a.argv and a.argv[0] == "--" else a.argv
         r = LE.run_cmd(root, argv, a.phase, fix=a.fix)
         if not r["ok"]:
-            raise DhError("COMMAND_FAILED", f"exit {r['code']}", **r)
+            raise DhError("COMMAND_FAILED", f"exit {r['code']}", exit=r["code"], **{k: v for k, v in r.items() if k not in ("code", "ok")})
         return r
     if c == "autopsy":
         from . import autopsy as AU
@@ -308,6 +307,6 @@ def main(argv=None) -> int:
         return emit({"ok": True, **out} if isinstance(out, dict) else {"ok": True, "result": out})
     except DhError as e:
         _log(a, shown, 1, f"{e.code}: {e.message}")
-        return emit({"ok": False, "code": e.code, "message": e.message, **e.extra}, 1)
+        return emit({**e.extra, "ok": False, "code": e.code, "message": e.message}, 1)   # extra never overrides the verdict
     except KeyboardInterrupt:
         return emit({"ok": False, "code": "INTERRUPTED"}, 130)

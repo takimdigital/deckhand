@@ -30,7 +30,7 @@ target, and every call has a visible success AND error state. Nothing outside th
 
 ## Acceptance (definition of done)
 - {{DONE}}
-- `dh verify --scope {{ID}}` rows green for the owned routes (200, no dead link, no console error).
+- `dh verify` green, and every route this package owns answers 200 in its `routes` row (no dead link).
 - `dh bb post --wp {{ID}} --kind done --msg "<one line: what shipped, what is left>"`
 
 ## Stop condition
