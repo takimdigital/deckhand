@@ -201,6 +201,7 @@
   }
   pill.addEventListener('click', function () {
     if (session) return;
+    if (stale && !picking) { try { sessionStorage.setItem(SS + '-pick', '1'); } catch (e) { /* ignore */ } location.reload(); return; }
     picking ? stopPicking() : startPicking();
   });
 
@@ -263,7 +264,7 @@
     panel.appendChild(msg);
     var tuneBox = tuneUI(function () {
       var m = /^(.*):(\d+):(\d+)$/.exec(cr[sel].stamp);
-      return m ? { file: m[1], line: +m[2], col: +m[3], slot: slotSel.value || guessSlot(cr[sel].el) || 'content' } : null;
+      return m ? { file: m[1], line: +m[2], col: +m[3], slot: slotSel.value || guessSlot(cr[sel].el) || 'content', hint: hintOf(cr[sel]) } : null;
     });
     tuneBox.el.style.display = 'none';
     panel.appendChild(tuneBox.el);
@@ -284,16 +285,18 @@
     go.addEventListener('click', function () {
       var m = /^(.*):(\d+):(\d+)$/.exec(cr[sel].stamp);
       if (!m || busy) return;
-      var where = { file: m[1], line: +m[2], col: +m[3], slot: slotSel.value };
+      var where = { file: m[1], line: +m[2], col: +m[3], slot: slotSel.value, hint: hintOf(cr[sel]) };
       if (!slots[slotSel.value]) { draftForm(panel, where, 'No licensed ' + slotSel.value + ' designs exist for this site yet.'); return; }
       busy = true; go.disabled = true;
       msg.className = 'small';
       msg.innerHTML = '<span class="spin"></span>Fetching, theming and filling variants with your content…';
-      api('open', { file: where.file, line: where.line, col: where.col, slot: where.slot, count: +cnt.value, probe: probe() }).then(function (r) {
+      api('open', { file: where.file, line: where.line, col: where.col, slot: where.slot, count: +cnt.value, probe: probe(),
+        page: location.pathname + location.search, hint: hintOf(cr[sel]) }).then(function (r) {
         busy = false;
         if (!r.ok) {
-          go.disabled = false; msg.className = 'err'; msg.textContent = (r.code || 'ERROR') + ': ' + r.message + skippedText(r.skipped);
-          if (r.draft) draftForm(panel, r.draft, 'None of the licensed designs could hold your content.');
+          go.disabled = false; msg.className = 'err'; msg.textContent = (r.code || 'ERROR') + ': ' + r.message + skippedText(r.skipped) + keptText(r);
+          if (r.reload) reloadButton(msg);
+          if (r.draft) { r.draft.hint = hintOf(cr[sel]); draftForm(panel, r.draft, 'None of the licensed designs could hold your content.'); }
           return;
         }
         closePanel();
@@ -502,8 +505,8 @@
     container.appendChild(box);
     ask.onclick = function () {
       ask.disabled = true;
-      api('draft', { file: where.file, line: where.line, col: where.col, slot: where.slot, session: where.session, note: note.value.trim() || null }).then(function (r) {
-        if (!r.ok) { ask.disabled = false; box.appendChild(el('div', 'err', (r.code || 'ERROR') + ': ' + r.message)); return; }
+      api('draft', { file: where.file, line: where.line, col: where.col, slot: where.slot, session: where.session, hint: where.hint || null, note: note.value.trim() || null }).then(function (r) {
+        if (!r.ok) { ask.disabled = false; var er = el('div', 'err', (r.code || 'ERROR') + ': ' + r.message); box.appendChild(er); if (r.reload) reloadButton(er); return; }
         waitDraft(r);
       });
     };
@@ -556,6 +559,23 @@
     })();
   }
 
+  // what the element IS (tag + the start of its text): the engine finds it again when the page is older than the file
+  function hintOf(c) {
+    if (!c) return null;
+    var text = '';
+    try { text = String((c.el && c.el.innerText) || '').replace(/\s+/g, ' ').trim().slice(0, 80); } catch (e) { /* detached */ }
+    return { tag: String(c.label || ''), text: text };
+  }
+  function reloadButton(where) {
+    var b = el('button', 'primary', 'Reload the page and pick again');
+    b.style.marginTop = '8px';
+    b.onclick = function () { try { sessionStorage.setItem(SS + '-pick', '1'); } catch (e) { /* ignore */ } location.reload(); };
+    where.appendChild(document.createElement('br'));
+    where.appendChild(b);
+  }
+  // after Keep/Discard the file moved under the page: the next pick starts from a fresh page (fresh positions)
+  var stale = false;
+  function keptText(r) { return r && r.installedKept && r.installedKept.length ? '\n\nInstalled for this try and kept in package.json: ' + r.installedKept.join(', ') : ''; }
   function skippedText(sk) { return sk && sk.length ? '\n\nskipped: ' + sk.map(function (s) { return s.id + ' (' + s.why + ')'; }).join(', ') : ''; }
   function flash(n) { if (!n) return; var o = el('div', 'outline'); root.appendChild(o); place(o, n.getBoundingClientRect()); setTimeout(function () { o.remove(); }, 700); }
 
@@ -609,6 +629,7 @@
     var sub = note ? '' : (v.r === 'yours' ? 'your current version'
       : v.generated ? 'written by your AI agent, not a licensed human design' + (v.fit && v.fit.demo && v.fit.demo.length ? ' · its own words: ' + v.fit.demo.slice(0, 3).map(function (t) { return t.replace(/^AI-written: /, '“') + '”'; }).join(' ') : '')
       : (v.r + ' · ' + (v.lic || 'MIT') + (v.fit && v.fit.demo && v.fit.demo.length ? ' · demo copy (dashed): ' + v.fit.demo.slice(0, 2).join(' · ') : '')));
+    if (!note && session.dropped && session.dropped.length) sub += ' · ' + session.dropped.length + ' variant(s) removed: they broke your page build';
     var subEl = el('div', 'sub'); if (note) subEl.innerHTML = note; else subEl.textContent = sub;
     meta.appendChild(subEl);
     var keep = el('button', 'keep', 'Keep'), orig = el('button', null, 'Original'), more = el('button', null, 'More'), disc = el('button', null, 'Discard');
@@ -645,6 +666,7 @@
       busy = false;
       if (!r.ok) { renderBar(r.code + ': ' + r.message); return; }
       endSession();
+      stale = true;
       toast('Kept “' + (r.kept || 'original') + '”' + (r.component ? ' → ' + r.component : ''), r.component ? s.id : null);
     });
   }
@@ -654,7 +676,9 @@
     api('discard', { id: session.id }).then(function (r) {
       busy = false;
       endSession();
-      toast(r.ok ? 'Discarded — your file is restored (' + r.mode + ').' : r.code + ': ' + r.message);
+      stale = true;
+      toast(r.ok ? 'Discarded — your file is restored (' + r.mode + '). The next pick reloads the page first.'
+        + (r.installedKept ? ' Installed for this try and kept in package.json: ' + r.installedKept.join(', ') + '.' : '') : r.code + ': ' + r.message);
     });
   }
   function doMore() {
@@ -662,9 +686,9 @@
     busy = true;
     var sid = session.id;
     renderBar('<span class="spin"></span>Fetching more variants…');
-    api('more', { id: sid, probe: probe() }).then(function (r) {
+    api('more', { id: sid, probe: probe(), page: location.pathname + location.search }).then(function (r) {
       busy = false;
-      if (!r.ok) { renderBar(r.code + ': ' + r.message); return; }
+      if (!r.ok) { session = null; endSession(); stale = true; toast(r.code + ': ' + r.message + keptText(r)); return; }
       session = null;
       startSession(r, 1);
     });
@@ -706,6 +730,9 @@
     try { saved = JSON.parse(sessionStorage.getItem(SS) || 'null'); } catch (e) { /* ignore */ }
     var open = (r.open || [])[0];
     if (open) startSession(open, saved && saved.id === open.id ? saved.idx : open.shown || 1);
+    var pick = null;
+    try { pick = sessionStorage.getItem(SS + '-pick'); sessionStorage.removeItem(SS + '-pick'); } catch (e) { /* ignore */ }
+    if (pick && !open) startPicking();
     var waiting = null;
     try { waiting = sessionStorage.getItem(SS + '-draft'); } catch (e) { /* ignore */ }
     (r.drafts || []).forEach(function (d) { if (d.id === waiting) waitDraft(d); });

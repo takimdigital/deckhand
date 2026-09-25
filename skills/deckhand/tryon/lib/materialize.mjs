@@ -229,6 +229,21 @@ async function jsonBundle(prof, item, doc, url) {
 }
 
 /**
+ * The project's `radix-ui` umbrella (shadcn v4 bases): every `@radix-ui/react-<x>` is also `radix-ui/<x>`, resolvable
+ * from the project even under pnpm's strict layout. A design's `@radix-ui/react-toggle` is rewritten to
+ * `radix-ui/toggle` instead of installing a package the running dev server may not see until it restarts
+ * ("Module not found: Can't resolve '@radix-ui/react-toggle'" broke an owner's page). Returns the part names, or null.
+ */
+export function radixUmbrella(prof) {
+  if (!prof.deps || !Object.prototype.hasOwnProperty.call(prof.deps, 'radix-ui')) return null;
+  try {
+    const names = fs.readdirSync(path.join(prof.root, 'node_modules', 'radix-ui', 'dist'))
+      .filter((f) => f.endsWith('.mjs')).map((f) => f.slice(0, -4)).filter((n) => n !== 'index' && n !== 'internal');
+    return names.length ? new Set(names) : null;
+  } catch { return null; }
+}
+
+/**
  * Write a bundle into <componentsDir>/dh-tryon/<slug>/. Returns the stage record.
  */
 export function writeBundle(prof, item, bundle, { baseDir } = {}) {
@@ -284,11 +299,20 @@ export function writeBundle(prof, item, bundle, { baseDir } = {}) {
     : (p) => `/* ${item.t || item.n} — ${item.r}/${item.n} (${item.lic || 'MIT'}) · source: ${bundle.sourceUrl}${p !== bundle.entry ? ' · ' + p : ''} · staged by deckhand try-on */\n`;
   const written = [];
   const problems = [];
+  const umbrella = radixUmbrella(prof);
+  const viaUmbrella = new Set();
   for (const f of bundle.files) {
     let code = f.content;
     const imps = importsOf(f.path, code).sort((a, b) => b.start - a.start);
     for (const imp of imps) {
       const s = imp.spec;
+      const rx = /^@radix-ui\/react-([a-z0-9-]+)$/.exec(s);
+      if (rx && umbrella && umbrella.has(rx[1]) && !depInstalled(prof, s)) {
+        const q = code[imp.start];
+        code = code.slice(0, imp.start) + q + 'radix-ui/' + rx[1] + q + code.slice(imp.end);
+        viaUmbrella.add(s);
+        continue;
+      }
       if (!(s.startsWith('.') || s.startsWith('@/') || s.startsWith('~/'))) continue;
       const t = resolveTarget(f.path, s);
       if (!t) { problems.push(`${f.path}: cannot resolve ${s}`); continue; }
@@ -307,7 +331,7 @@ export function writeBundle(prof, item, bundle, { baseDir } = {}) {
     fs.writeFileSync(path.join(absDir, 'utils.ts'), UTILS_SRC);
     written.push(path.posix.join(relDir, 'utils.ts'));
   }
-  const deps = new Set(bundle.deps);
+  const deps = new Set([...bundle.deps].filter((d) => !viaUmbrella.has(d)));
   if (needUtils) { deps.add('clsx'); deps.add('tailwind-merge'); }
   const allDeps = [...deps].filter((d) => !BUILTIN.has(d));
   const missingDeps = allDeps.filter((d) => !depInstalled(prof, d));
@@ -320,7 +344,7 @@ export function writeBundle(prof, item, bundle, { baseDir } = {}) {
   const exp = entryExport(entryRel, entryCode);
   return {
     slug, relDir, entry: entryRel, spec: specFor(prof, entryRel) || './' + entryRel, export: exp,
-    files: written, deps: allDeps, missingDeps, problems, sourceUrl: bundle.sourceUrl,
+    files: written, deps: allDeps, missingDeps, problems, sourceUrl: bundle.sourceUrl, viaUmbrella: [...viaUmbrella],
     css: bundle.css, cssVars: bundle.cssVars, logoFiles,
   };
 }

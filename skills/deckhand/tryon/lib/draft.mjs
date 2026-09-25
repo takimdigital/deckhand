@@ -24,7 +24,7 @@ import { importsOf, pkgName } from './registry.mjs';
 import { kindOf } from './slots.mjs';
 
 const require = createRequire(import.meta.url);
-const { parse, walk, findElementAt, jsxName } = require('./ast.cjs');
+const { parse, walk, jsxName } = require('./ast.cjs');
 const { TryonError } = engine;
 
 const now = () => new Date().toISOString();
@@ -65,7 +65,7 @@ export function publicDraft(d) {
  * The owner (overlay) or the agent (CLI) asks for an AI variant of one element.
  * { file, line, col, slot, note? } — or { session } to draft beside the variants of an open session.
  */
-export function requestDraft(rootIn, { file, line, col, slot, note, session } = {}) {
+export function requestDraft(rootIn, { file, line, col, slot, note, session, hint } = {}) {
   const prof = detectProject(rootIn);
   const root = prof.root;
   let relFile, code;
@@ -86,8 +86,12 @@ export function requestDraft(rootIn, { file, line, col, slot, note, session } = 
   slot = String(slot || '').trim();
   if (!slot) throw new TryonError('NO_SLOT', 'say what this element is (hero, pricing, button…)');
   const ast = parse(relFile, code);
-  const el = findElementAt(ast, code, Number(line), Number(col));
-  if (!el) throw new TryonError('ELEMENT_NOT_FOUND', `no JSX element starts at ${relFile}:${line}:${col}`);
+  // the page may be older than the file: the element the owner clicked, found again by what it is (not in a session:
+  // there the backup IS the file the stamps came from)
+  const picked = engine.pickElement(ast, code, line, col, session ? null : hint);
+  if (!picked) throw new TryonError('ELEMENT_NOT_FOUND', `no JSX element starts at ${relFile}:${line}:${col} — the page is older than the file: reload it and pick again`, { reload: true });
+  const el = picked.el;
+  line = picked.line; col = picked.col;
   const orig = extractUnits(code, el, ast);
   const id = 'd' + Date.now().toString(36).slice(-6) + crypto.randomBytes(2).toString('hex');
   const d = {

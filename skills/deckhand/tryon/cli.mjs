@@ -106,7 +106,11 @@ async function main() {
     case 'inspect': need('file', 'line', 'col'); return out({ ok: true, ...engine.inspect(project, flags) });
     case 'try': {
       need('file', 'line', 'col', 'slot');
-      const r = await engine.open(project, { ...flags, install: flags.install !== false, onProgress: flags.verbose ? (p) => console.error(JSON.stringify(p)) : undefined });
+      // with a running dev server (--url, else the one `dh dev start` recorded) the page must still build after the swap
+      let devUrl = typeof flags.url === 'string' ? flags.url : null;
+      if (!devUrl && flags.verify !== false) { try { devUrl = JSON.parse(fs.readFileSync(path.join(project, '.deckhand', 'dev.json'), 'utf8')).url || null; } catch { devUrl = null; } }
+      const r = await engine.openVerified(project, { ...flags, install: flags.install !== false, onProgress: flags.verbose ? (p) => console.error(JSON.stringify(p)) : undefined },
+        { url: devUrl, page: typeof flags.page === 'string' ? flags.page : '/' });
       return out({ ok: true, ...r, next: `compare in the browser (←/→) or \`show --id ${r.id} --idx N\`; then \`keep --id ${r.id} --idx N\` or \`discard --id ${r.id}\`` });
     }
     case 'draft': {
@@ -195,4 +199,7 @@ async function main() {
 }
 
 main().catch((e) => out({ ok: false, code: e.code || 'ERROR', message: String(e.message || e).slice(0, 3000), skipped: e.skipped, problems: e.problems, ...(e.report ? { report: e.report } : {}),
+  ...(e.reload ? { reload: true, next: 'the page is older than the file: reload it (or re-run inspect) and pick again' } : {}),
+  ...(e.restored ? { restored: true } : {}), ...(e.dropped && e.dropped.length ? { dropped: e.dropped } : {}),
+  ...(e.installedKept && e.installedKept.length ? { installedKept: e.installedKept } : {}),
   ...(e.draft ? { next: `no licensed design fits — an AI draft is possible (labelled AI-generated for the owner): draft --file ${e.draft.file} --line ${e.draft.line} --col ${e.draft.col} --slot ${e.draft.slot}` } : {}) }, 1));

@@ -511,20 +511,87 @@ function cardGroups(root, units) {
   return chosen.sort((a, b) => a.members[0].start - b.members[0].start);
 }
 
-const attrValueSrc = (code, a) => {
+const attrValueSrc = (code, a, inner = null) => {
   if (!a || !a.value) return null;
   if (a.value.type === 'StringLiteral') return JSON.stringify(a.value.value);
-  if (a.value.type === 'JSXExpressionContainer') return code.slice(a.value.expression.start, a.value.expression.end);
+  if (a.value.type === 'JSXExpressionContainer') {
+    // an expression moves with the owner's words to the variant's call site — only when every name it uses is
+    // defined OUTSIDE the clicked element (`tel:${c.phone}` with a module-level `c`), never a name bound inside it
+    if (inner && usesAny(a.value.expression, inner)) return null;
+    return code.slice(a.value.expression.start, a.value.expression.end);
+  }
   return null;
 };
+
+/** Names bound inside an element (function params, declarations): not in scope at the element's own position. */
+function innerBindings(el) {
+  const names = new Set();
+  const bind = (pat) => {
+    if (!pat) return;
+    if (pat.type === 'Identifier') names.add(pat.name);
+    else if (pat.type === 'ObjectPattern') pat.properties.forEach((pr) => bind(pr.type === 'RestElement' ? pr.argument : pr.value));
+    else if (pat.type === 'ArrayPattern') pat.elements.forEach(bind);
+    else if (pat.type === 'AssignmentPattern') bind(pat.left);
+    else if (pat.type === 'RestElement') bind(pat.argument);
+  };
+  walk(el, (n) => {
+    if (/Function/.test(n.type)) n.params.forEach(bind);
+    if (n.type === 'VariableDeclarator') bind(n.id);
+    if (n.type === 'CatchClause') bind(n.param);
+    return true;
+  });
+  return names;
+}
+
+/** Does an expression read any of these names (object keys and non-computed members excluded)? */
+function usesAny(expr, names) {
+  if (!names.size) return false;
+  let hit = false;
+  walk(expr, (n, parent) => {
+    if (hit) return false;
+    if (n.type === 'Identifier' && names.has(n.name)
+      && !(parent && parent.type === 'MemberExpression' && parent.property === n && !parent.computed)
+      && !(parent && (parent.type === 'ObjectProperty') && parent.key === n && !parent.computed)) hit = true;
+    return !hit;
+  });
+  return hit;
+}
+
+/**
+ * A list item's text as a JS value. Plain text stays a string; the owner's `{c.phone}` becomes `c.phone` and
+ * `Cleaning in {c.city}.` a template literal — never the literal text "{c.phone}". Names bound inside the clicked
+ * element are out of scope at the call site: then only the plain text is kept.
+ */
+function unitValue(u, inner) {
+  if (!u.dynamic) return u.text;
+  let frag;
+  try { frag = parse('v.tsx', `const __v = <>${u.src}</>;`).program.body[0].declarations[0].init; } catch { return u.text; }
+  const kids = frag.children.filter((k) => !(k.type === 'JSXText' && !k.value.trim()));
+  if (!kids.every((k) => k.type === 'JSXText' || (k.type === 'JSXExpressionContainer' && k.expression.type !== 'JSXEmptyExpression'
+    && !/^JSX/.test(k.expression.type)))) return u.text;
+  if (inner && kids.some((k) => k.type === 'JSXExpressionContainer' && usesAny(k.expression, inner))) return u.text;
+  const src = `const __v = <>${u.src}</>;`;
+  if (kids.length === 1 && kids[0].type === 'JSXExpressionContainer') {
+    const e = kids[0].expression;
+    return { __src: src.slice(e.start, e.end) };
+  }
+  const parts = kids.map((k) => (k.type === 'JSXText' ? k.value.replace(/\s+/g, ' ').replace(/[`\\]/g, '\\$&').replace(/\$\{/g, '\\${')
+    : '${' + src.slice(k.expression.start, k.expression.end) + '}'));
+  return { __src: '`' + parts.join('').trim() + '`' };
+}
+
+/** A value for a generated list item: string data, or JS source kept verbatim (an owner's link expression). */
+const itemValue = (v) => (v && typeof v === 'object' && typeof v.__src === 'string' ? v.__src : JSON.stringify(v));
+const listSrc = (items) => '[' + items.map((o) => '{ ' + Object.entries(o).map(([k, v]) => `${JSON.stringify(k)}: ${itemValue(v)}`).join(', ') + ' }').join(', ') + ']';
 
 /** Content of the clicked element. `ast` = the whole file (to evaluate literal data arrays). */
 export function extractUnits(code, el, ast = null) {
   const fileAst = ast || parse('x.tsx', code);
   const c = collect(code, el, fileAst, 'original');
+  const inner = innerBindings(el);
   const pub = (u) => ({
     role: u.role, sub: u.sub || null, level: u.level, text: u.text, src: u.src.trim(), dynamic: !!u.dynamic,
-    href: u.href !== undefined ? u.href : attrValueSrc(code, u.hrefAttr), list: u.list ? c.lists.indexOf(u.list) : null, item: u.itemIdx ?? null,
+    href: u.href !== undefined ? u.href : attrValueSrc(code, u.hrefAttr, inner), list: u.list ? c.lists.indexOf(u.list) : null, item: u.itemIdx ?? null,
   });
   const lists = c.lists.map((l) => ({ items: l.items.map((it) => ({ units: it.units.map(pub), images: it.images, bullets: it.bullets })) }));
   let units = c.units.map(pub);
@@ -538,9 +605,19 @@ export function extractUnits(code, el, ast = null) {
       lists.push({ literal: true, items: per.map((p) => ({ units: p.map((u) => ({ ...pub(u), list: 0 })), images: [], bullets: [] })) });
     }
   }
+  // a unit whose JSX reads a name bound inside the element cannot move to the call site: carry its text instead
+  const safe = (u) => {
+    if (!u.dynamic || !inner.size) return u;
+    let bad = false;
+    try { walk(parse('v.tsx', `const __v = <>${u.src}</>;`), (n) => { if (n.type === 'JSXExpressionContainer' && usesAny(n.expression, inner)) bad = true; return !bad; }); } catch { bad = true; }
+    return bad ? { ...u, src: u.text.replace(/[{}<>]/g, ''), dynamic: false } : u;
+  };
+  units = units.map(safe);
+  for (const l of lists) for (const it of l.items) it.units = it.units.map(safe);
   return {
     units,
-    images: c.images.map((i) => ({ src: attrValueSrc(code, i.src), alt: attrValueSrc(code, i.alt) })),
+    inner,
+    images: c.images.map((i) => ({ src: attrValueSrc(code, i.src, inner), alt: attrValueSrc(code, i.alt, inner) })),
     inputs: c.inputs.map((i) => ({ placeholder: attrValueSrc(code, i.ph) })),
     lists,
     dynamicLists: c.dynamicLists,
@@ -797,9 +874,38 @@ export function parameterize(file, code, exp, opts = {}) {
  * Pair original content with candidate slots -> { props: [[key, src]], carried[], dropped[], demo[] }.
  * When both sides have lists, list items travel as data; otherwise unrolled items pair flat.
  */
+/**
+ * A design's list of plain links (label + href) against the owner's titled columns (a heading and several links
+ * each — a typical footer): the owner's links become that list, one item per link, and the column titles, brand
+ * line and description become ordinary text for the design's text slots. Without this, only the first link of
+ * each column reached the design (2 of 8 in a real footer) and every footer was refused as a poor fit.
+ */
+function adaptLinkLists(orig, candLists) {
+  if (!candLists.length || !orig.lists.length) return orig;
+  let changed = false;
+  const loose = new Set();
+  const lists = orig.lists.map((ol, li) => {
+    const cl = candLists[li];
+    if (!cl) return ol;
+    const roles = new Set(cl.fields.map((f) => f.role));
+    const label = roles.has('action') ? 'action' : roles.has('item') ? 'item' : null;
+    if (!label || !roles.has('href') || ![...roles].every((r) => ['href', 'action', 'item', 'image'].includes(r))) return ol;
+    const acts = ol.items.flatMap((it) => it.units.filter((u) => u.role === 'action'));
+    const grouped = ol.items.some((it) => it.units.filter((u) => u.role === 'action').length > 1 || it.units.some((u) => u.role !== 'action'));
+    if (!grouped || acts.length < 2) return ol;
+    changed = true;
+    ol.items.forEach((it) => it.units.filter((u) => u.role !== 'action').forEach((u) => loose.add(u.text + '\u0000' + u.src)));
+    return { ...ol, items: acts.map((a) => ({ units: [{ ...a, role: label }], images: [], bullets: [] })) };
+  });
+  if (!changed) return orig;
+  const units = orig.units.map((u) => (u.list !== null && u.role !== 'action' && loose.has(u.text + '\u0000' + u.src) ? { ...u, list: null, item: null } : u));
+  return { ...orig, units, lists };
+}
+
 export function bind(orig, cand, opts = {}) {
   const slots = cand.slots || cand;
   const candLists = cand.lists || [];
+  orig = adaptLinkLists(orig, candLists);
   const props = [], carried = [], dropped = [], demo = [], hidden = [];
   const candGroups = cand.groups || [];
   const useLists = candLists.length && orig.lists.length;
@@ -893,19 +999,19 @@ export function bind(orig, cand, opts = {}) {
         for (const role of CONTENT_ROLES) {
           const fields = cl.fields.filter((f) => f.role === role);
           const vals = it.units.filter((u) => u.role === role);
-          fields.forEach((f, k) => { if (vals[k]) { obj[f.field] = vals[k].text; carried.push({ role, text: vals[k].text }); } });
+          fields.forEach((f, k) => { if (vals[k]) { obj[f.field] = unitValue(vals[k], orig.inner); carried.push({ role, text: vals[k].text }); } });
           for (let k = fields.length; k < vals.length; k++) dropped.push({ role, text: vals[k].text });
         }
         const hrefF = cl.fields.find((f) => f.role === 'href');
         const act = it.units.find((u) => u.role === 'action' && u.href);
-        if (hrefF && act) obj[hrefF.field] = JSON.parse(act.href);
+        if (hrefF && act) obj[hrefF.field] = { __src: act.href };           // JS source: a quoted string or the owner's expression
         const bulletsF = cl.fields.find((f) => f.role === 'bullets');
         if (bulletsF && it.bullets.length) { obj[bulletsF.field] = it.bullets; carried.push({ role: 'item', text: it.bullets.join(', ') }); }
         const imgF = cl.fields.find((f) => f.role === 'image');
-        if (imgF && it.images[0] && it.images[0].src) obj[imgF.field] = JSON.parse(it.images[0].src);
+        if (imgF && it.images[0] && it.images[0].src) obj[imgF.field] = { __src: it.images[0].src };
         return obj;
       });
-      props.push([cl.key, JSON.stringify(items)]);
+      props.push([cl.key, listSrc(items)]);
       if (ol.items.length !== cl.demoCount) demo.push({ role: 'list', key: cl.key, text: `${ol.items.length} of your items (design shows ${cl.demoCount})` });
     });
   }

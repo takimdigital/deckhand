@@ -22,7 +22,9 @@ $T try --file components/hero.tsx --line 6 --col 5 --slot hero --count 4
 $T show --id <S> --idx 2      # the dev page now shows variant 2
 $T keep --id <S> --idx 2      # or: discard --id <S>   (byte-exact restore)
 ```
-`--no-install` refuses candidates needing new npm packages instead of installing them.
+`--no-install` refuses candidates needing new npm packages instead of installing them. With the dev server's URL
+(`--url`, else the one `dh dev start` recorded) `try` also proves the page still builds (below); `--page /pricing`
+loads that route instead of `/`, `--no-verify` skips it.
 
 ## Tune it (adjust, don't replace) and Site (the whole look) — no model calls
 Picker panel → **Tune it**: presets (quieter · bolder · airy · compact · clarity · softer · sharper) and
@@ -90,6 +92,18 @@ paywall). `registry add` indexes it into `~/.deckhand/catalog/` — it ranks bes
   (`.deckhand/sitemap.json` nav + page titles) and social rows keep only the owner's networks
   (`brief.brand.social`). The bar shows the fit ("your content 8/8") and dashes any demo copy that is left;
   keep records it in `.deckhand/demo-copy.json`, which `dh rebrand check` blocks on until rewritten.
+- Build safety: a design is wired only if everything it imports loads from the project — every named import and
+  `NS.Part` / `<NS.Part>` read exists, and a package the import itself needs is installed — else `BROKEN_IMPORT`
+  and the next candidate takes its place. Designs that need no install come first (a running dev server may not
+  see a new package until it restarts); a project with the `radix-ui` umbrella gets `radix-ui/<part>` imports
+  instead of an install. Through the helper (and `try` with a dev URL) the page is then loaded until the dev server
+  shows the new variants or an error: an error restores the file at once, drops the variants it points at and
+  reopens the rest (the bar says how many were removed), or ends in `BUILD_BROKE` with the file restored. A package
+  installed for a try stays in package.json and is named (`installedKept`, also on Discard).
+- The page older than the file: the overlay sends what was clicked (tag + start of its text) with its stamp. The
+  engine checks the element at the stamp is that one, else finds it again nearest the old line; if it cannot be
+  sure, `ELEMENT_NOT_FOUND` with a **Reload the page and pick again** button (nothing written). After Keep or
+  Discard the next pick reloads the page first. Swap, Tune and the AI draft share this.
 - Keep: wrapper collapses to one component under `components/sections/<slug>/`, literal copy baked in,
   show/hide switches resolved, unused files pruned, `THIRD_PARTY_NOTICES.md` updated.
 - Production: stamps are dev-only (`dh verify` row `prod-clean`); `$T clean` unwires before release
@@ -103,4 +117,7 @@ paywall). `registry add` indexes it into `~/.deckhand/catalog/` — it ranks bes
 | HMR blocked / "Blocked cross-origin request" | open the helper URL (it rewrites Origin to localhost), not 127.0.0.1:3000 |
 | `NO_CANDIDATES` | slot mislabeled, or base mismatch (`hidden` count) — pick the right slot |
 | `POOR_FIT` skips | the design cannot hold ≥50% of the owner's content — honest skip, try More, or the AI draft |
+| `ELEMENT_NOT_FOUND` + "reload" | the page is older than the file (a session added/removed lines, an edit) → click the button (or reload) and pick again |
+| `BROKEN_IMPORT` / `NEEDS_DEPS` skips | the design imports something this project cannot load / needs an install while install-free designs exist — honest skip, the next design is shown |
+| `BUILD_BROKE` (file restored) or "N variant(s) removed" | those designs broke the page build and were taken out at once; if a package was just installed (`installedKept`), restart the dev server and try again |
 | `DRAFT_REJECTED` | read `problems`, fix the draft files, run `draft-done` again (the owner's page is untouched until it passes) |

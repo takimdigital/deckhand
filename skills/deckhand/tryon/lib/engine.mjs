@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import http from 'node:http';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { detectProject, specFor } from './project.mjs';
@@ -205,8 +206,10 @@ export async function open(rootIn, opts) {
   const before = fs.readFileSync(abs);
   const code = before.toString('utf8');
   const ast = parse(rel, code);
-  const el = findElementAt(ast, code, Number(opts.line), Number(opts.col));
-  if (!el) throw new TryonError('ELEMENT_NOT_FOUND', `no JSX element starts at ${rel}:${opts.line}:${opts.col} (file changed? reload the page)`);
+  const picked = pickElement(ast, code, opts.line, opts.col, opts.hint);
+  if (!picked) throw new TryonError('ELEMENT_NOT_FOUND', `no JSX element starts at ${rel}:${opts.line}:${opts.col} — the page is older than the file: reload it and pick again`, { reload: true });
+  const el = picked.el;
+  if (picked.relocated) { opts = { ...opts, line: picked.line, col: picked.col }; log({ phase: 'relocated', line: picked.line, col: picked.col }); }
   const slot = String(opts.slot || '').trim();
   if (!slot) throw new TryonError('NO_SLOT', 'say what this element is (hero, pricing, button…)');
   const kind = kindOf(slot);
@@ -237,8 +240,11 @@ export async function open(rootIn, opts) {
   const links = ['footer', 'navbar'].includes(slot) ? siteLinks(root) : null;
   // a variant folder another open session is showing is never re-staged (it would be wiped)
   const busy = new Set(listSessions(root).filter((o) => o.state === 'open').flatMap((o) => o.variants.map((v) => v.slug)));
+  // a variant that needs a package installed comes last: a running dev server may not see a new package until it
+  // restarts (the owner's page broke on exactly that). Offered only when too few install-free ones exist.
+  const held = [];
   for (const cand of ranked.items) {
-    if (variants.length >= count) break;
+    if (variants.length >= count || variants.length + held.length >= count * 3) break;
     if (skipped.length > count * 3) break;
     if (busy.has(slugOf(cand))) continue;
     log({ phase: 'fetch', id: cand.id });
@@ -293,7 +299,7 @@ export async function open(rootIn, opts) {
     } else {
       usage = primitiveUsage(code, el, local, entryCode);
     }
-    variants.push({
+    const v = {
       idx: variants.length + 1, id: cand.id, r: cand.r, n: cand.n, t: cand.t, lic: cand.lic || 'MIT', slot: cand.slot, generated: !!cand.ai, draft: cand.draft || null,
       slug: stage.slug, dir: stage.relDir, entry: stage.entry, spec: stage.spec, export: stage.export, local, usage,
       deps: stage.deps, missingDeps: stage.missingDeps, sourceUrl: stage.sourceUrl, prop: stage.prop || null,
@@ -301,7 +307,21 @@ export async function open(rootIn, opts) {
       fit: { carried: fit.carried.length, of: origCount, dropped: fit.dropped, demo: fit.demo.map((d) => d.text).slice(0, 6), hidden: fit.hidden || [], demoVisual: fit.demoVisual || 0 },
       ownerTexts: stage.ownerTexts || [],
       removedChrome: stage.removedChrome || [],
-    });
+    };
+    if (stage.missingDeps.length) { held.push(v); continue; }
+    // checked as it is staged: a design that would break the page makes room for the next candidate
+    const why = opts.checkImports === false ? null : checkImports(root, [v]).bad.get(v);
+    if (why) {
+      skipped.push({ id: cand.id, why: 'BROKEN_IMPORT', detail: why });
+      fs.rmSync(path.join(root, stage.relDir), { recursive: true, force: true });
+      continue;
+    }
+    variants.push(v);
+  }
+  for (const v of held) {
+    if (variants.length < count) { variants.push(v); continue; }
+    skipped.push({ id: v.id, why: 'NEEDS_DEPS', detail: `${v.missingDeps.join(', ')} (designs that need no install were preferred)` });
+    fs.rmSync(path.join(root, v.dir), { recursive: true, force: true });
   }
   if (!variants.length) throw new TryonError('NO_VARIANTS', 'no candidate could be staged', { skipped, draft: { file: rel, line: Number(opts.line), col: Number(opts.col), slot } });
 
@@ -322,6 +342,16 @@ export async function open(rootIn, opts) {
       installed = need;
     }
   }
+  // nothing is wired that does not resolve: a missing package or export would break the owner's page
+  // (a design importing lucide's removed `Github` icon, an uninstallable Radix part) — that variant is dropped.
+  // The install-free ones were checked as they were staged; what was just installed is checked now.
+  const gate = opts.checkImports === false ? { bad: new Map() } : checkImports(root, variants.filter((v) => v.missingDeps.length));
+  for (const [v, why] of gate.bad) {
+    skipped.push({ id: v.id, why: 'BROKEN_IMPORT', detail: why });
+    fs.rmSync(path.join(root, v.dir), { recursive: true, force: true });
+    variants.splice(variants.indexOf(v), 1);
+  }
+  if (!variants.length) throw new TryonError('NO_VARIANTS', 'every candidate imports something this project cannot load', { skipped, draft: { file: rel, line: Number(opts.line), col: Number(opts.col), slot } });
   // best fit first: most of the owner's content, then the least leftover demo copy (rank breaks ties)
   variants.sort((a, b) => (b.fit.of ? b.fit.carried / b.fit.of : 0) - (a.fit.of ? a.fit.carried / a.fit.of : 0) || a.fit.demoVisual - b.fit.demoVisual);
   variants.forEach((v, i) => { v.idx = i + 1; });
@@ -361,6 +391,305 @@ export async function open(rootIn, opts) {
   };
   saveSession(root, session);
   return publicSession(session);
+}
+
+/** The bare packages a staged variant imports: [{spec, names}] (named imports plus `NS.x` reads of a namespace import). */
+export function stagedImports(root, v) {
+  const list = [];
+  let files = [];
+  try { files = fs.readdirSync(path.join(root, v.dir)); } catch { return list; }
+  for (const f of files) {
+    if (!/\.(tsx|ts|jsx|js|mjs)$/.test(f)) continue;
+    const code = fs.readFileSync(path.join(root, v.dir, f), 'utf8');
+    let ast;
+    try { ast = parse(f, code); } catch { continue; }
+    const ns = new Map();
+    for (const st of ast.program.body) {
+      if (st.type !== 'ImportDeclaration' || st.importKind === 'type') continue;
+      const spec = st.source.value;
+      if (/^(\.|@\/|~\/|node:)/.test(spec) || /\.(css|scss|svg|png|jpe?g|webp|json)$/.test(spec)) continue;
+      const names = st.specifiers.filter((x) => x.type === 'ImportSpecifier' && x.importKind !== 'type')
+        .map((x) => x.imported.name || x.imported.value);
+      const item = { spec, names };
+      for (const x of st.specifiers) if (x.type === 'ImportNamespaceSpecifier') ns.set(x.local.name, item);
+      list.push(item);
+    }
+    // `import * as TogglePrimitive from 'radix-ui/toggle'` then `TogglePrimitive.Root`: Root must exist too
+    if (ns.size) {
+      walk(ast, (n) => {
+        // P.Trigger() and <P.Root> (a JSXMemberExpression) both read a name the module must export
+        const js = n.type === 'MemberExpression' && !n.computed && n.object.type === 'Identifier' && n.property.type === 'Identifier';
+        const jsx = n.type === 'JSXMemberExpression' && n.object.type === 'JSXIdentifier';
+        if ((js || jsx) && ns.has(n.object.name)) {
+          const item = ns.get(n.object.name);
+          if (!item.names.includes(n.property.name)) item.names.push(n.property.name);
+        }
+        return true;
+      });
+    }
+  }
+  return list;
+}
+
+/**
+ * Load every package a staged variant imports, from the project (the resolution the app will do), in ONE child
+ * process, and check each named import exists. Not found or a missing name = the variant would break the build.
+ * A package that cannot load outside a browser is "unknown" and never counts against a variant.
+ */
+export function checkImports(root, variants) {
+  const need = new Map();
+  const uses = new Map();
+  for (const v of variants) {
+    const list = stagedImports(root, v);
+    for (const { spec, names } of list) {
+      const set = need.get(spec) || new Set();
+      names.forEach((n) => set.add(n));
+      need.set(spec, set);
+    }
+    uses.set(v, list);
+  }
+  const bad = new Map();
+  if (!need.size) return { bad };
+  if (!fs.existsSync(path.join(root, 'node_modules'))) return { bad, skipped: 'no node_modules: nothing installed to check against' };
+  const want = JSON.stringify([...need].map(([s, n]) => [s, [...n]]));
+  const script = `import { createRequire } from 'node:module';
+import fs from 'node:fs';
+import path from 'node:path';
+const req = createRequire(process.cwd() + '/package.json');
+// installed = a node_modules/<pkg> up the tree (how node and bundlers resolve); present but not loadable here = unknown
+const present = (pkg) => { for (let d = process.cwd(); ; d = path.dirname(d)) { if (fs.existsSync(path.join(d, 'node_modules', pkg, 'package.json'))) return true; if (path.dirname(d) === d) return false; } };
+const pkgOf = (s) => s.startsWith('@') ? s.split('/').slice(0, 2).join('/') : s.split('/')[0];
+// a package the import itself needs and nobody installed (radix-ui/toggle re-exports @radix-ui/react-toggle)
+const depOf = (e, pkg) => { const m = /Cannot find (?:package|module) '([^'./\\\\][^']*)'/.exec(String(e && e.message)); if (!m || /^[A-Za-z]:/.test(m[1])) return null; const d = pkgOf(m[1]); return d !== pkg && !present(d) ? d : null; };
+const want = ${want}; const out = {};
+const judge = (m, names) => { const miss = names.filter((n) => !(n in m) && !(m && m.default && typeof m.default === 'object' && n in m.default)); return miss.length ? { missing: miss } : { ok: true }; };
+for (const [s, names] of want) {
+  const pkg = pkgOf(s);
+  let dep = null;
+  try { out[s] = judge(await import(s), names); continue; } catch (e) { dep = depOf(e, pkg); out[s] = { unknown: String(e && e.message).slice(0, 120) }; }
+  // bundlers resolve more than strict ESM does (next/link has no export map): CommonJS resolution decides
+  let found = null;
+  try { found = req.resolve(s); } catch (e) { if (!present(pkg)) out[s] = { notFound: true }; }
+  if (found) { try { out[s] = judge(req(s), names); dep = null; } catch (e) { dep = dep || depOf(e, pkg); out[s] = { unknown: String(e && e.message).slice(0, 120) }; } }
+  if (dep && out[s].unknown) out[s] = { brokenDep: dep };
+}
+process.stdout.write(JSON.stringify(out));`;
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', script], { cwd: root, encoding: 'utf8', timeout: 90000 });
+  let res = null;
+  try { res = JSON.parse(String(r.stdout || '').trim().split('\n').pop()); } catch { return { bad, error: String(r.stderr || '').slice(-300) }; }
+  for (const [v, list] of uses) {
+    const why = [];
+    for (const { spec, names } of list) {
+      const x = res[spec] || {};
+      if (x.notFound) why.push(`${spec} is not installed`);
+      else if (x.brokenDep) why.push(`${spec} needs ${x.brokenDep}, which is not installed`);
+      else if (x.missing) {
+        const m = names.filter((n) => x.missing.includes(n));
+        if (m.length) why.push(`${spec} has no ${m.join(', ')}`);
+      }
+    }
+    if (why.length) bad.set(v, [...new Set(why)].join('; '));
+  }
+  return { bad, checked: need.size };
+}
+
+// ------------------------------------------------------------------ the page still builds (or nothing stays)
+
+const BUILD_ERR = /(Module not found|Can't resolve|Build Error|Failed to compile|Export [\w$]+ doesn't exist|is not exported from|doesn't exist in target module|Unexpected token|Expected .* got|SyntaxError|ReferenceError: [\w$]+ is not defined)/;
+
+/** GET a page from the dev server (it compiles on request). {status, text} or {status: 0} when unreachable. */
+export function probePage(url, page = '/', timeoutMs = 90000) {
+  const u = new URL(page || '/', url);
+  const host = (u.hostname === '127.0.0.1' ? 'localhost' : u.hostname) + (u.port ? ':' + u.port : '');
+  return new Promise((resolve) => {
+    const req = http.request({ hostname: u.hostname, port: u.port, path: u.pathname + u.search, method: 'GET',
+      headers: { host, accept: 'text/html', 'accept-encoding': 'identity' }, timeout: timeoutMs }, (res) => {
+      let text = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => { if (text.length < 3e6) text += c; });
+      res.on('end', () => resolve({ status: res.statusCode, text }));
+    });
+    req.on('timeout', () => { req.destroy(); resolve({ status: 0, text: 'timeout' }); });
+    req.on('error', (e) => resolve({ status: 0, text: String(e.message) }));
+    req.end();
+  });
+}
+
+export function buildError(pr) {
+  if (!pr || pr.status === 0) return null;
+  const m = BUILD_ERR.exec(pr.text || '');
+  if (pr.status < 500 && !(m && /Module not found|Can't resolve|Build Error|Failed to compile/.test(m[1]))) return null;
+  if (!m && pr.status < 500) return null;
+  const at = m ? m.index : 0;
+  const from = Math.max(0, at - 60);
+  const lead = from ? (pr.text || '').slice(from, at).search(/[\s"'>(]/) + 1 : 0;   // start on a word, not mid-path
+  return (pr.text || '').slice(from + Math.max(0, lead), at + 240).replace(/\\n|\n/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || `HTTP ${pr.status}`;
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Load the page until the dev server has compiled what is on disk now: the session's wrapper is in the HTML
+ * (`want` = its id), or a build error is, or (`want` = null) the page is clean again. A dev server's file watcher
+ * lags the write, so the first answer can be the page from BEFORE the change — never proof of anything.
+ */
+export async function probeUntil(url, page, want, deadlineMs = 25000) {
+  const t0 = Date.now();
+  let wait = 300;
+  for (;;) {
+    const p = await probePage(url, page);
+    if (p.status === 0) return p;
+    const err = buildError(p);
+    if (want ? (err || (p.text || '').includes(`data-dh-session="${want}"`)) : !err) return p;
+    if (Date.now() - t0 > deadlineMs) return { ...p, late: true };
+    await sleep(wait);
+    wait = Math.min(wait * 2, 2500);
+  }
+}
+
+/** Which variants a build error points at: their folder in the error's import trace, else the module it cannot load. */
+export function culpritsOf(root, variants, text) {
+  const named = variants.filter((v) => text.includes(v.slug) || text.includes(v.dir));
+  if (named.length) return named;
+  const mods = new Set();
+  for (const m of text.matchAll(/Can(?:'|\\u0027|&#x27;)t resolve (?:'|\\u0027|&#x27;|\\")([^'"\\&]+)/g)) mods.add(m[1]);
+  // the failing module as the bundler names it (./node_modules/radix-ui/dist/toggle.mjs:2:1) — never a stack frame
+  for (const m of text.matchAll(/\.\/node_modules\/((?:@[\w.-]+\/)?[\w.-]+)\/(?:dist\/|esm\/|lib\/)?([\w.-]+)?[^\s:'"]*:\d+:\d+/g)) {
+    mods.add(m[1]);
+    if (m[2]) mods.add(m[1] + '/' + m[2].replace(/\.(m?js|cjs)$/, ''));
+  }
+  for (const f of ['next', 'react', 'react-dom', 'vite', 'webpack']) mods.delete(f);
+  if (!mods.size) return [];
+  const pkgOf = (x) => (x.startsWith('@') ? x.split('/').slice(0, 2).join('/') : x.split('/')[0]);
+  return variants.filter((v) => stagedImports(root, v).some(({ spec }) => mods.has(spec) || mods.has(pkgOf(spec))));
+}
+
+/**
+ * open() + proof the page still builds. With a dev URL: the page is loaded before (baseline) and after the
+ * variants are written — after = once the dev server shows THIS session's wrapper or an error; a new build error
+ * restores the file at once, drops the variants the error points at and tries again without them (twice at most).
+ * The owner never keeps a broken page.
+ */
+export async function openVerified(rootIn, opts, { url, page, deadlineMs = 25000 } = {}) {
+  if (!url) return open(rootIn, opts);
+  const root = detectProject(rootIn).root;
+  const base = await probePage(url, page);
+  const baseErr = buildError(base);
+  let exclude = [...(opts.exclude || [])];
+  const dropped = [];
+  const kept = [];                                               // installed by a rolled-back attempt: still there
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const s = await open(rootIn, { ...opts, exclude });
+    if (kept.length) {
+      const full = loadSession(root, s.id);
+      full.installed = [...new Set([...(full.installed || []), ...kept])];
+      saveSession(root, full);
+      s.installed = full.installed;
+    }
+    if (baseErr) return { ...s, verified: false, note: 'the page already had an error before the swap — not checked: ' + baseErr.slice(0, 160) };
+    if (base.status === 0) return { ...s, verified: false, note: 'the dev server did not answer — not checked' };
+    const after = await probeUntil(url, page, s.id, deadlineMs);
+    const err = buildError(after);
+    if (!err) {
+      const shown = (after.text || '').includes(`data-dh-session="${s.id}"`);
+      return { ...s, verified: shown, ...(shown ? {} : { note: `the page ${page || '/'} did not show the variants within ${Math.round(deadlineMs / 1000)}s — the build was not checked` }), ...(dropped.length ? { dropped } : {}) };
+    }
+    const full = loadSession(root, s.id);
+    const culprits = culpritsOf(root, full.variants, after.text || '');
+    const d = discard(root, s.id, { reason: 'build' });
+    for (const p of d.installedKept || []) if (!kept.includes(p)) kept.push(p);
+    await probeUntil(url, page, null, deadlineMs);               // the dev server rebuilt the restored file
+    if (!culprits.length) {
+      throw new TryonError('BUILD_BROKE', `the page stopped building with these variants, so your file was restored at once. The error: ${err.slice(0, 300)}`,
+        { restored: true, dropped, installedKept: kept });
+    }
+    for (const v of culprits) dropped.push({ id: v.id, why: err.slice(0, 200) });
+    exclude = exclude.concat(culprits.map((v) => v.id));
+  }
+  throw new TryonError('BUILD_BROKE', 'every variant tried broke the page build — your file is restored', { restored: true, dropped, installedKept: kept });
+}
+
+// text compared the way a browser shows it may differ from the source: case (CSS uppercase), spacing, split words
+const squash = (t) => String(t || '').replace(/\s+/g, '').toLowerCase();
+/** The static text an element renders FIRST (its innerText starts with it); '' when an expression comes first. */
+function leadText(el) {
+  let out = '';
+  let stop = false;
+  walk(el, (m) => {
+    if (stop || out.length > 80) return false;
+    if (m.type === 'JSXText') out += m.value;
+    else if (m.type === 'JSXExpressionContainer') {
+      if (m.expression.type === 'StringLiteral') out += m.expression.value;
+      else if (m.expression.type !== 'JSXEmptyExpression') { stop = true; return false; }
+      return false;
+    } else if (m.type === 'JSXAttribute') return false;
+    return true;
+  });
+  return squash(out);
+}
+function allText(el) {
+  let txt = '';
+  walk(el, (m) => { if (m.type === 'JSXText') txt += m.value; else if (m.type === 'StringLiteral' && txt.length < 400) txt += m.value; return txt.length < 800; });
+  return squash(txt);
+}
+const HOST = /^[a-z][a-z0-9-]*$/;
+// the page names a tag (`a`, `section`) or a component (`Button`); the source may be a component that renders
+// that tag (<Link> is an <a> on the page): only a host element named otherwise is surely something else
+function tagFits(el, tag, strict = false) {
+  const name = jsxName(el.openingElement.name);
+  if (!tag || tag === 'component' || name === tag) return true;
+  if (HOST.test(name)) return false;
+  return HOST.test(tag) || !strict;
+}
+/** Is `el` the element the owner clicked? No only when sure: another host tag, or text that starts differently. */
+export function fitsHint(el, hint) {
+  if (!hint) return true;
+  const tag = String(hint.tag || '');
+  if (!tagFits(el, tag)) return false;
+  const want = squash(hint.text);
+  const lead = leadText(el);
+  if (lead.length < 6 || want.length < 6) return true;
+  const k = Math.min(lead.length, want.length, 24);
+  return want.slice(0, k) === lead.slice(0, k);
+}
+
+/**
+ * The page's stamp is stale (the file moved under it: a try-on session added and removed import lines, an edit):
+ * find the element again by what it is — its tag and the start of its text — nearest to where it was.
+ * One unambiguous match or nothing (a wrong element is worse than a clear "reload").
+ */
+export function relocate(ast, code, hint, nearLine = 0) {
+  const tag = String(hint && hint.tag || '');
+  const want = squash(hint && hint.text).slice(0, 40);
+  if (!tag || want.length < 4) return null;
+  const hits = [];
+  walk(ast, (n) => {
+    if (n.type === 'JSXElement' && tagFits(n, tag, true)) {
+      const lead = leadText(n);
+      const k = Math.min(lead.length, want.length);
+      if ((lead.length >= 6 && want.slice(0, k) === lead.slice(0, k)) || allText(n).includes(want.slice(0, 30))) hits.push(n);
+    }
+    return true;
+  });
+  // the innermost matching element per branch (a section inside a section with the same text: the inner one)
+  const inner = hits.filter((h) => !hits.some((o) => o !== h && o.start >= h.start && o.end <= h.end));
+  if (!inner.length) return null;
+  inner.sort((a, b) => Math.abs(lineCol(code, a.start).line - nearLine) - Math.abs(lineCol(code, b.start).line - nearLine));
+  if (inner.length > 1 && Math.abs(lineCol(code, inner[0].start).line - nearLine) === Math.abs(lineCol(code, inner[1].start).line - nearLine)) return null;
+  return inner[0];
+}
+
+/**
+ * The element the owner picked: the one at file:line:col when it is what they clicked (`hint`), else the same
+ * element found again (the page was older than the file). {el, line, col, relocated} or null.
+ */
+export function pickElement(ast, code, line, col, hint = null) {
+  const at = findElementAt(ast, code, Number(line), Number(col));
+  if (at && fitsHint(at, hint)) return { el: at, line: Number(line), col: Number(col), relocated: false };
+  const el = hint ? relocate(ast, code, hint, Number(line)) : null;
+  if (!el) return null;
+  const lc = lineCol(code, el.start);
+  return { el, line: lc.line, col: lc.col, relocated: true };
 }
 
 export function publicSession(s) {
@@ -888,7 +1217,8 @@ export function discard(rootIn, id, { reason } = {}) {
   s.discardedAt = now();
   s.reason = reason || null;
   saveSession(root, s);
-  return { ok: true, id, restored: s.file, mode };
+  // a package the try installed stays (package.json + lockfile): said, never silently left behind
+  return { ok: true, id, restored: s.file, mode, ...(s.installed && s.installed.length ? { installedKept: s.installed } : {}) };
 }
 
 /** Where is this element, what could it be swapped with? (no writes) */

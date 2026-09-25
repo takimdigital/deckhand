@@ -226,7 +226,12 @@ F4 TRY-ON SESSION WIRING
   ancestors) → chooses a slot ([[tryon/lib/slots.mjs]]) → tabs "Swap it | Tune it"; a "Site" button sits on the pill.
 
 F5 OPEN (swap) [[tryon/lib/engine.mjs#open]]
-1. Find the element at file:line:col.
+1. Find the element: [[tryon/lib/engine.mjs#pickElement]]. The one at file:line:col when it is what the owner clicked
+   (the overlay sends a hint: tag + start of its text; [[tryon/lib/engine.mjs#fitsHint]] says no only when sure), else
+   the same element found again nearest the old line ([[tryon/lib/engine.mjs#relocate]]; one unambiguous match or
+   nothing). The page is older than the file after a session added/removed import lines → otherwise
+   [[!ELEMENT_NOT_FOUND]] with `reload:true` (the overlay reloads and re-enters picking; it also reloads before the
+   next pick after Keep/Discard). Tune uses the same lookup ([[tryon/lib/tune.mjs#tuneOpen]]).
 2. [[tryon/lib/transplant.mjs#extractUnits]] gets the owner's content units: text, links, images, inputs, and
    unrolled .map lists.
 3. [[tryon/lib/catalog.mjs#rank]] ranks candidates: mine first; primitive-base mismatch hidden and counted.
@@ -239,15 +244,29 @@ F5 OPEN (swap) [[tryon/lib/engine.mjs#open]]
    3. Blocks only:
       - [[tryon/lib/transplant.mjs#parameterize]]: static units → `content.x ?? demo`, demo lists → list slots;
         chrome, demo logos and forms hidden;
-      - then [[tryon/lib/sitelinks.mjs#fillLinks]], then [[tryon/lib/transplant.mjs#bind]];
+      - then [[tryon/lib/sitelinks.mjs#fillLinks]], then [[tryon/lib/transplant.mjs#bind]]. List items are built
+        as JS source: a dynamic value (`{c.phone}`, an href `` `tel:${c.phone}` ``) travels as code, never through
+        JSON; names bound inside the picked element (a `.map` item) never leave it;
       - fit gate: a candidate carrying < half the owner's units is skipped as POOR_FIT.
-5. One batched npm install.
+   4. Install-free candidates are checked as they are staged ([[tryon/lib/engine.mjs#checkImports]], one child
+      node: every named import and `NS.x`/`<NS.X>` read must exist; a package the import itself needs and nobody
+      installed counts) → BROKEN_IMPORT, and the next candidate takes the place. A candidate that needs an install is
+      held: offered only when too few install-free ones exist (a running dev server may not see a new package).
+      With the `radix-ui` umbrella installed, `@radix-ui/react-X` imports become `radix-ui/X`
+      ([[tryon/lib/materialize.mjs#radixUmbrella]]) — nothing to install.
+5. One batched npm install (held candidates only), then the gate again for them.
 6. Sort by fit.
 7. Write ONE wrapper (`data-dh-session`, variant 0 = the original, hidden). Imports are marked `// dh-tryon:<id>`.
    The result is re-parsed; the backup is saved.
 8. Cycling ← → is client-side display toggling: zero writes. [[tryon/lib/engine.mjs#show]] persists the choice.
 9. Nothing fits → [[!NO_CANDIDATES]] or [[!NO_VARIANTS]] with `draft:{file,line,col,slot}`; the overlay offers an
    AI draft (F7).
+10. The page still builds: [[tryon/lib/engine.mjs#openVerified]] (helper open/more; `tryon try` with --url or
+   .deckhand/dev.json). Baseline GET of the page → open → [[tryon/lib/engine.mjs#probeUntil]] reloads until the
+   HTML holds THIS session's wrapper or a build error (a file watcher lags the write: the first answer can be the
+   old page). An error → discard at once, [[tryon/lib/engine.mjs#culpritsOf]] (the variant folder in the trace,
+   else the module it cannot load) → reopen without them (`dropped`, up to 3 tries) or [[!BUILD_BROKE]]
+   `restored:true`. Packages installed on the way stay and are reported (`installedKept`, on discard too).
 
 F6 KEEP / DISCARD
 - [[tryon/lib/engine.mjs#keep]]:
@@ -507,6 +526,7 @@ F19 RESEARCH EVIDENCE
 | footer/navbar links from the plan | [[tryon/lib/sitelinks.mjs]] | [[skills/deckhand/tryon/test/sections.test.mjs]] |
 | colours → tokens | [[tryon/lib/theme.mjs]] | setup-theme-server.test.mjs |
 | open/show/keep/discard/bake | [[tryon/lib/engine.mjs]] | engine.test.mjs, sections.test.mjs |
+| stale stamps, the import gate, the page-still-builds check (field fixes) | [[tryon/lib/engine.mjs#pickElement]] · [[tryon/lib/engine.mjs#checkImports]] · [[tryon/lib/engine.mjs#openVerified]] · overlay `stale`/`reloadButton` | [[skills/deckhand/tryon/test/field.test.mjs]] (fake dev server) + browser e2e |
 | AI draft gates | [[tryon/lib/draft.mjs#checkDraft]] | [[skills/deckhand/tryon/test/draft.test.mjs]] |
 | Tune knobs / presets | [[tryon/lib/tune.mjs]] (+ overlay tuneUI) | [[skills/deckhand/tryon/test/tune.test.mjs]] |
 | Site knobs / fonts | [[tryon/lib/sitetheme.mjs]] (+ overlay sitePanel) | tune.test.mjs |

@@ -1,5 +1,43 @@
 # Changelog
 
+## [2.2.1] — 2026-09-25 — try-on: the owner's page never stays broken
+
+Three errors an owner hit in try-on on a Next 16 app (Turbopack), each replayed in Chromium against a Next 16 dev
+server and fixed with a regression test (`tryon/test/field.test.mjs`, a fake dev server that lags like a real one).
+
+### Footer swap: `Unexpected token '`', "`tel:${c.p"... is not valid JSON`
+- Link lists are now built as JS source, not JSON: an href like `` `tel:${c.phone}` `` and a label like `{c.phone}`
+  travel as code, so the phone and email show their real values in the design.
+- A name bound inside the picked element (a `.map` item) never leaks into the usage, where it would not exist.
+- The owner's titled link columns (Contact · Company) flatten into a design's single link list: the footers that
+  were all skipped as POOR_FIT now carry the owner's links.
+
+### Discard, then pick again: `ELEMENT_NOT_FOUND … blocks.tsx:64:7`
+- The overlay now sends what was clicked (tag + start of its text) with the stamp. The engine checks that the element
+  at the stamp is that one, else finds it again nearest the old line (`pickElement`). A stamp that lands on another
+  element is never swapped by mistake. If it cannot be sure: `ELEMENT_NOT_FOUND` with `reload`, and a **Reload the
+  page and pick again** button; nothing is written.
+- After Keep or Discard the file has moved under the page, so the next pick reloads the page first.
+- Swap, Tune and the AI draft request share the same lookup.
+
+### A design needing `@radix-ui/react-toggle` broke the app, and it stayed broken
+- **The import check** loads every import a staged design makes, from the project, before wiring it:
+  - named imports must exist, and so must `NS.Part` / `<NS.Part>` reads of a namespace import;
+  - a package the import itself needs must be installed (`radix-ui/toggle` → `@radix-ui/react-toggle`).
+  A design that fails is skipped as `BROKEN_IMPORT` (lucide 1.x has no `Github`, for example), and the next
+  candidate takes its place.
+- **Install-free designs first.** A running dev server may not see a newly installed package, so designs that need
+  an install are offered only when too few others exist. A project with the `radix-ui` umbrella gets
+  `radix-ui/<part>` imports instead of an install.
+- **The page still builds, or nothing stays** (`openVerified`: the helper's open and More, and `tryon try` with a dev
+  URL):
+  - The page is reloaded until the dev server shows the new variants or an error. A file watcher lags the write, so
+    the first answer can be the old page.
+  - An error restores the file at once, drops the variants it points at (their folder in the trace, else the module
+    they cannot load) and reopens the rest. The bar says how many were removed.
+  - If nothing can be kept, `BUILD_BROKE` with the file restored.
+- A package installed for a try stays in package.json and is now named (`installedKept`, on Discard too).
+
 ## [2.2.0] — 2026-09-25 — proven paths, and runs that improve them
 
 A real run on Hermes (Windows, git-bash: a cleaning-company boilerplate sold as a product) was dissected to the tool

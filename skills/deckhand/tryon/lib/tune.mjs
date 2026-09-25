@@ -18,6 +18,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { detectProject } from './project.mjs';
+import { pickElement } from './engine.mjs';
 
 const require = createRequire(import.meta.url);
 const { parse, walk, findElementAt, jsxName } = require('./ast.cjs');
@@ -189,15 +190,18 @@ const load = (root, id) => {
 };
 const save = (root, s) => { fs.mkdirSync(dir(root), { recursive: true }); fs.writeFileSync(path.join(dir(root), s.id + '.json'), JSON.stringify(s, null, 1)); };
 
-export function tuneOpen(rootIn, { file, line, col }) {
+export function tuneOpen(rootIn, { file, line, col, hint }) {
   const root = detectProject(rootIn).root;
   const rel = String(file).replace(/\\/g, '/');
   const abs = path.resolve(root, rel);
   if (!abs.startsWith(root + path.sep)) throw Object.assign(new Error(rel + ' is outside the project'), { code: 'OUTSIDE_PROJECT' });
   if (/(^|\/)(node_modules|\.next|dist|build)\//.test(rel)) throw Object.assign(new Error(rel + ' is generated/vendored — pick the element in your source'), { code: 'GENERATED_FILE' });
   const code = fs.readFileSync(abs, 'utf8');
-  const el = findElementAt(parse(rel, code), code, Number(line), Number(col));
-  if (!el) throw Object.assign(new Error(`no JSX element at ${rel}:${line}:${col}`), { code: 'ELEMENT_NOT_FOUND' });
+  const ast = parse(rel, code);
+  const picked = pickElement(ast, code, line, col, hint);
+  if (picked) { line = picked.line; col = picked.col; }
+  const el = picked && picked.el;
+  if (!el) throw Object.assign(new Error(`no JSX element at ${rel}:${line}:${col} — the page is older than the file: reload it and pick again`), { code: 'ELEMENT_NOT_FOUND', reload: true });
   const id = 't' + Date.now().toString(36).slice(-6);
   fs.mkdirSync(dir(root), { recursive: true });
   fs.writeFileSync(path.join(dir(root), id + '.orig'), code);
