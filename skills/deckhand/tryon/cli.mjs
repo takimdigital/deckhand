@@ -29,6 +29,9 @@
  *   node tryon/cli.mjs theme --accent teal --neutrals warm --corners soft --density airy --headlines larger --body Inter --heading Fraunces
  *   node tryon/cli.mjs theme --undo                           byte-exact restore of the last apply
  *
+ * SEO (driven by `dh seo`, which builds the plan from the brief's confirmed facts):
+ *   node tryon/cli.mjs seo inspect | seo apply --plan plan.json | seo undo
+ *
  * A registry someone found — vetted (licence, paywall, schema, usable items) before it is indexed:
  *   node tryon/cli.mjs registry vet|add --index https://…/registry.json --repo owner/name [--id x]
  *   node tryon/cli.mjs registry list | registry remove --id x
@@ -45,6 +48,7 @@ import * as draft from './lib/draft.mjs';
 import { vetRegistry, addRegistry, listRegistries, removeRegistry } from './lib/vet.mjs';
 import { tuneOpen, tuneSet, tuneKeep, tuneReset, DIALS, PRESETS } from './lib/tune.mjs';
 import { themeState, themeApply, themeUndo } from './lib/sitetheme.mjs';
+import { seoInspect, seoApply, seoUndo } from './lib/seo.mjs';
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -160,6 +164,13 @@ async function main() {
       if (!Object.keys(knobs).length) return out({ ok: true, ...themeState(project) });
       return out({ ok: true, ...themeApply(project, knobs), next: 'restart not needed (HMR); `theme --undo` restores the previous files byte-exact' });
     }
+    case 'seo': {
+      const act = argv[1];
+      if (act === 'inspect') return out({ ok: true, ...seoInspect(project) });
+      if (act === 'undo') return out({ ok: true, ...seoUndo(project) });
+      if (act === 'apply') { need('plan'); return out({ ok: true, ...seoApply(project, JSON.parse(fs.readFileSync(path.resolve(String(flags.plan)), 'utf8'))) }); }
+      return out({ ok: false, code: 'USAGE', usage: 'seo inspect | seo apply --plan plan.json | seo undo (usually through `dh seo`)' }, 2);
+    }
     case 'show': need('id', 'idx'); return out({ ok: true, ...engine.show(project, flags.id, flags.idx) });
     case 'keep': need('id'); return out(engine.keep(project, flags.id, flags.idx));
     case 'discard': need('id'); return out(engine.discard(project, flags.id));
@@ -179,7 +190,7 @@ async function main() {
       return out({ ok: true, discarded, ...r, restartDevServer: true });
     }
     default:
-      return out({ ok: false, code: 'USAGE', commands: ['setup', 'serve', 'doctor', 'slots', 'query', 'inspect', 'try', 'show', 'keep', 'discard', 'save', 'library', 'status', 'clean', 'draft', 'drafts', 'draft-check', 'draft-done', 'tune', 'theme', 'registry'] }, 2);
+      return out({ ok: false, code: 'USAGE', commands: ['setup', 'serve', 'doctor', 'slots', 'query', 'inspect', 'try', 'show', 'keep', 'discard', 'save', 'library', 'status', 'clean', 'draft', 'drafts', 'draft-check', 'draft-done', 'tune', 'theme', 'seo', 'registry'] }, 2);
   }
 }
 

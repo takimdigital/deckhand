@@ -19,6 +19,7 @@ green on every blocking row; `.deckhand/VERIFY.md`. **Gate G4:** the owner says 
 | routes | yes | a planned public route or a home-page link answers ≥ 400 — checked on the production build (served on a free port and stopped after; `--url` checks a live site instead) |
 | a11y-basics | no | `<img>` without alt, `<html>` without lang |
 | deps-audit | no | high/critical npm advisories |
+| seo | yes (launch-breakers only) | the site blocks crawlers, a public page is noindex, a page has no real title, a preview is indexable, live canonicals point elsewhere — the rest is scored in `.deckhand/SEO.md` (`references/45-seo.md`) |
 
 ## Procedure
 `$T clean` (try-on) → `dh verify` (it builds, then serves the build itself for the route check) → fix every red blocking row at its root

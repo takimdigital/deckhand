@@ -283,6 +283,9 @@ class Verify(Base):
         self.assertFalse(routes["ok"])
         self.assertIn("on the production build", routes["detail"])
         self.assertEqual(routes["evidence"], "/order -> 404")
+        seo = next(r for r in rep["rows"] if r["check"] == "seo")           # SEO is proved on the same served build
+        self.assertIn("launch-breakers", seo["detail"])
+        self.assertFalse(seo["ok"])                                          # no <title> on that build = a launch-breaker
         import re
         import socket
         port = int(re.search(r"localhost:(\d+)", routes["detail"]).group(1))

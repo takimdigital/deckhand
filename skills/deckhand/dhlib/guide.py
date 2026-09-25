@@ -39,14 +39,18 @@ STEPS = {
               "AI draft asked (overlay, serve's draft_request line, or the owner says so): {tryon} drafts → write the brief's component into write_to → run its `then` (gated; labelled AI-generated)",
               "{dh} phase done tryon  (or skip it) → wait for the owner's go on the design (G3)"],
     "review": ["{tryon} clean --project .          # unwire try-on (kept sections stay)",
+               "{dh} seo audit                     # SEO readiness; its owner items land in PENDING.md",
                "{dh} verify                         # builds, serves the build, checks every row; red rows are fixed, not argued with",
                "{dh} phase done review  → owner says go live (G4)"],
     "deploy": ["first time: references/ops/00-user-checklist.md → 10/11 (server) → 20/21 (domain) → 30 (app); then {dh} deploy target --app <uuid> --url https://…",
-               "{dh} deploy ship                    # push → deploy → wait for YOUR commit → smoke",
+               "domain set? {dh} brief set domain=<domain> && {dh} seo apply   # canonicals, sitemap and structured data on the real domain",
+               "{dh} deploy ship                    # push → deploy → wait for YOUR commit → smoke → IndexNow ping",
+               "then: {dh} seo audit --url https://<domain>   # live: HTTPS, one host, indexing; owner: Search Console + Bing + Business Profile (PENDING.md)",
                "{dh} handoff                        # HANDOFF.md: access locations, commands, pending",
                "{dh} phase done deploy"],
     "operate": ["change requests: edit → {dh} verify → commit → {dh} deploy ship (references/80-operate.md)",
                 "{dh} ops suggest → {dh} ops add <bot> --runner github|cron   (verify each schedule by its own trigger)",
+                "monthly: {dh} seo audit --url https://<domain>   · new page or content → words in copy.json seo.pages → {dh} seo apply → ship",
                 "a failure fixed? {dh} learn from-failure --fix \"…\" --cause \"…\"    ·   liked the result? {dh} harvest --name <base>"],
 }
 
@@ -61,6 +65,24 @@ def _playbook(phase: str) -> list:
     return best["steps"][:10]
 
 
+def _seo_steps(path: str) -> list:
+    """Found on Google: included by default for new and owner-folder sites; detected + strongly recommended for bases."""
+    from . import seo as SEO
+    policy = SEO.POLICY["policy_by_path"].get(path, "apply")
+    words = "write per-page titles (≤60) + descriptions (70–160) into .deckhand/copy.json → seo.pages — service + city first, facts only (references/45-seo.md)"
+    if policy == "apply":
+        return [words, f"{DH} seo apply                    # SEO by default: robots, sitemap, metadata, canonicals, Open Graph, JSON-LD, 404, llms.txt, IndexNow",
+                f"{DH} seo audit                    # what is still missing; owner facts/actions go to PENDING.md"]
+    return [f"{DH} seo audit                    # detect what this base lacks (owner items go to PENDING.md)",
+            "DECISION NEEDED — show .deckhand/SEO.md and recommend `dh seo apply` (strongly, before launch): it adds or improves, never overwrites",
+            words + " — then " + f"{DH} seo apply on the owner's yes"]
+
+
+def _pending(root: Path) -> dict:
+    from . import seo as SEO
+    return SEO.pending_summary(root)
+
+
 def next_step(root: Path) -> dict:
     root = Path(root)
     s = STATE.load(root, required=False)
@@ -70,13 +92,21 @@ def next_step(root: Path) -> dict:
     gate = STATE.blocking_gate(s)
     cur = STATE.current(s)
     if gate:
-        return {"state": "waiting for the owner", "gate": gate, "what": STATE.GATES[gate],
-                "do": [f"show the owner what {gate} is about; on their go: {DH} gate pass {gate} --note \"…\"",
-                       f"changes requested instead: {DH} reopen <phase> --reason \"…\""], "dh": DH}
+        out = {"state": "waiting for the owner", "gate": gate, "what": STATE.GATES[gate],
+               "do": [f"show the owner what {gate} is about; on their go: {DH} gate pass {gate} --note \"…\"",
+                      f"changes requested instead: {DH} reopen <phase> --reason \"…\""], "dh": DH, "pending": _pending(root)}
+        seo = read_json(root / ".deckhand" / "seo.json", None)
+        if gate == "G4" and seo:
+            out["seo"] = {"score": seo.get("score"), "launch_breakers": len(seo.get("blockers", [])), "agent_fixable": seo.get("auto_fixable", [])}
+            if seo.get("auto_fixable") and seo.get("policy") == "suggest":
+                out["do"].insert(0, "DECISION NEEDED — SEO is not applied to this base yet: recommend `dh seo apply` before going live (.deckhand/SEO.md)")
+        return out
     steps = [x.format(dh=DH, tryon=TRYON, skill=SKILL) for x in STEPS[cur["id"]]]
+    if cur["id"] == "brand":
+        steps[-1:-1] = _seo_steps(s["path"])
     out = {"phase": cur["id"], "n": f"{STATE.PHASE_IDS.index(cur['id']) + 1}/{len(STATE.PHASES)}", "title": cur["title"],
            "mode": s["mode"], "path": s["path"], "read": str(SKILL / cur["ref"]), "do": steps,
-           "lessons": LEARN.preflight(root, cur["id"]), "dh": DH}
+           "lessons": LEARN.preflight(root, cur["id"]), "dh": DH, "pending": _pending(root)}
     books = _playbook(cur["id"])
     if books:
         out["worked_before"] = books

@@ -41,6 +41,10 @@ def target(root: Path, app: str | None, url: str | None) -> dict:
     if url:
         d["url"] = url.rstrip("/")
     write_json(deploy_path(root), d)
+    from . import seo as SEO
+    if d.get("url") and SEO.PREVIEW_RX.search(d["url"]):
+        return {**d, "preview": "set the BUILD variable DH_NOINDEX=1 on this app so the preview is never indexed: "
+                "`dh deploy raw envset <app-uuid> DH_NOINDEX=1` (the real domain never sets it)"}
     return d
 
 
@@ -92,7 +96,12 @@ def ship(root: Path, force: bool = False, timeout: int = 900) -> dict:
     sm = smoke(root)
     if not sm["ok"]:
         raise DhError("SMOKE_FAILED", "deployed, but the live check failed — roll back per references/ops/40-change-pipeline.md §rollback", smoke=sm)
-    return {"ok": True, "commit": head, "url": d.get("url"), "smoke": sm}
+    out = {"ok": True, "commit": head, "url": d.get("url"), "smoke": sm}
+    from . import seo as SEO
+    if d.get("url") and not SEO.PREVIEW_RX.search(d["url"]):
+        out["indexnow"] = SEO.ping(root)              # Bing (ChatGPT search, Copilot), Yandex, Seznam, Naver learn about the release now
+        out["next"] = "dh seo audit --url " + d["url"] + "   # live checks: HTTPS, one host, canonicals, indexing"
+    return out
 
 
 def passthrough(args: list) -> int:

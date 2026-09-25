@@ -26,6 +26,11 @@ Use it as the target: `dh deploy target --app <uuid> --url http://<…>.sslip.io
 THIS commit (a stale success is not success) → smoke (200 + brand name on the page) → `deploy.json`.
 Failure → `dh deploy raw dlogs <uuid>`; rollback per `ops/40-change-pipeline.md`.
 
+## Found on Google (after the domain is live)
+`dh brief set domain=<domain>` → `dh seo apply` → `dh deploy ship` (pings IndexNow) → `dh seo audit --url https://<domain>`.
+The owner's part — Search Console, Bing Webmaster Tools, Business Profile, reviews — is in PENDING.md with the exact
+clicks; the agent adds the Search Console DNS record through the provider API when asked (`references/45-seo.md`).
+
 ## Handoff
 `dh handoff` → HANDOFF.md (live URL, where each secret lives, everyday commands, bots, verify summary,
 open PENDING items, licences). Present it; `dh phase done deploy`. Free-preview deployments are labeled

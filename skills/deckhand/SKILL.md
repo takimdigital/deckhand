@@ -39,7 +39,7 @@ owner; never re-derive what a script computes.
 | 2 | research | 3 competitors w/ URL + strengths + gaps; audience; conversion plays; day-one features | — | `references/10-research.md` |
 | 3 | plan | `dh plan lint` = 0 errors (no dead end, no orphan, no un-owned API, forms have success+error) | **G1** plan approved | `references/20-plan.md` |
 | 4 | build | base recorded + the app answers on its dev URL | **G2** owner tested it locally | `references/30-build.md` |
-| 5 | brand | `dh rebrand check` has 0 blocking findings | — | `references/40-brand.md` |
+| 5 | brand | `dh rebrand check` has 0 blocking findings (+ SEO: `references/45-seo.md`) | — | `references/40-brand.md` |
 | 6 | tryon (optional) | no open try-on session | **G3** design approved | `references/50-tryon.md` |
 | 7 | review | `dh verify` all blocking rows green | **G4** go live | `references/60-review.md` |
 | 8 | deploy | live URL + smoke OK + HANDOFF.md | — | `references/70-deploy.md` |
@@ -94,6 +94,7 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
 | build | `dh clone T --to DIR` · `dh adopt PATH\|URL` · `dh scaffold --to DIR` · `dh compose --sections … --copy .deckhand/copy.json` · `dh swap scan\|check` · `dh dev start\|stop\|status` |
 | brand | `dh rebrand scan\|apply\|check` |
 | try-on | `node <skill>/tryon/cli.mjs setup\|serve\|try\|show\|keep\|discard\|save\|query\|doctor\|clean` (or `dh tryon …`) · inspect: `inspect\|slots\|status\|library` · adjust: `tune --file F --line N --col C --preset P` · `theme --accent X --corners Y` · `theme --undo` · AI draft: `drafts [--wait]\|draft-check\|draft-done --id D` |
+| found on Google | `dh seo audit [--url U]` · `dh seo apply` (add/improve, never overwrite) · `dh seo undo` · `dh seo ping` · `dh seo facts` (engine: `tryon seo inspect\|apply\|undo`) |
 | review | `dh verify [--url U]` |
 | deploy | `dh deploy target --app UUID --url U` · `dh deploy ship` · `dh deploy smoke` · `dh deploy raw <coolify args>` · `dh handoff` |
 | operate | `dh ops suggest` · `dh ops add BOT --runner github\|cron` |
@@ -117,6 +118,16 @@ density, headline scale, fonts) — deterministic, previewed exactly, reversible
 just say it in chat ("make the hero airier", "warmer greys, rounder corners"): run `tryon tune` / `tryon theme`.
 Details: `references/50-tryon.md`.
 
+## 5b. Found on Google and in AI answers
+
+Every business gets technical SEO: new and owner-folder sites by default (`dh seo apply`), bases detected and
+strongly recommended before launch (DECISION NEEDED). Scripts write robots, sitemap, metadata, per-page canonicals,
+Open Graph, JSON-LD from the owner's confirmed facts, 404, llms.txt and IndexNow; the model writes only the words
+(`copy.json → seo.pages`). `dh verify` blocks on launch-breakers. Every missing owner fact or action (domain,
+category, address, hours, profiles, Google Business Profile, Search Console, Bing, reviews) is a line in
+PENDING.md, refreshed by every audit and returned by `dh next` — end every report with it. Never promise a ranking.
+Details: `references/45-seo.md`.
+
 ## 6. Delegation protocol (parallel agents)
 
 `dh plan split --agents N` writes one brief per bounded context (`.deckhand/work/WP-*.md`: owned surface,
@@ -129,7 +140,7 @@ decision as `--kind contract`, never edit another package's files, and finish wi
 
 - Every ask is labeled: `DECISION NEEDED — question (options, recommendation)` · `ACTION NEEDED — P-0NN:
   exact steps + WHERE` · `FYI`. Never two rounds for the same fact.
-- Reports end with the open `PENDING.md` items (age in days).
+- Reports end with the open `PENDING.md` items (age in days) — `dh next` returns them as `pending`.
 - At each gate: show the artifact (PLAN.md, the local URL, the design, VERIFY.md), ask ONE question.
 
 ## 8. Harness notes

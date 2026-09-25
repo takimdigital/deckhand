@@ -70,6 +70,10 @@ registries (https, cached in ~/.deckhand/cache/tryon) ─▶ materialize ─▶ 
 | .deckhand/dev.json · dev.log | [[dhlib/build.py#dev_start]] | checks.build, verify | url, pid, port · the dev server log |
 | .deckhand/swap-map.json | [[dhlib/swap.py#scan]] | [[dhlib/swap.py#check]] | vendor SDKs found → owned target |
 | .deckhand/demo-copy.json | [[tryon/lib/engine.mjs#recordDemoCopy]] | [[dhlib/brand.py#check]] | demo words a kept design still shows (block), or AI-written words to confirm (ai:true → warn) |
+| .deckhand/seo.json · SEO.md · seo-plan.json | [[dhlib/seo.py#audit]] · [[dhlib/seo.py#apply]] | owner, `dh next` (G4 summary), verify row `seo` | score, launch-breakers, findings by rule, owner gaps · the plan handed to the engine |
+| PENDING.md "Detected by `dh seo`" block | [[dhlib/seo.py#sync_pending]] (every audit) | owner, [[dhlib/seo.py#pending_summary]] → `dh next` | open owner facts/actions (P-SEO-<key>), first-asked dates kept |
+| <project>/lib/seo.ts · app/robots.ts · sitemap.ts · manifest.ts · opengraph-image.tsx · not-found.tsx · components/seo/json-ld.tsx | [[tryon/lib/seo.mjs#seoApply]] (marker `dh:seo`) | the app | business facts + JSON-LD · crawl rules · public routes · share image · real 404 |
+| .deckhand/tryon/seo/last.json | [[tryon/lib/seo.mjs#seoApply]] | [[tryon/lib/seo.mjs#seoUndo]] | the files before the last SEO apply (byte-exact undo) |
 | .deckhand/verify.json · VERIFY.md | [[dhlib/verify.py#run_verify]] | checks.review, handoff, harvest | rows {check, ok, blocking, detail} |
 | .deckhand/deploy.json | [[dhlib/deploy.py#target]] · ship | checks.deploy, handoff, ops | app_uuid, url, last{commit,result}, smoke |
 | .deckhand/runs.jsonl · failures.jsonl | [[dhlib/learn.py#log_run]] · [[dhlib/learn.py#run_cmd]] | [[dhlib/autopsy.py#load_runs]], [[dhlib/learn.py#from_failure]] | every command {cmd, exit, out} · failed tails |
@@ -355,6 +359,28 @@ F16 BRAND
 - check blocks on: template names, demo companies, lorem, example contacts, placeholder images, demo-copy markers,
   third-party logos as social proof.
 
+F17 FOUND ON GOOGLE (SEO)
+- Policy: [[data/seo.json]] (rules C/M/T/S/L/O/I/P/E/A, owner facts, owner actions, AI crawlers, schema types).
+  By path ([[dhlib/guide.py#_seo_steps]]):
+  - scratch and existing: `dh seo apply` in the brand phase;
+  - pool and mine: `dh seo audit` + DECISION NEEDED, repeated at G4.
+- [[dh:seo]] `apply` ([[dhlib/seo.py#apply]]):
+  1. [[dhlib/seo.py#plan]] builds the plan: facts from the brief only ([[dhlib/seo.py#jsonld]]), the plan's public
+     pages, the model's words from copy.json seo.pages, an IndexNow key stored in the brief.
+  2. `tryon seo apply` → [[tryon/lib/seo.mjs#seoApply]] adds or improves: never replaces an owner file or title;
+     removes a root-layout canonical (rule M05 is why); skips 'use client' pages and dynamic routes with a note.
+- `audit` ([[dhlib/seo.py#audit]]) combines:
+  - source: [[dhlib/seo.py#check_source]] via [[tryon/lib/seo.mjs#seoInspect]];
+  - the plan: [[dhlib/seo.py#check_plan]];
+  - images: [[dhlib/seo.py#check_images]];
+  - rendered pages: [[dhlib/seo.py#check_page]], [[dhlib/seo.py#check_graph]], [[dhlib/seo.py#check_home]],
+    [[dhlib/seo.py#check_nap]];
+  - the host: [[dhlib/seo.py#check_site]] (live https: redirects, one host, rule M12: placeholder canonicals).
+  It then applies the score, [[dhlib/seo.py#sync_pending]] and SEO.md.
+- A REMOTE preview (sslip/nip/http) must be noindex (C07); a local production build must not be (C02).
+- [[dhlib/verify.py#run_verify]] adds row `seo` on the served build (blocking = launch-breakers only).
+- [[dhlib/deploy.py#ship]] → [[dhlib/seo.py#ping]] (IndexNow) on production.
+
 ## ROUTING — "to change X, edit Y (and prove it in Z)"
 | change | edit | prove in |
 |---|---|---|
@@ -389,6 +415,7 @@ F16 BRAND
 | installer | [[install.sh]] · [[install.ps1]] | manual |
 | owner-facing docs | [[README.md]] · [[docs/USE-CASES.md]] · [[skills/deckhand/SKILL.md]] | [[scripts/version_check.py]] (versions) |
 | secret patterns / redaction / project gitignore | [[data/secrets.json]] · [[dhlib/util.py#redact]] · [[dhlib/util.py#ensure_gitignore]] | [[skills/deckhand/tests/test_security.py]], [[skills/deckhand/tryon/test/hardening.test.mjs]] |
+| SEO rules, owner facts, crawler lists | [[data/seo.json]] · [[dhlib/seo.py]] (checks, PENDING block, ping) · [[tryon/lib/seo.mjs]] (writes) | [[skills/deckhand/tests/test_seo.py]], [[skills/deckhand/tryon/test/seo.test.mjs]] |
 | docs ↔ commands, README numbers | whatever changed (docs, SKILL.md §4, README) | [[scripts/test_repo_coherence.py]] |
 | this file | code (generated part) · [[scripts/llm_context.core.md]] (curated part) · [[scripts/llm_context.py]] | [[scripts/test_llm_context.py]] |
 
@@ -430,6 +457,10 @@ F16 BRAND
   - Next dev blocks HMR via a proxy unless Host/Origin = localhost (S-006). Turbopack rules must not use `as` (S-005).
   - create-next-app's `body{font-family:Arial}` beats next/font variables. The dh:theme body rule is unlayered for
     that reason.
+  - Next.js metadata is inherited and shallow-merged: a canonical or openGraph.url in the root layout lands on
+    every page, and a page-level openGraph replaces the layout's whole object. That's why [[tryon/lib/seo.mjs]] puts
+    the canonical per page and the share image in `opengraph-image`.
+  - Turbopack refuses a symlinked node_modules pointing outside the project: copy it for a real build test.
   - Live registry/GitHub/Google Fonts calls may be blocked in sandboxes. Prove behaviour with fixtures and say what
     wasn't live-tested.
   - LLM_CONTEXT.md merge conflict → never hand-merge. Run `python3 scripts/llm_context.py` and commit the result.

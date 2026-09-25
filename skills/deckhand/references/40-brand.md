@@ -12,6 +12,8 @@ a placeholder the owner has not accepted. **Output:** `dh rebrand check` 0 block
    and languages. Headlines state the outcome for the audience; one CTA verb per section; no superlatives
    the owner cannot prove. RTL languages: `dir="rtl"` on `<html>` + logical CSS properties.
 4. `dh rebrand check` until 0 blocking. Warnings (placeholder images, docs mentions) are listed to the owner.
+5. SEO — `references/45-seo.md`: page titles/descriptions into `copy.json → seo.pages`, then `dh seo apply` (new
+   and existing sites) or `dh seo audit` + DECISION NEEDED (bases). The owner's missing facts land in PENDING.md.
 
 ## Rules
 - LICENSE, NOTICE, THIRD_PARTY_NOTICES are never edited.

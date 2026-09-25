@@ -22,6 +22,32 @@ the measured template pool).
 | proxy-less overlay depended on patching the root layout | reverse proxy injects the overlay (any framework); Host/Origin rewritten to `localhost` so Next's dev guard allows HMR |
 | demo stock photos / fake "trusted by" logos / "Get a Demo" buttons shipped | replaced by a placeholder / hidden / removed on keep; `dh verify` blocks what remains |
 
+### Found on Google and in AI answers (`dh seo`)
+- **One policy, `data/seo.json`.** It holds 53 rules (51 checked automatically, 2 on the manual checklist) across crawl, titles, content, structured data, local,
+  social, languages, speed, trust and AI answers, each with a why, a fix and a note on whether a script can fix
+  it. It also lists 15 owner facts, 5 owner-only actions, and the AI crawler lists. Checked against 2026 guidance:
+  - FAQ rich results were removed on 2026-05-07;
+  - Google ignores llms.txt;
+  - ChatGPT search and Copilot draw on Bing;
+  - Core Web Vitals thresholds;
+  - local ranking factors.
+- **`dh seo apply`** (AST engine `tryon/lib/seo.mjs`, journaled, `dh seo undo` byte-exact) adds or improves and
+  never overwrites the owner's words:
+  - Next.js App Router: robots, a sitemap from the plan, a root-layout title template, metadataBase,
+    description, Open Graph, Twitter card, and a noindex switch for previews (`DH_NOINDEX=1`);
+  - per-page canonicals; the inherited root-layout canonical is removed;
+  - `<html lang>`, JSON-LD built only from confirmed facts, a 1200×630 share image, a manifest, a real 404,
+    llms.txt and an IndexNow key;
+  - Vite and static sites get the same through `index.html` plus static files.
+  A real `next build` of the output was proven on Next 16.3.6, both in production and in preview mode.
+- **`dh seo audit`** checks the source, the rendered pages and the live host. It writes `.deckhand/SEO.md`, and
+  launch-breakers block the `seo` row of `dh verify`.
+- **By path:** SEO goes in by default for new and existing sites; for bases it is a DECISION NEEDED, repeated at G4.
+- **PENDING.md** gets a "Detected by dh seo" block with every missing owner fact and action, with WHY/HOW and the
+  first-asked date. `dh next` returns the open items on every call.
+- **Deploy:** `dh deploy ship` pings IndexNow on production, and `dh deploy target` gives the preview noindex
+  instruction.
+
 ### Security (final audit)
 - **One secret policy** (`data/secrets.json`) for every scanner: verify, harvest, vet, tryon save. Now also
   catches Coolify, Anthropic, OpenAI, GitLab, npm, SendGrid and Telegram tokens, Stripe webhooks, and

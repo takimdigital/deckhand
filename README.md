@@ -108,6 +108,17 @@ what would be accepted instead.
 (`dh harvest --push`): brand removed, secret scan first, marked "verified + live". Next client: one command
 to start from it, from any computer.
 
+**Found on Google and in AI answers, from day one.**
+- **What the scripts write, from your own facts:** crawl rules, a sitemap, a title and description per page,
+  canonicals, the card shown when someone shares your link, your business details for search engines, a real 404
+  page, and instant Bing indexing (Bing feeds ChatGPT search and Copilot).
+- **What they catch:** the small mistakes that quietly sink sites, like every page claiming to be the home page,
+  a preview address getting indexed, or "Create Next App" left as the title.
+- **What only you can do** goes on your to-do list with the exact clicks: your Google Business Profile, Search
+  Console, Bing, reviews, your address and hours.
+
+Nobody can promise #1. We make sure nothing in our control is missing.
+
 **It runs the business, not just the website.** An uptime watchdog and a broken-link audit run on a
 schedule from day one, and backups and dependencies are checked too. Business bots (weekly KPIs, lead digest,
 failed payments, booking reminders, review requests, low stock) come as ready specs and skeletons that your
@@ -135,7 +146,13 @@ Run for real in this release:
   - 23 failures a pipe had hidden;
   - a trap that recurred 3 times;
   - the exact edit that fixed a failed check.
-- CI on every push, Ubuntu and Windows: 42 try-on + 42 control-plane + 40 server-client + 17 repo tests.
+- SEO applied to a real Next.js 16 site:
+  - the production build passed;
+  - every page served a unique title, a description, a self-canonical on the real domain, share tags and the
+    business details for search engines;
+  - unknown pages answered 404;
+  - preview mode served noindex.
+- CI on every push, Ubuntu and Windows: 46 try-on + 54 control-plane + 40 server-client + 17 repo tests.
 
 Not yet proven live: a full `dh deploy ship` against a real server (it uses the same Coolify client that
 was proven live in v1), and the first real run of the $0 Oracle track. I'd rather tell you than let you

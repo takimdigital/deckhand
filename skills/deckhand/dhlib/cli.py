@@ -27,13 +27,17 @@ def _kv(pairs):
     return out
 
 
+LIST_KEYS = ("languages", "features", "assumed", "template_names", "brand.social", "seo.keywords", "seo.locations", "seo.profiles",
+             "seo.photos", "seo.local.hours")
+
+
 def cmd_brief(a):
     root = _root(a)
     path = root / ".deckhand" / "brief.json"
     b = read_json(path, None) or json.loads((SKILL / "templates" / "brief.json").read_text(encoding="utf-8"))
     if a.action == "set":
         for k, v in _kv(a.pairs).items():
-            val = [x.strip() for x in v.split(",") if x.strip()] if k in ("languages", "features", "assumed", "template_names") else v
+            val = [x.strip() for x in v.split(",") if x.strip()] if k in LIST_KEYS else v
             cur = b
             parts = k.split(".")
             for p in parts[:-1]:
@@ -95,6 +99,8 @@ def build_parser():
 
     p = sub.add_parser("harvest"); p.add_argument("--name", required=True); p.add_argument("--to"); p.add_argument("--repo"); p.add_argument("--public", action="store_true")
     p.add_argument("--push", action="store_true", help="secret scan, then a private repo on your GitHub + your library index")
+    p = sub.add_parser("seo", help="be found on Google and in AI answers: audit · apply (add/improve, never overwrite) · undo · ping · facts")
+    p.add_argument("action", choices=["audit", "apply", "undo", "ping", "facts"]); p.add_argument("--url")
     sub.add_parser("handoff")
     p = sub.add_parser("tryon", help="passthrough to the try-on engine (node)"); p.add_argument("rest", nargs=argparse.REMAINDER)
     return ap
@@ -265,6 +271,26 @@ def dispatch(a):
     if c == "harvest":
         from . import harvest as H
         return H.harvest(root, a.name, Path(a.to) if a.to else None, a.repo, private=not a.public, push=a.push)
+    if c == "seo":
+        from . import seo as SEO
+        if a.action == "apply":
+            return SEO.apply(root)
+        if a.action == "undo":
+            return SEO.undo(root)
+        if a.action == "ping":
+            return SEO.ping(root)
+        if a.action == "facts":
+            return {"owner": SEO.owner_gaps(SEO.ctx_of(root))}
+        r = SEO.audit(root, a.url)
+        sev = {s: len([x for x in r["findings"] if x["severity"] == s]) for s in ("block", "high", "medium", "low")}
+        nxt = ("fix the launch-breakers first; " if r["blockers"] else "") + (
+            ("`dh seo apply` fixes " + ", ".join(r["auto_fixable"]) + " — " if r["auto_fixable"] else "")
+            + ("run it now (this path gets SEO by default)" if r["policy"] == "apply" else "DECISION NEEDED — recommend it to the owner before going live"))
+        return {"score": r["score"], "rendered": r["rendered"], "by_severity": sev,
+                "blockers": [{k: x[k] for k in ("rule", "title", "detail", "where")} for x in r["blockers"]],
+                "top": [{k: x[k] for k in ("rule", "severity", "title", "detail", "where", "auto")} for x in r["findings"][:12]],
+                "owner_open": [o["label"] for o in r["owner"]], "report": ".deckhand/SEO.md", "pending": "PENDING.md (Detected by dh seo)",
+                "next": nxt if (r["auto_fixable"] or r["blockers"]) else "write/refine per-page titles and descriptions (copy.json → seo.pages); owner items are in PENDING.md"}
     if c == "handoff":
         from . import handoff as HO
         return HO.write(root)

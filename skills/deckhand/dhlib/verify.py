@@ -142,6 +142,12 @@ def run_verify(root: Path, url: str | None = None, skip: tuple = (), allow: tupl
                     bad.append(f"{r_} -> {code}")
             row("routes", not bad, (f"{len(routes)} routes answer" if not bad else f"{len(bad)} of {len(routes)} routes fail") + f" (on {where})",
                 evidence="\n".join(bad[:20]) or None)
+            if "seo" not in skip:
+                from . import seo as SEO
+                s_ = SEO.audit(root, url=base)
+                row("seo", not s_["blockers"], f"SEO {s_['score']}/100 on {where} — {len(s_['blockers'])} launch-breakers, "
+                    f"{len([x for x in s_['findings'] if x['severity'] == 'high'])} high · {len(s_['owner'])} owner items in PENDING.md (.deckhand/SEO.md)",
+                    evidence="\n".join(f"{x['rule']} {x['where']}: {x['title']} {x['detail']}".strip() for x in (s_["blockers"] or s_["findings"])[:10]) or None)
         else:
             row("routes", False, "not checked: no build to serve and no running URL (dh dev start, or --url)", blocking=False)
     finally:

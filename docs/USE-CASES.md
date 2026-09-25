@@ -22,6 +22,7 @@ and it stops at the ✋ checkpoints until you say go.
 | 8 | stop the agent repeating the same mistake | [→](#8-stop-the-agent-repeating-the-same-mistake) |
 | 9 | reuse this site for my next client | [→](#9-reuse-this-site-for-my-next-client) |
 | 10 | work on it as a developer | [→](#10-for-developers) |
+| 11 | get found on Google and in AI answers | [→](#11-get-found-on-google-and-in-ai-answers) |
 
 ---
 
@@ -211,6 +212,34 @@ privately, never shown.
   - `python3 -m pytest skills/deckhand/ops/tests -q`
   - `node --test skills/deckhand/tryon/test/*.test.mjs`
 - Rule of the house: every behaviour change ships with a test. A fix that lives only in prose isn't a fix.
+
+## 11. Get found on Google and in AI answers
+
+**Say:**
+> Make sure my site can be found on Google and in ChatGPT. Tell me exactly what you need from me.
+
+**What happens:**
+- **Built from scratch, or your own folder:** SEO goes in automatically.
+- **Built from a template or one of your starters:** the agent checks what's missing, shows you a report, and
+  strongly recommends adding it before launch.
+
+Either way, the scripts write it from your own facts, and your own titles and words are never overwritten. You get:
+- a score;
+- the launch-breakers (fixed before going live);
+- your to-do list, with the exact clicks for each item:
+  - your Google Business Profile;
+  - Google Search Console;
+  - Bing, which feeds ChatGPT search and Copilot;
+  - your first reviews;
+  - facts only you know: your address, opening hours, social profiles and category.
+
+That list stays in every report until it's done.
+
+**You do:** the items on that list. Nothing else.
+
+**Under the hood:** `dh seo audit` → words in `.deckhand/copy.json → seo.pages` → `dh seo apply` → `dh verify`
+(row `seo`) → after launch `dh seo audit --url https://<domain>`; every production `dh deploy ship` pings IndexNow.
+Nobody can promise #1 on Google; this makes sure nothing in our control is missing.
 
 Stuck, or found a better way? [Open an issue](https://github.com/takimdigital/deckhand-skill/issues).
 That's how this gets better for everyone.
