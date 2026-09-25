@@ -303,11 +303,19 @@ function collect(code, root, ast, mode) {
     if (!rest.some((c) => c.type === 'JSXText' && c.value.trim())) return null;
     const lu = unitFor(lead, null);
     if (!lu) return null;
-    const bodyStart = rest[0].start, bodyEnd = rest[rest.length - 1].end;
+    // the body range starts at its first word: a `<br />` or the separating space stays in the design
+    let i0 = 0;
+    while (i0 < rest.length - 1 && rest[i0].type === 'JSXElement' && jsxName(rest[i0].openingElement.name) === 'br') i0++;
+    const first = rest[i0], last = rest[rest.length - 1];
+    const bodyStart = first.type === 'JSXText' ? first.start + (first.value.length - first.value.trimStart().length) : first.start;
+    const bodyEnd = last.type === 'JSXText' ? last.end - (last.value.length - last.value.trimEnd().length) : last.end;
     const bsrc = code.slice(bodyStart, bodyEnd);
-    return [{ ...lu, role: 'heading', sub: 'lead', el: lead },
+    const lvl = /^h([1-6])$/.exec(jsxName(el.openingElement.name));
+    return [{ ...lu, role: 'heading', sub: 'lead', el: lead, level: lvl ? Number(lvl[1]) : lu.level },
       { role: 'text', level: null, el, tag: jsxName(el.openingElement.name), host: el, childrenStart: bodyStart, childrenEnd: bodyEnd,
-        src: bsrc, text: bsrc.replace(/<[^>]+>/g, ' ').replace(/\{\s*['"] ?['"]\s*\}/g, ' ').replace(/\s+/g, ' ').trim(), dynamic: false, hrefAttr: null }];
+        src: bsrc, text: bsrc.replace(/<[^>]+>/g, ' ').replace(/\{\s*['"] ?['"]\s*\}/g, ' ').replace(/\s+/g, ' ').trim(), dynamic: false, hrefAttr: null,
+        // a two-tone heading's muted half: the owner's subtitle if one is left over, else nothing
+        ...(lvl || roleOf(jsxName(el.openingElement.name)) === 'heading' ? { optional: true } : {}) }];
   };
 
   const visit = (el, ctx) => {
@@ -338,7 +346,8 @@ function collect(code, root, ast, mode) {
     // a div/span that holds text directly (a price, a tagline) is content too — decorative bits are not
     const loose = !blockish && !nestedBlock && /^[a-z]/.test(name) && !/^(svg|path|g|circle|rect|code|pre|kbd|option)$/.test(name)
       && directContent(kids, mode === 'original' || !!ctx.env);
-    if (blockish && !ctx.env && !ctx.inMap && /^(text|item)$/.test(roleOf(name))) {
+    // `<h2><span class="text-foreground">Lead.</span><br/> muted rest</h2>` (two-tone heading) splits too
+    if (blockish && !ctx.env && !ctx.inMap && (/^(text|item)$/.test(roleOf(name)) || (mode === 'candidate' && roleOf(name) === 'heading'))) {
       const pair = leadBody(el);
       if (pair) { for (const u of pair) units.push(u); return; }
     }
@@ -473,14 +482,33 @@ function siblingGroups(root, units) {
       const per = members.map((m) => units.filter((u) => u.el.start >= m.start && u.el.end <= m.end));
       if (per.filter((p) => p.length >= 2).length >= 2) {
         const total = per.reduce((a, p) => a + p.length, 0);
-        // a list is BALANCED: cards of similar weight — not "a heading block + everything else"
-        groups.push({ members, per, total, balance: Math.min(...per.map((p) => p.length)) * members.length });
+        const lens = per.map((p) => p.length), lo = Math.min(...lens), hi = Math.max(...lens);
+        // a list is BALANCED: cards of similar weight — not "a heading block + everything else".
+        // UNIFORM = true repeated cards (a "popular" badge may add one unit); a row of rows is not.
+        const roles = [...new Set(per.flat().map((u) => u.role))].sort().join(',');
+        groups.push({ members, per, total, balance: lo * members.length, uniform: lo >= 1 && hi - lo <= Math.max(1, Math.floor(hi / 4)), roles });
       }
     }
     return true;
   });
-  groups.sort((a, b) => b.balance - a.balance || b.total - a.total || a.members[0].start - b.members[0].start);
+  groups.sort((a, b) => b.uniform - a.uniform || b.balance - a.balance || b.total - a.total || a.members[0].start - b.members[0].start);
   return groups;
+}
+
+/** The primary card group plus its twins: same card shape, disjoint (a 2-up row above a 4-up row). */
+function cardGroups(root, units) {
+  const all = siblingGroups(root, units);
+  if (!all.length) return [];
+  const first = all[0];
+  const chosen = [first];
+  const span = (g) => [g.members[0].start, g.members[g.members.length - 1].end];
+  const apart = (a, b) => { const [s1, e1] = span(a), [s2, e2] = span(b); return e1 <= s2 || e2 <= s1; };
+  if (first.uniform) {
+    for (const g of all.slice(1)) {
+      if (g.uniform && g.roles === first.roles && chosen.every((c) => apart(c, g))) chosen.push(g);
+    }
+  }
+  return chosen.sort((a, b) => a.members[0].start - b.members[0].start);
 }
 
 const attrValueSrc = (code, a) => {
@@ -501,12 +529,13 @@ export function extractUnits(code, el, ast = null) {
   const lists = c.lists.map((l) => ({ items: l.items.map((it) => ({ units: it.units.map(pub), images: it.images, bullets: it.bullets })) }));
   let units = c.units.map(pub);
   if (!lists.length) {
-    const g = siblingGroups(el, c.units)[0];
-    if (g && g.members.length >= 2) {
+    // the owner's cards, twin rows concatenated in reading order (2-up + 4-up = one list of 6)
+    const per = cardGroups(el, c.units).flatMap((g) => g.per);
+    if (per.length >= 2) {
       const idx = new Map();
-      g.per.forEach((p, i) => p.forEach((u) => idx.set(u, i)));
+      per.forEach((p, i) => p.forEach((u) => idx.set(u, i)));
       units = c.units.map((u) => ({ ...pub(u), list: idx.has(u) ? 0 : null, item: idx.has(u) ? idx.get(u) : null }));
-      lists.push({ literal: true, items: g.per.map((p) => ({ units: p.map((u) => ({ ...pub(u), list: 0 })), images: [], bullets: [] })) });
+      lists.push({ literal: true, items: per.map((p) => ({ units: p.map((u) => ({ ...pub(u), list: 0 })), images: [], bullets: [] })) });
     }
   }
   return {
@@ -603,6 +632,7 @@ export function parameterize(file, code, exp, opts = {}) {
   const lists = [];
   const groups = [];
   const logoRows = [];
+  const forms = [];
   const conds = new Map();
   const cut = [];
   for (const root of roots) {
@@ -656,12 +686,28 @@ export function parameterize(file, code, exp, opts = {}) {
         cut.push({ start: r.start + 0.5, end: r.end - 0.5, hidden: true });
       }
     }
+    // 1b. a design's own form (newsletter, "enter your email") posts nowhere: hidden unless the owner's
+    //     section has one or the slot IS a form page (contact, login) — no dead-end UI by default
+    if (opts.forms === 'hide') {
+      walk(root, (n) => {
+        if (n.type !== 'JSXElement') return true;
+        if (jsxName(n.openingElement.name) !== 'form') return true;
+        if (n !== root && inChildren(n) && !inCut(n)) {
+          const k = 'form' + (forms.length + 1);
+          addCond(n, `${acc(k + 'Show')} === true`);
+          forms.push(k);
+          cut.push({ start: n.start + 0.5, end: n.end - 0.5, hidden: true });
+        }
+        return false;
+      });
+    }
     // 2. repeated cards (tiers, features) — the owner's items fill them in order; extras hide
-    const g = groups.length ? null : siblingGroups(root, c.units.filter((u) => !inCut(u.el)))[0];
+    const gs = groups.length ? [] : cardGroups(root, c.units.filter((u) => !inCut(u.el)));
     const memberOf = new Map();
-    if (g) {
+    const gnodes = [];
+    for (const g of gs) {
       const gk = 'group' + (groups.length + 1);
-      g.per.forEach((p, i) => p.forEach((u) => memberOf.set(u, i)));
+      g.per.forEach((p, i) => p.forEach((u) => memberOf.set(u, { gk, i })));
       g.members.forEach((m, i) => { if (inChildren(m)) addCond(m, `${acc(gk + 'Show' + (i + 1))} !== false`); });
       // hiding cards must not leave empty grid columns: the container gets one full class list per count
       const box = parents.get(g.members[0]);
@@ -676,7 +722,11 @@ export function parameterize(file, code, exp, opts = {}) {
         edits.push({ start: ca.value.start, end: ca.value.end, text: `{${expr}}` });
         cols = true;
       }
-      groups.push({ key: gk, count: N, cols });
+      // with twin rows, a row the owner's items do not reach disappears whole (no empty bordered box)
+      let boxShow = false;
+      if (gs.length > 1 && box && box !== root && box.type === 'JSXElement' && inChildren(box)) { addCond(box, `${acc(gk + 'BoxShow')} !== false`); boxShow = true; }
+      groups.push({ key: gk, count: N, cols, ...(boxShow ? { box: true } : {}) });
+      gnodes.push([gk, g]);
     }
     for (const u of c.units) {
       if (inCut(u.el)) continue;
@@ -687,8 +737,8 @@ export function parameterize(file, code, exp, opts = {}) {
         addCond(u.outer, `${acc(k + 'Show')} !== false`);
       }
       edits.push({ start: u.childrenStart, end: u.childrenEnd, text: `{${acc(k)} ?? <span data-dh-demo="">${code.slice(u.childrenStart, u.childrenEnd)}</span>}` });
-      const slot = { key: k, role: u.role, sub: u.sub || null, level: u.level, demo: u.text, hideable: u.role === 'action' && !!(u.outer && u.outer.__dhWrapped) };
-      if (memberOf.has(u)) { slot.group = groups[groups.length - 1].key; slot.member = memberOf.get(u); }
+      const slot = { key: k, role: u.role, sub: u.sub || null, level: u.level, demo: u.text, hideable: u.role === 'action' && !!(u.outer && u.outer.__dhWrapped), ...(u.optional ? { optional: true } : {}) };
+      if (memberOf.has(u)) { slot.group = memberOf.get(u).gk; slot.member = memberOf.get(u).i; }
       const hv = u.hrefAttr && u.hrefAttr.value;
       if (u.role === 'action' && hv && hv.type === 'StringLiteral') {
         edits.push({ start: hv.start, end: hv.end, text: `{${acc(k + 'Href')} ?? ${JSON.stringify(hv.value)}}` });
@@ -716,7 +766,7 @@ export function parameterize(file, code, exp, opts = {}) {
       const k = key('bullets');
       edits.push({ start: b.node.start, end: b.node.end, text: tsFile ? `((${acc(k)} ?? ${code.slice(b.node.start, b.node.end)}) as string[])` : `(${acc(k)} ?? ${code.slice(b.node.start, b.node.end)})` });
       const slot = { key: k, role: 'bullets', demo: `${b.count} demo bullets` };
-      if (g) { const mi = g.members.findIndex((m) => m.start <= b.node.start && b.node.end <= m.end); if (mi >= 0) { slot.group = groups[groups.length - 1].key; slot.member = mi; } }
+      for (const [gk, g] of gnodes) { const mi = g.members.findIndex((m) => m.start <= b.node.start && b.node.end <= m.end); if (mi >= 0) { slot.group = gk; slot.member = mi; break; } }
       slots.push(slot);
     }
     for (const l of c.lists) {
@@ -738,7 +788,7 @@ export function parameterize(file, code, exp, opts = {}) {
   let out = code;
   for (const e of kept) out = out.slice(0, e.start) + e.text + out.slice(e.end);
   if (!opts.noVerify) parse(file, out);                        // must still parse — throws otherwise (noVerify: debugging only)
-  return { code: out, slots, lists, groups, logoRows, prop, removed };
+  return { code: out, slots, lists, groups, logoRows, forms, prop, removed };
 }
 
 /* ------------------------------------------------------------------ binding */
@@ -756,36 +806,53 @@ export function bind(orig, cand, opts = {}) {
   const useGroup = !useLists && candGroups.length && orig.lists.length;
   const flat = orig.units.filter((u) => !((useLists && u.list !== null && u.list < candLists.length) || (useGroup && u.list === 0)));
   const byRole = (arr, r) => arr.filter((x) => x.role === r);
-  const flatSlots = useGroup ? slots.filter((x) => x.group !== candGroups[0].key) : slots;
+  const flatSlots = useGroup ? slots.filter((x) => !x.group) : slots;
 
   if (useGroup) {
-    const gk = candGroups[0].key;
     const items = orig.lists[0].items;
-    for (let i = 0; i < candGroups[0].count; i++) {
-      const ms = slots.filter((x) => x.group === gk && x.member === i);
-      if (i >= items.length) { props.push([gk + 'Show' + (i + 1), 'false']); continue; }
-      // inside a card, headings and body text pair in document order (a tier name may be an h3 on
-      // one side and a styled span on the other); actions and list items pair among themselves
-      for (const cls of ITEM_CLASSES) {
-        const o = items[i].units.filter((u) => cls.includes(u.role)), sl = ms.filter((x) => cls.includes(x.role));
-        const n = Math.min(o.length, sl.length);
-        for (let k = 0; k < n; k++) {
-          props.push([sl[k].key, `<>${o[k].src}</>`]);
-          if (sl[k].href && o[k].href) props.push([sl[k].key + 'Href', o[k].href]);
-          carried.push({ role: o[k].role, text: o[k].text });
+    // one row that holds every item beats spreading them (4 items: the 4-up row, not 2-up + half a 4-up);
+    // otherwise rows fill in reading order. A row the items never reach is hidden whole.
+    const fit = candGroups.length > 1 ? candGroups.filter((g) => g.count >= items.length).sort((a, b) => a.count - b.count)[0] : null;
+    const use = fit ? [fit] : candGroups;
+    let next = 0;
+    for (const g of candGroups) {
+      const gk = g.key;
+      const take = use.includes(g) ? Math.min(g.count, items.length - next) : 0;
+      if (!take && g.box) props.push([gk + 'BoxShow', 'false']);
+      for (let i = 0; i < g.count; i++) {
+        const ms = slots.filter((x) => x.group === gk && x.member === i);
+        if (i >= take) {
+          props.push([gk + 'Show' + (i + 1), 'false']);
+          continue;
         }
-        for (let k = n; k < o.length; k++) dropped.push({ role: o[k].role, text: o[k].text });
-        for (let k = n; k < sl.length; k++) demo.push({ role: sl[k].role, key: sl[k].key, text: sl[k].demo });
+        const item = items[next + i];
+        // inside a card, headings and body text pair in document order (a tier name may be an h3 on
+        // one side and a styled span on the other); actions and list items pair among themselves
+        for (const cls of ITEM_CLASSES) {
+          const o = item.units.filter((u) => cls.includes(u.role)), sl = ms.filter((x) => cls.includes(x.role));
+          const n = Math.min(o.length, sl.length);
+          for (let k = 0; k < n; k++) {
+            props.push([sl[k].key, `<>${o[k].src}</>`]);
+            if (sl[k].href && o[k].href) props.push([sl[k].key + 'Href', o[k].href]);
+            carried.push({ role: o[k].role, text: o[k].text });
+          }
+          for (let k = n; k < o.length; k++) dropped.push({ role: o[k].role, text: o[k].text });
+          for (let k = n; k < sl.length; k++) {
+            if (sl[k].optional) props.push([sl[k].key, 'false']);
+            else demo.push({ role: sl[k].role, key: sl[k].key, text: sl[k].demo });
+          }
+        }
+        const bs = ms.find((x) => x.role === 'bullets');
+        if (bs) {
+          // the owner's bullets, or none — a design's demo feature list is never presented as theirs
+          props.push([bs.key, JSON.stringify(item.bullets)]);
+          if (item.bullets.length) carried.push({ role: 'item', text: item.bullets.join(', ') });
+        } else if (item.bullets.length) dropped.push({ role: 'item', text: item.bullets.join(', ') });
       }
-      const bs = ms.find((x) => x.role === 'bullets');
-      if (bs) {
-        // the owner's bullets, or none — a design's demo feature list is never presented as theirs
-        props.push([bs.key, JSON.stringify(items[i].bullets)]);
-        if (items[i].bullets.length) carried.push({ role: 'item', text: items[i].bullets.join(', ') });
-      } else if (items[i].bullets.length) dropped.push({ role: 'item', text: items[i].bullets.join(', ') });
+      if (g.cols && take && take < g.count) props.push([gk + 'Cols', String(take)]);
+      next += take;
     }
-    for (let i = candGroups[0].count; i < items.length; i++) for (const u of items[i].units) dropped.push({ role: u.role, text: u.text });
-    if (candGroups[0].cols && items.length < candGroups[0].count) props.push([gk + 'Cols', String(Math.max(1, items.length))]);
+    for (let i = next; i < items.length; i++) for (const u of items[i].units) dropped.push({ role: u.role, text: u.text });
   }
 
   // actions pair by kind first (the owner's CTA goes to the design's CTA button, not its eyebrow link)
@@ -799,6 +866,7 @@ export function bind(orig, cand, opts = {}) {
       o = [...oc.slice(0, nc), ...ol.slice(0, nl), ...oRest];
       s = [...sc.slice(0, nc), ...sl.slice(0, nl), ...sRest];
     }
+    s = [...s.filter((x) => !x.optional), ...s.filter((x) => x.optional)];   // a real subtitle slot first
     const n = Math.min(o.length, s.length);
     for (let i = 0; i < n; i++) {
       props.push([s[i].key, `<>${o[i].src}</>`]);
@@ -807,12 +875,14 @@ export function bind(orig, cand, opts = {}) {
     }
     for (let i = n; i < o.length; i++) dropped.push({ role, text: o[i].text });
     for (let i = n; i < s.length; i++) {
+      if (s[i].optional) { props.push([s[i].key, 'false']); continue; }
       // a design's extra demo button ("Get a Demo" -> "#") is hidden, never shown as the owner's offer
       if (s[i].hideable && !opts.keepDemoActions) { props.push([s[i].key + 'Show', 'false']); hidden.push(s[i].demo); continue; }
       demo.push({ role, key: s[i].key, text: s[i].demo });
     }
   }
   if ((cand.logoRows || []).length) hidden.push(`${cand.logoRows.length} row(s) of demo brand logos`);
+  if ((cand.forms || []).length) hidden.push(`${cand.forms.length} design form(s) — not wired to anything`);
 
   if (useLists) {
     candLists.forEach((cl, li) => {
@@ -845,7 +915,7 @@ export function bind(orig, cand, opts = {}) {
     for (const d of demo.filter((x) => x.role === 'copyright')) {
       props.push([d.key, `<>© {new Date().getFullYear()} ${opts.brand.replace(/[{}<>]/g, '')}</>`]);
       demo.splice(demo.indexOf(d), 1);
-      carried.push({ role: 'copyright', text: `© ${opts.brand}` });
+      hidden.push(`demo copyright → © ${opts.brand}`);
     }
   }
   const oi = orig.images, si = slots.filter((x) => x.role === 'image');

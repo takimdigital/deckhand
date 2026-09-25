@@ -21,6 +21,7 @@ import { fetchBundle, writeBundle, pascal, slugOf, entryExport } from './materia
 import { extractUnits, parameterize, bind, contentProp, shapeOf, contentCount } from './transplant.mjs';
 import { itemCss, tokenLayer } from './theme.mjs';
 import { kindOf } from './slots.mjs';
+import { siteLinks, fillLinks, linkTexts, FORM_SLOTS } from './sitelinks.mjs';
 
 const require = createRequire(import.meta.url);
 const { parse, walk, jsxName, findElementAt, attr, lineCol } = require('./ast.cjs');
@@ -224,6 +225,7 @@ export async function open(rootIn, opts) {
   const variants = [];
   const skipped = [];
   const stripChrome = opts.stripChrome ?? (slot !== 'navbar');
+  const links = ['footer', 'navbar'].includes(slot) ? siteLinks(root) : null;
   // a variant folder another open session is showing is never re-staged (it would be wiped)
   const busy = new Set(listSessions(root).filter((o) => o.state === 'open').flatMap((o) => o.variants.map((v) => v.slug)));
   for (const cand of ranked.items) {
@@ -249,13 +251,16 @@ export async function open(rootIn, opts) {
     if (kind === 'block') {
       const logoLocals = logoLocalsFor(stage, entryCode, slot);
       let p;
-      try { p = parameterize(stage.entry, entryCode, stage.export, { stripChrome, logoLocals }); } catch (e) {
+      try { p = parameterize(stage.entry, entryCode, stage.export, { stripChrome, logoLocals, forms: FORM_SLOTS.has(slot) || orig.inputs.length ? 'keep' : 'hide' }); } catch (e) {
         skipped.push({ id: cand.id, why: 'PARAMETERIZE_FAILED', detail: e.message.slice(0, 200) });
         fs.rmSync(path.join(root, stage.relDir), { recursive: true, force: true });
         continue;
       }
-      fs.writeFileSync(entryAbs, p.code);
+      // a footer/navbar shows the owner's routes (plan sitemap), never the design's demo menu
+      const fl = fillLinks(stage.entry, p.code, links, slot);
+      fs.writeFileSync(entryAbs, fl.code);
       const b = bind(orig, p, { placeholder: hasPublic ? PLACEHOLDER : null, brand: brandName(root) });
+      if (fl.filled.length) b.hidden.push(...fl.filled.map((f) => `${f.array}: ${f.kind} from your plan (${f.count})`));
       // fit gate: a variant that would throw away most of the owner's words is not offered
       if (origCount >= 2 && b.carried.length < Math.ceil(origCount / 2) && !opts.noFitGate) {
         skipped.push({ id: cand.id, why: 'POOR_FIT', detail: `carries ${b.carried.length}/${origCount}` });
@@ -264,7 +269,7 @@ export async function open(rootIn, opts) {
       }
       fit = b;
       fit.demoVisual = demoTexts(root, stage.relDir, []).length;
-      stage.ownerTexts = orig.units.map((x) => x.text).concat(orig.lists.flatMap((l) => l.items.flatMap((it) => it.units.map((u) => u.text))));
+      stage.ownerTexts = orig.units.map((x) => x.text).concat(orig.lists.flatMap((l) => l.items.flatMap((it) => it.units.map((u) => u.text))), linkTexts(links));
       usage = `<${local}${contentProp(p.prop, b.props)} />`;
       stage.prop = p.prop;
       stage.removedChrome = p.removed;
@@ -553,7 +558,8 @@ export function bake(root, fileRel, local, variant) {
       }
       const inAttr = comp[container.start - 1] === '=';
       let text;
-      if (lit && lit.kind !== 'bool') {
+      if (lit && lit.kind === 'bool' && lit.value === false && !inAttr) text = '';   // an optional slot left empty
+      else if (lit && lit.kind !== 'bool') {
         if (inAttr) text = JSON.stringify(lit.value);
         else text = lit.kind === 'string' ? (/[{}<>]/.test(lit.value) ? `{${JSON.stringify(lit.value)}}` : lit.value) : lit.raw;
       } else {
@@ -674,7 +680,8 @@ export function bake(root, fileRel, local, variant) {
  *  and minus fallbacks of live slots. Used to rank (mockup-heavy designs lose) and to ledger what the
  *  owner still has to replace before launch. */
 export function demoTexts(root, dirRel, ownerTexts = []) {
-  const own = new Set(ownerTexts.map((t) => String(t).replace(/\s+/g, ' ').trim().toLowerCase()));
+  const brand = brandName(root);   // the owner's own name is never demo copy
+  const own = new Set(ownerTexts.concat(brand ? [brand, `© ${brand}`] : []).map((t) => String(t).replace(/\s+/g, ' ').trim().toLowerCase()));
   const out = [];
   const dir = path.join(root, dirRel);
   if (!fs.existsSync(dir)) return out;

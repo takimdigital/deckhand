@@ -55,7 +55,7 @@ export function rank(items, { slot, prof, exclude = [], registry = null }) {
   }
   out.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
   // diversity: round-robin over registry+kit groups so a batch shows different design languages
-  const group = (x) => x.r + ':' + (x.r === 'tailark-oss' ? x.n.split('-')[0] : '');
+  const group = kitOf;
   const buckets = new Map();
   for (const x of out) { const g = group(x); if (!buckets.has(g)) buckets.set(g, []); buckets.get(g).push(x); }
   const order = [...buckets.keys()].sort((a, b) => buckets.get(b)[0].score - buckets.get(a)[0].score || a.localeCompare(b));
@@ -63,6 +63,9 @@ export function rank(items, { slot, prof, exclude = [], registry = null }) {
   for (let i = 0; mixed.length < out.length; i++) for (const g of order) if (buckets.get(g)[i]) mixed.push(buckets.get(g)[i]);
   return { items: mixed, hidden };
 }
+
+/** A design family: one Tailark kit (dusk / mist / veil) or one registry. */
+export const kitOf = (x) => x.r + ':' + (x.r === 'tailark-oss' ? x.n.split('-')[0] : '');
 
 export function slotsSummary(items, prof) {
   const counts = {};

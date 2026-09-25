@@ -7,18 +7,25 @@
  *
  * copy.json (the one input a model writes, from the plan — words, never code):
  *   { "hero": { "heading": "…", "text": ["…"], "actions": [{ "label": "…", "href": "/order" }], "image": { "src": "/x.jpg", "alt": "…" } },
- *     "pricing": { "heading": "…", "items": [{ "title": "…", "price": "€9", "text": "…", "bullets": ["…"], "action": { "label": "…", "href": "…" } }] } }
+ *     "pricing": { "heading": "…", "items": [{ "title": "…", "price": "€9", "text": "…", "bullets": ["…"], "action": { "label": "…", "href": "…" } }] },
+ *     "footer": { "text": ["…"], "columns": [{ "title": "…", "links": [{ "label": "…", "href": "/x" }] }], "social": ["https://instagram.com/…"] } }
+ * Footer/navbar menus default to the plan (.deckhand/sitemap.json nav + page titles); social rows keep only
+ * the networks in copy or brief.brand.social. A design's own form is hidden unless the section says
+ * "form": true (the plan then wires it) — no newsletter box that posts nowhere.
  * Every section lands in components/sections/<slug>/, the page imports them in order; each is then
  * swappable with try-on. Copy the design has no room for is reported, never silently dropped.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { detectProject, specFor } from './lib/project.mjs';
-import { loadCatalog, rank } from './lib/catalog.mjs';
+import { loadCatalog, rank, kitOf } from './lib/catalog.mjs';
 import { fetchBundle, writeBundle, pascal } from './lib/materialize.mjs';
 import { parameterize, bind, contentProp } from './lib/transplant.mjs';
 import { ensureTokens, bake, PLACEHOLDER, logoLocalsFor, install, brandName, ensurePlaceholder, demoTexts, recordDemoCopy } from './lib/engine.mjs';
 import { contentCount } from './lib/transplant.mjs';
+import { siteLinks, fillLinks, linkTexts, FORM_SLOTS } from './lib/sitelinks.mjs';
+import { createRequire } from 'node:module';
+const { parse, walk, jsxName } = createRequire(import.meta.url)('./lib/ast.cjs');
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
@@ -67,6 +74,7 @@ async function main() {
   const tries = Number(opt('tries', 8));
   for (const slot of sections) {
     const orig = origFromCopy(copy[slot]);
+    const links = ['footer', 'navbar'].includes(slot) ? siteLinks(root, copy) : null;
     const of = Math.max(1, contentCount(orig));
     const ranked = rank(catalog, { slot, prof: detectProject(root), registry }).items;
     // stage up to `tries` candidates, keep the one that carries the most of the owner's content
@@ -80,11 +88,17 @@ async function main() {
         if (stage.problems.length || !stage.export) { fs.rmSync(path.join(root, stage.relDir), { recursive: true, force: true }); continue; }
         const entryAbs = path.join(root, stage.entry);
         const entryCode = fs.readFileSync(entryAbs, 'utf8');
-        const p = parameterize(stage.entry, entryCode, stage.export, { stripChrome: slot !== 'navbar', logoLocals: logoLocalsFor(stage, entryCode, slot) });
+        const p = parameterize(stage.entry, entryCode, stage.export, { stripChrome: slot !== 'navbar', logoLocals: logoLocalsFor(stage, entryCode, slot),
+          forms: FORM_SLOTS.has(slot) || (copy[slot] && copy[slot].form) ? 'keep' : 'hide' });
+        const fl = fillLinks(stage.entry, p.code, links, slot);     // footer/navbar: the plan's routes
+        p.code = fl.code;
         fs.writeFileSync(entryAbs, p.code);                 // demo text is measured on the slotted code
         const b = bind(orig, p, { placeholder: hasPublic ? PLACEHOLDER : null, brand });
-        const demoVisual = demoTexts(root, stage.relDir, []).length;
-        const score = b.carried.length / of - 0.05 * b.demo.length - 0.04 * demoVisual - 0.02 * staged.length;
+        if (fl.filled.length) b.hidden.push(...fl.filled.map((f) => `${f.array}: ${f.kind} from your plan (${f.count})`));
+        const demoVisual = demoTexts(root, stage.relDir, linkTexts(links)).length;
+        // one design family across the page reads as one brand: a close call goes to the first section's kit
+        const kin = placed.length && kitOf(placed[0].cand) === kitOf(cand) ? 0.1 : 0;
+        const score = b.carried.length / of - 0.05 * b.demo.length - 0.04 * demoVisual - 0.02 * staged.length + kin;
         staged.push({ cand, stage, p, b, score });
         if (process.env.DH_DEBUG) console.error(slot, cand.id, 'carried', b.carried.length, '/', of, 'demo', b.demo.length, 'visual', demoVisual, 'score', score.toFixed(3));
       } catch (e) { if (process.env.DH_DEBUG) console.error(slot, cand.id, 'FAILED', e.message); }
@@ -110,16 +124,35 @@ async function main() {
   fs.mkdirSync(path.dirname(pageAbs), { recursive: true });
   fs.writeFileSync(pageAbs, `${imports}\n\nexport default function Page() {\n  return (\n    <main>\n${placed.map((d) => '      ' + d.usage).join('\n')}\n    </main>\n  );\n}\n`);
   const ownerTexts = Object.values(copy).flatMap((c) => [c.eyebrow, c.heading, ...[].concat(c.text || []), ...[].concat(c.actions || []).map((a) => a.label),
-    ...[].concat(c.items || []).flatMap((it) => [it.title, it.price, ...[].concat(it.text || []), it.action && it.action.label, ...(it.bullets || [])])]).filter(Boolean);
+    ...[].concat(c.items || []).flatMap((it) => [it.title, it.price, ...[].concat(it.text || []), it.action && it.action.label, ...(it.bullets || [])])])
+    .concat(linkTexts(siteLinks(root, copy))).filter(Boolean);
   let demoLeft = [];
   for (const d of placed) {
     bake(root, page, d.local, { entry: d.stage.entry, prop: d.prop });
-    const left = demoTexts(root, d.stage.relDir, ownerTexts.concat(brand ? [`© ${brand}`] : []));
+    const left = demoTexts(root, d.stage.relDir, ownerTexts);
     demoLeft = demoLeft.concat(left);
     const r = report.find((x) => x.slot === d.slot);
     if (r) r.demo_copy = left.map((e) => e.text).slice(0, 12);
   }
   if (demoLeft.length) recordDemoCopy(root, demoLeft);
+  // one <h1> per page (SEO/a11y): the first section's stays, later sections' become <h2> (classes keep the look)
+  let h1Seen = false;
+  for (const d of placed) {
+    const f = path.join(root, d.stage.entry);
+    const code = fs.readFileSync(f, 'utf8');
+    const edits = [];
+    walk(parse(d.stage.entry, code), (n) => {
+      if (n.type === 'JSXElement' && jsxName(n.openingElement.name) === 'h1') {
+        if (h1Seen) {
+          edits.push([n.openingElement.name.start, n.openingElement.name.end]);
+          if (n.closingElement) edits.push([n.closingElement.name.start, n.closingElement.name.end]);
+        }
+        h1Seen = true;
+      }
+      return true;
+    });
+    if (edits.length) fs.writeFileSync(f, edits.sort((a, b) => b[0] - a[0]).reduce((c, [a, b]) => c.slice(0, a) + 'h2' + c.slice(b), code));
+  }
   const deps = [...new Set(placed.flatMap((d) => d.stage.missingDeps))];
   let installed = null;
   if (deps.length && opt('install', 'yes') !== 'no') installed = install(detectProject(root), deps);
