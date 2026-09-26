@@ -85,7 +85,8 @@ export function compatFixes(file, code) {
       edits.push({ at: n.name.end, text: ' unoptimized' });
     }
     // `(React.)ComponentProps` used bare: infer the element from what the component returns
-    if (/Function/.test(n.type) && n.params[0] && n.params[0].typeAnnotation) {
+    // (a TS function TYPE — `onChange: (v: string) => void` — is a Function node without `params`)
+    if (/Function/.test(n.type) && Array.isArray(n.params) && n.params[0] && n.params[0].typeAnnotation) {
       const ta = n.params[0].typeAnnotation.typeAnnotation;
       const tn = ta && ta.type === 'TSTypeReference' ? code.slice(ta.typeName.start, ta.typeName.end) : '';
       if (/^(React\.)?(ComponentProps|ComponentPropsWithoutRef|ComponentPropsWithRef)$/.test(tn) && !ta.typeParameters && !ta.typeArguments) {
@@ -118,6 +119,97 @@ export function compatFixes(file, code) {
   edits.sort((a, b) => b.at - a.at);
   for (const e of edits) code = code.slice(0, e.at) + e.text + code.slice(e.at);
   return code;
+}
+
+/**
+ * What the project's own ui component accepts of the cva props a design passes (`variant`, `size`…), per export:
+ * Map(name → Map(prop → Set(values) | null = any value)). Read from the project's file (shadcn: `cva(…, { variants })`
+ * + `VariantProps<typeof x>` or a destructured prop).
+ */
+const variantCache = new Map();
+function projectVariants(abs) {
+  if (variantCache.has(abs)) return variantCache.get(abs);
+  const out = new Map();
+  let code = '', ast;
+  try { code = fs.readFileSync(abs, 'utf8'); ast = parse(abs, code); } catch { variantCache.set(abs, null); return null; }
+  const cvas = new Map();
+  walk(ast, (n) => {
+    if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && n.init && n.init.type === 'CallExpression' && n.init.callee.type === 'Identifier' && n.init.callee.name === 'cva') {
+      const cfg = n.init.arguments[1];
+      const vs = cfg && cfg.type === 'ObjectExpression' ? cfg.properties.find((p) => p.type === 'ObjectProperty' && (p.key.name || p.key.value) === 'variants') : null;
+      const m = new Map();
+      if (vs && vs.value.type === 'ObjectExpression') for (const p of vs.value.properties) if (p.type === 'ObjectProperty' && p.value.type === 'ObjectExpression') m.set(p.key.name || p.key.value, new Set(p.value.properties.filter((q) => q.type === 'ObjectProperty').map((q) => String(q.key.name ?? q.key.value))));
+      cvas.set(n.id.name, m);
+    }
+    return true;
+  });
+  const addFn = (name, fn) => {
+    if (!fn || !Array.isArray(fn.params)) return;
+    const p0 = fn.params[0];
+    const acc = new Map();
+    const ann = p0 && p0.typeAnnotation ? code.slice(p0.typeAnnotation.start, p0.typeAnnotation.end) : '';
+    for (const [cv, m] of cvas) if (new RegExp(`VariantProps<\\s*typeof\\s+${cv}\\s*>`).test(ann)) for (const [k, v] of m) acc.set(k, v);
+    if (p0 && p0.type === 'ObjectPattern') for (const pr of p0.properties) if (pr.type === 'ObjectProperty' && !acc.has(pr.key.name)) acc.set(pr.key.name, null);
+    out.set(name, acc);
+  };
+  walk(ast, (n) => {
+    if (n.type === 'FunctionDeclaration' && n.id) addFn(n.id.name, n);
+    if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && n.init) {
+      let i = n.init;
+      if (i.type === 'CallExpression' && i.arguments[0] && /Function/.test(i.arguments[0].type)) i = i.arguments[0];
+      if (/Function/.test(i.type)) addFn(n.id.name, i);
+    }
+    return true;
+  });
+  variantCache.set(abs, out);
+  return out;
+}
+
+/**
+ * A design calls the project's own primitives (reused, not fetched) with the props of ITS registry's version:
+ * Veil's `<Card variant="outline">` against a shadcn Card that has no variant — fine in dev, a failed `next build`
+ * type check once kept. A variant prop the project's component does not take is dropped; a value it does not have
+ * becomes "default" (or is dropped).
+ */
+export function fitProjectPrimitives(prof, file, code) {
+  let ast;
+  try { ast = parse(file, code); } catch { return code; }
+  const bySpec = new Map();
+  for (const [name, rel] of Object.entries(prof.ui || {})) bySpec.set(specFor(prof, rel), path.join(prof.root, rel));
+  const locals = new Map();
+  for (const st of ast.program.body) {
+    if (st.type !== 'ImportDeclaration' || !bySpec.has(st.source.value)) continue;
+    for (const sp of st.specifiers) if (sp.type === 'ImportSpecifier') locals.set(sp.local.name, { abs: bySpec.get(st.source.value), name: sp.imported.name || sp.imported.value });
+  }
+  if (!locals.size) return code;
+  const edits = [];
+  walk(ast, (n) => {
+    if (n.type !== 'JSXOpeningElement' || n.name.type !== 'JSXIdentifier' || !locals.has(n.name.name)) return true;
+    const l = locals.get(n.name.name);
+    const acc = (projectVariants(l.abs) || new Map()).get(l.name);
+    if (!acc) return true;                                           // cannot tell: leave it
+    for (const a of n.attributes) {
+      if (a.type !== 'JSXAttribute' || !/^(variant|size|tone|intent|shape)$/.test(a.name.name)) continue;
+      const lits = [];
+      if (a.value && a.value.type === 'StringLiteral') lits.push(a.value);
+      else if (a.value && a.value.type === 'JSXExpressionContainer') walk(a.value.expression, (m) => { if (m.type === 'StringLiteral') lits.push(m); return true; });
+      const values = acc.get(a.name.name);
+      const drop = () => { let st = a.start; while (st > 0 && /\s/.test(code[st - 1])) st--; edits.push({ start: st, end: a.end, text: '' }); };
+      if (!acc.has(a.name.name)) { drop(); continue; }
+      if (!values) continue;
+      const bad = lits.filter((x) => !values.has(x.value));
+      if (!bad.length) continue;
+      if (values.has('default')) for (const x of bad) edits.push({ start: x.start, end: x.end, text: '"default"' });
+      else drop();
+    }
+    return true;
+  });
+  if (!edits.length) return code;
+  edits.sort((a, b) => b.start - a.start);
+  let out = code;
+  for (const e of edits) out = out.slice(0, e.start) + e.text + out.slice(e.end);
+  try { parse(file, out); } catch { return code; }
+  return out;
 }
 
 function needsClient(code) {
@@ -352,6 +444,7 @@ export function writeBundle(prof, item, bundle, { baseDir } = {}) {
     }
     if (/\.(tsx|jsx)$/.test(f.path)) code = normalizeClasses(f.path, code).code;
     if (/\.(tsx|ts)$/.test(f.path)) code = compatFixes(f.path, code);
+    if (/\.(tsx|jsx)$/.test(f.path)) code = fitProjectPrimitives(prof, f.path, code);
     if (prof.rsc && /\.(tsx|jsx|ts|js)$/.test(f.path) && needsClient(code)) code = `"use client"\n\n` + code;
     const out = header(f.path) + code;
     const abs = path.join(absDir, placed.get(f.path));

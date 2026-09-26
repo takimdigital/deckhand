@@ -237,21 +237,42 @@ F5 OPEN (swap) [[tryon/lib/engine.mjs#open]]
    [[!ELEMENT_NOT_FOUND]] with `reload:true` (the overlay reloads and re-enters picking; it also reloads before the
    next pick after Keep/Discard). Tune uses the same lookup ([[tryon/lib/tune.mjs#tuneOpen]]).
 2. [[tryon/lib/transplant.mjs#extractUnits]] gets the owner's content units: text, links, images, inputs, and
-   unrolled .map lists.
+   unrolled .map lists — plus the words written beside a link (one run = a line of text, words on both sides = one
+   sentence carried with the link inside), the owner's `<form>` elements (moved whole: action, handlers, fields) and
+   each image's row ([[tryon/lib/transplant.mjs#ownerLogos]]: 2+ images side by side = their logo row).
 3. [[tryon/lib/catalog.mjs#rank]] ranks candidates: mine first; primitive-base mismatch hidden and counted.
 4. For each candidate:
    1. [[tryon/lib/materialize.mjs#fetchBundle]]: [[tryon/lib/registry.mjs]] json or gh transport, cached, https only,
       size/file caps.
    2. [[tryon/lib/materialize.mjs#writeBundle]]:
       - every file needed; the project's ui primitives reused; cn from lib/utils;
-      - palette classes → tokens ([[tryon/lib/theme.mjs#normalizeClasses]]); compat fixes.
+      - palette classes → tokens ([[tryon/lib/theme.mjs#normalizeClasses]]); compat fixes; a design's cva props on
+        the project's reused primitives fitted to what the project's component takes
+        ([[tryon/lib/materialize.mjs#fitProjectPrimitives]]: Veil's `<Card variant="outline">` vs a shadcn Card
+        without variants passed dev and failed `next build` once kept).
    3. Blocks only:
       - [[tryon/lib/transplant.mjs#parameterize]]: static units → `content.x ?? demo`, demo lists → list slots;
-        chrome, demo logos and forms hidden;
+        chrome hidden; demo brand logos hidden — or, when the owner has a logo row, the design's row becomes
+        `logoRowN` (their `<img>`s, same spacing); a design form hidden — or, when the owner has a form, it becomes
+        `formN` (their `<form>` whole); a prop default rendered as text (`title = "Design Systems"`,
+        [[tryon/lib/transplant.mjs#defaultPropSlots]]) is a slot `@title`, passed as the prop itself
+        ([[tryon/lib/transplant.mjs#contentProp]]); a state-switched label (`{on ? "A" : "B"}`) is one slot; a card
+        template's constant button label is a list field `dhAction`; a featured card's extra line (its "Popular"
+        badge) is optional and hides whole;
       - then [[tryon/lib/sitelinks.mjs#fillLinks]], then [[tryon/lib/transplant.mjs#bind]]. List items are built
         as JS source: a dynamic value (`{c.phone}`, an href `` `tel:${c.phone}` ``) travels as code, never through
         JSON; names bound inside the picked element (a `.map` item) never leave it;
-      - fit gate: a candidate carrying < half the owner's units is skipped as POOR_FIT.
+      - fit gate ([[tryon/lib/engine.mjs#fitGate]]): a section carrying < half the owner's units is skipped as
+        POOR_FIT (a lone label counts), a card or button carrying less than all of them too, and so is any design
+        that has no place for the owner's form (`lost: 'form'`: a newsletter would lose its
+        email field). Every word a staged design still shows of its own is marked `data-dh-demo`
+        ([[tryon/lib/engine.mjs#markDemo]]; words inside a component get a marked span); Keep removes the marks
+        ([[tryon/lib/engine.mjs#unmarkDemo]]). A UI primitive goes through this path when it does not render what is
+        put inside it ([[tryon/lib/engine.mjs#rendersChildren]]: `{...props}` counts only on an element without
+        children of its own; `'inline'` when `children` lands inside a text element — then only an owner element
+        holding words is wrapped, a card's divs never go into a `<p>`); else it wraps the owner's content, and the
+        design's own text-rendered prop defaults are passed empty ([[tryon/lib/transplant.mjs#defaultPropsOf]]). A
+        button prop's link prop (`<a href={primaryCtaUrl}>{primaryCtaText}</a>`) takes the owner's href.
    4. Install-free candidates are checked as they are staged ([[tryon/lib/engine.mjs#checkImports]], one child
       node: every named import and `NS.x`/`<NS.X>` read must exist; a package the import itself needs and nobody
       installed counts) → BROKEN_IMPORT, and the next candidate takes the place. A candidate that needs an install is
@@ -265,7 +286,8 @@ F5 OPEN (swap) [[tryon/lib/engine.mjs#open]]
    The result is re-parsed; the backup is saved.
 8. Cycling ← → is client-side display toggling: zero writes. [[tryon/lib/engine.mjs#show]] persists the choice.
 9. Nothing fits → [[!NO_CANDIDATES]] or [[!NO_VARIANTS]] with `draft:{file,line,col,slot}`; the overlay offers an
-   AI draft (F7).
+   AI draft (F7). The message says why in the owner's words ([[tryon/lib/engine.mjs#noVariantsWhy]]: no room for
+   your content, the closest fit, or no place for your form).
 10. The page still builds: [[tryon/lib/engine.mjs#openVerified]] (helper open/more; `tryon try` with --url or
    .deckhand/dev.json). Baseline GET of the page → open → [[tryon/lib/engine.mjs#probeUntil]] reloads until the
    HTML holds THIS session's wrapper or a build error (a file watcher lags the write: the first answer can be the
@@ -284,7 +306,14 @@ F5 OPEN (swap) [[tryon/lib/engine.mjs#open]]
    owner does not fill keeps the design's words dashed (`<span data-dh-demo>`, only where the field is only ever
    text) and reported, and bakes back to the design's plain value on Keep. No plan: a design's demo menus and
    social rows are emptied ([[tryon/lib/sitelinks.mjs#fillLinks]]). Logos inside content cards are hidden one by
-   one, never the cards.
+   one, never the cards. From the component zoo (every common section kind, screenshotted): a figure (120+, 98%,
+   24h, 7/7) is its own role `figure` and pairs with the design's figure; the owner's one short line becomes a
+   headline the design would otherwise leave to demo copy; a card's title goes to the title and its longest text to
+   the body ([[tryon/lib/transplant.mjs#pairCard]]), rows of a column packed one item each; a comparison table
+   (rows of plain cells, equal width) goes into a design list with as many cell fields, positionally, its `<th>`
+   names over the columns — a design without one gets none of the rows; the word that captions the owner's photo
+   (`alt` = the name) goes to the design's captioning field; a list field also read as a value (`{t.period && …}`)
+   is emptied rather than shown undashed, and a design's period never sits beside an owner's price.
 
 F6 KEEP / DISCARD
 - [[tryon/lib/engine.mjs#keep]]:
@@ -550,6 +579,7 @@ F19 RESEARCH EVIDENCE
 | footer/navbar links from the plan | [[tryon/lib/sitelinks.mjs]] | [[skills/deckhand/tryon/test/sections.test.mjs]] |
 | colours → tokens | [[tryon/lib/theme.mjs]] | setup-theme-server.test.mjs |
 | open/show/keep/discard/bake | [[tryon/lib/engine.mjs]] | engine.test.mjs, sections.test.mjs |
+| every common section kind (notice bar, stats, logo row, team, comparison table, forms, product/blog cards, card and button primitives), demo marks, form swap, logo swap, prop-default slots (component zoo) | [[tryon/lib/transplant.mjs#bind]] · [[tryon/lib/transplant.mjs#parameterize]] · [[tryon/lib/engine.mjs#markDemo]] · [[tryon/lib/engine.mjs#rendersChildren]] | [[skills/deckhand/tryon/test/zoo.test.mjs]] + the zoo matrix (18 sections, Chromium, contact sheets) |
 | content mapping (FAQ, testimonials, pricing, footer columns), navbars from Tailark heroes, Vite shims + build check, Tune additions + surgical reset, Site undo steps (live audit) | [[tryon/lib/transplant.mjs#bind]] · [[tryon/lib/regmap.mjs#navbarsFromHeroes]] · [[tryon/lib/materialize.mjs#writeBundle]] · [[tryon/lib/engine.mjs#probeVite]] · [[tryon/lib/tune.mjs#tuneReset]] · [[tryon/lib/sitetheme.mjs#themeUndo]] | [[skills/deckhand/tryon/test/live-audit.test.mjs]] + the live matrix (3 apps, Chromium) |
 | stale stamps, the import gate, the page-still-builds check (field fixes) | [[tryon/lib/engine.mjs#pickElement]] · [[tryon/lib/engine.mjs#checkImports]] · [[tryon/lib/engine.mjs#openVerified]] · overlay `stale`/`reloadButton` | [[skills/deckhand/tryon/test/field.test.mjs]] (fake dev server) + browser e2e |
 | AI draft gates | [[tryon/lib/draft.mjs#checkDraft]] | [[skills/deckhand/tryon/test/draft.test.mjs]] |

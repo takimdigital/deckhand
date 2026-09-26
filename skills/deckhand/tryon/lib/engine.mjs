@@ -19,7 +19,7 @@ import { createRequire } from 'node:module';
 import { detectProject, specFor } from './project.mjs';
 import { loadCatalog, rank, SKILL_DIR } from './catalog.mjs';
 import { fetchBundle, writeBundle, pascal, slugOf, entryExport } from './materialize.mjs';
-import { extractUnits, parameterize, bind, contentProp, shapeOf, contentCount } from './transplant.mjs';
+import { extractUnits, parameterize, bind, contentProp, shapeOf, contentCount, ownerLogos, defaultPropsOf } from './transplant.mjs';
 import { itemCss, tokenLayer } from './theme.mjs';
 import { kindOf } from './slots.mjs';
 import { siteLinks, fillLinks, linkTexts, FORM_SLOTS } from './sitelinks.mjs';
@@ -118,7 +118,7 @@ function innerSrc(code, el) {
 }
 
 /** A primitive swap keeps the usage's props/children; `asChild` + single child is unwrapped. */
-function primitiveUsage(code, el, local, candCode) {
+function primitiveUsage(code, el, local, candCode, extra = []) {
   const op = el.openingElement;
   const kids = (el.children || []).filter((c) => !(c.type === 'JSXText' && !c.value.trim()));
   const keepAttr = (a) => {
@@ -128,7 +128,7 @@ function primitiveUsage(code, el, local, candCode) {
     if ((n === 'variant' || n === 'size') && !new RegExp('\\b' + n + '\\b').test(candCode)) return false;
     return true;
   };
-  const attrs = op.attributes.filter(keepAttr).map((a) => code.slice(a.start, a.end)).join(' ');
+  const attrs = op.attributes.filter(keepAttr).map((a) => code.slice(a.start, a.end)).concat(extra).join(' ');
   const asChild = op.attributes.some((a) => a.type === 'JSXAttribute' && a.name.name === 'asChild');
   if (asChild && kids.length === 1 && kids[0].type === 'JSXElement') {
     const child = kids[0];
@@ -148,6 +148,82 @@ export function install(prof, pkgs, log) {
   log && log({ phase: 'install', pkgs });
   const r = spawnSync(cmd[0], [...cmd.slice(1), ...pkgs], { cwd: prof.root, encoding: 'utf8', shell: process.platform === 'win32', timeout: 300000 });
   return { ok: r.status === 0, cmd: cmd.concat(pkgs).join(' '), out: ((r.stdout || '') + (r.stderr || '')).split('\n').slice(-8).join('\n') };
+}
+
+/**
+ * Does a design's component show what is put inside it? `{children}` (or props.children) in its JSX, or its props
+ * spread onto an element (`<div {...props}>` carries children). A self-contained demo (a tweet, a flip card) does not.
+ */
+export function rendersChildren(file, code, exp) {
+  let ast;
+  try { ast = parse(file, code); } catch { return true; }
+  let fn = null;
+  const want = exp && exp.kind === 'named' ? exp.name : null;
+  const pick = (d) => (d && /Function/.test(d.type) ? d : d && d.type === 'VariableDeclarator' && d.init && /Function/.test(d.init.type) ? d.init : null);
+  const byName = new Map();
+  walk(ast, (n) => {
+    if (n.type === 'FunctionDeclaration' && n.id) byName.set(n.id.name, n);
+    if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && n.init) {
+      let i = n.init;
+      if (i.type === 'CallExpression' && i.arguments[0] && /Function/.test(i.arguments[0].type)) i = i.arguments[0];   // forwardRef(…), memo(…)
+      if (/Function/.test(i.type)) byName.set(n.id.name, i);
+    }
+    return true;
+  });
+  for (const st of ast.program.body) {
+    if (want && st.type === 'ExportNamedDeclaration') {
+      if (st.declaration && st.declaration.type === 'FunctionDeclaration' && st.declaration.id && st.declaration.id.name === want) fn = st.declaration;
+      for (const d of (st.declaration && st.declaration.declarations) || []) if (d.id.name === want) fn = pick(d) || byName.get(want);
+      for (const sp of st.specifiers || []) if ((sp.exported.name || sp.exported.value) === want) fn = byName.get(sp.local.name);
+    }
+    if (!want && st.type === 'ExportDefaultDeclaration') fn = /Function/.test(st.declaration.type) ? st.declaration : st.declaration.type === 'Identifier' ? byName.get(st.declaration.name) : null;
+  }
+  if (!fn) return true;                                           // cannot tell: treat it as a wrapper (the old behaviour)
+  const p0 = fn.params[0];
+  const spreadNames = new Set();
+  if (p0 && p0.type === 'Identifier') spreadNames.add(p0.name);
+  if (p0 && p0.type === 'ObjectPattern') for (const pr of p0.properties) if (pr.type === 'RestElement' && pr.argument.type === 'Identifier') spreadNames.add(pr.argument.name);
+  // where the owner's content would land: inside a text element (`<p>{children}</p>`) only words may go — a card's
+  // divs and paragraphs there are invalid HTML (hydration errors on every render)
+  const PHRASING = /^(p|span|a|button|label|h[1-6]|strong|em|b|i|small|q|cite|dt|summary|legend|option)$/;
+  let block = false, inline = false;
+  const visit = (n, host) => {
+    if (!n || typeof n.type !== 'string' || inline) return;
+    if (n.type === 'JSXElement') {
+      const nm = jsxName(n.openingElement.name);
+      // `<button {...props}>` passes the owner's children on — unless the element writes children of its own
+      // (`<Button {...props}><span>Hover me</span></Button>`: JSX children win over props.children)
+      if (n.openingElement.attributes.some((a) => a.type === 'JSXSpreadAttribute' && a.argument.type === 'Identifier' && spreadNames.has(a.argument.name))
+        && !(n.children || []).some((c) => !(c.type === 'JSXText' && !c.value.trim()))) { if (PHRASING.test(nm)) inline = true; else block = true; }
+      if (/^[a-z]/.test(nm)) host = nm;
+    }
+    if ((n.type === 'Identifier' && n.name === 'children') || (n.type === 'MemberExpression' && !n.computed && n.property.name === 'children')) {
+      if (host && PHRASING.test(host)) inline = true; else block = true;
+      return;
+    }
+    for (const k of Object.keys(n)) {
+      if (k === 'loc' || k === 'start' || k === 'end' || k === 'extra' || /Comments$/.test(k)) continue;
+      const v = n[k];
+      if (Array.isArray(v)) for (const c of v) visit(c, host);
+      else if (v && typeof v.type === 'string') visit(v, host);
+    }
+  };
+  visit(fn.body, null);
+  // once anywhere inside a text element, only words may go in (`{(subtitle || children) && <p>{children}</p>}`)
+  return inline ? 'inline' : block;
+}
+
+/** A wrapper design takes the owner's content inside it — words only, when it puts them in a text element. */
+function wrapsContent(rc, el) {
+  if (rc === true) return true;
+  if (rc !== 'inline') return false;
+  let blocky = false;
+  walk(el, (n) => {
+    if (blocky) return false;
+    if (n !== el && n.type === 'JSXElement') { const nm = jsxName(n.openingElement.name); if (!/^(span|strong|em|b|i|small|br|svg|path|img|code|kbd|sup|sub|abbr|time|mark|a|Link|NavLink)$/.test(nm) && !/Icon$|^Lucide/.test(nm)) blocky = true; }
+    return !blocky;
+  });
+  return !blocky;
 }
 
 /** The owner's brand name: brief first, then package.json. */
@@ -271,10 +347,12 @@ export async function open(rootIn, opts) {
       usage = kind === 'block' ? `<${local}${contentProp('content', props)} />` : primitiveUsage(code, el, local, entryCode);
       stage.prop = props.length ? 'content' : null;
       stage.ownerTexts = orig.units.map((x) => x.text).concat(orig.lists.flatMap((l) => l.items.flatMap((it) => it.units.map((u) => u.text).concat(it.bullets || []))));
-    } else if (kind === 'block') {
-      const logoLocals = logoLocalsFor(stage, entryCode, slot);
+    } else if (kind === 'block' || (origCount > 0 && !wrapsContent(rendersChildren(stage.entry, entryCode, stage.export), el))) {
+      // a section — or a "card"/"button" that never shows what is put inside it (a demo tweet, a flip card with its
+      // own title): the owner's words go into its props like a section's, or it is not offered
+      const logoLocals = logoLocalsFor(stage, entryCode);
       let p;
-      try { p = parameterize(stage.entry, entryCode, stage.export, { stripChrome, logoLocals, forms: FORM_SLOTS.has(slot) || orig.inputs.length ? 'keep' : 'hide' }); } catch (e) {
+      try { p = parameterize(stage.entry, entryCode, stage.export, { stripChrome, logoLocals, logoSwap: ownerLogos(orig).length >= 2, forms: (orig.forms || []).some((f) => f.src) ? 'swap' : FORM_SLOTS.has(slot) || orig.inputs.length ? 'keep' : 'hide' }); } catch (e) {
         skipped.push({ id: cand.id, why: 'PARAMETERIZE_FAILED', detail: e.message.slice(0, 200) });
         fs.rmSync(path.join(root, stage.relDir), { recursive: true, force: true });
         continue;
@@ -285,19 +363,32 @@ export async function open(rootIn, opts) {
       const b = bind(orig, p, { placeholder: hasPublic ? PLACEHOLDER : null, brand: brandName(root) });
       if (fl.filled.length) b.hidden.push(...fl.filled.map((f) => (f.demoHidden ? `${f.array}: the design's demo ${f.kind} hidden (${f.demoHidden}) — no menu in your plan` : `${f.array}: ${f.kind} from your plan (${f.count})`)));
       // fit gate: a variant that would throw away most of the owner's words is not offered
-      if (origCount >= 2 && b.carried.length < Math.ceil(origCount / 2) && !opts.noFitGate) {
-        skipped.push({ id: cand.id, why: 'POOR_FIT', detail: `carries ${b.carried.length}/${origCount}` });
+      const gate = opts.noFitGate ? null : fitGate(kind, origCount, b);
+      if (gate) {
+        skipped.push({ id: cand.id, why: 'POOR_FIT', detail: gate });
         fs.rmSync(path.join(root, stage.relDir), { recursive: true, force: true });
         continue;
       }
       fit = b;
       fit.demoVisual = demoTexts(root, stage.relDir, []).length;
+      for (const f of fs.readdirSync(path.join(root, stage.relDir))) {
+        if (!/\.(tsx|jsx)$/.test(f)) continue;
+        const fp = path.join(root, stage.relDir, f);
+        const before = fs.readFileSync(fp, 'utf8');
+        const after = markDemo(f, before);
+        if (after !== before) fs.writeFileSync(fp, after);
+      }
       stage.ownerTexts = orig.units.map((x) => x.text).concat(orig.lists.flatMap((l) => l.items.flatMap((it) => it.units.map((u) => u.text))), linkTexts(links));
       usage = `<${local}${contentProp(p.prop, b.props)} />`;
       stage.prop = p.prop;
       stage.removedChrome = p.removed;
     } else {
-      usage = primitiveUsage(code, el, local, entryCode);
+      // a wrapper (a card that renders its children): the owner's content goes inside, every word of it — and the
+      // design's own words kept in props beside it ("Acme", "Case Study", "Get Started") are emptied, not shown
+      const own = new Set(el.openingElement.attributes.filter((a) => a.type === 'JSXAttribute').map((a) => a.name.name));
+      const demoProps = defaultPropsOf(stage.entry, entryCode, stage.export).filter((d) => !own.has(d.propName));
+      usage = primitiveUsage(code, el, local, entryCode, demoProps.map((d) => `${d.propName}={${d.role === 'bullets' ? '[]' : '""'}}`));
+      fit = { carried: orig.units.concat(orig.images), dropped: [], demo: [], hidden: demoProps.map((d) => `demo ${d.propName}: ${d.demo} (emptied)`), demoVisual: 0 };
     }
     const v = {
       idx: variants.length + 1, id: cand.id, r: cand.r, n: cand.n, t: cand.t, lic: cand.lic || 'MIT', slot: cand.slot, generated: !!cand.ai, draft: cand.draft || null,
@@ -323,7 +414,7 @@ export async function open(rootIn, opts) {
     skipped.push({ id: v.id, why: 'NEEDS_DEPS', detail: `${v.missingDeps.join(', ')} (designs that need no install were preferred)` });
     fs.rmSync(path.join(root, v.dir), { recursive: true, force: true });
   }
-  if (!variants.length) throw new TryonError('NO_VARIANTS', 'no candidate could be staged', { skipped, draft: { file: rel, line: Number(opts.line), col: Number(opts.col), slot } });
+  if (!variants.length) throw new TryonError('NO_VARIANTS', noVariantsWhy(skipped, slot), { skipped, draft: { file: rel, line: Number(opts.line), col: Number(opts.col), slot } });
 
   // one batched install for everything the batch needs
   const need = [...new Set(variants.flatMap((v) => v.missingDeps))];
@@ -749,10 +840,40 @@ export function publicSession(s) {
   };
 }
 
-/** Local names the entry imports from brand-logo files — hidden unless the slot IS a logo cloud. */
-export function logoLocalsFor(stage, entryCode, slot) {
+/**
+ * The fit gate: why a staged design is not offered, or null. A section must carry at least half of the owner's
+ * content pieces; a card or a button all of them (one that drops their title or button — a fitness-rings widget, a
+ * music player — is a different thing, not a variant of theirs); and any design must have a place for the owner's
+ * form (a newsletter whose email field vanished leaves a dead "Subscribe" link).
+ */
+export function fitGate(kind, origCount, b) {
+  if (b.lost) return `has no place for your ${b.lost}`;
+  const need = kind === 'block' ? Math.ceil(origCount / 2) : origCount;
+  if (origCount >= 1 && b.carried.length < need) return `carries ${b.carried.length}/${origCount}`;
+  return null;
+}
+
+/** Why nothing could be shown, in the owner's words: "none has room for your content" beats a code. */
+export function noVariantsWhy(skipped, slot) {
+  const real = skipped.filter((s) => s.why !== 'FETCH_FAILED');
+  const poor = real.filter((s) => s.why === 'POOR_FIT');
+  if (poor.length && poor.length === real.length) {
+    const lost = poor.map((s) => /has no place for your (\w+)/.exec(s.detail || '')).filter(Boolean);
+    if (lost.length === poor.length) return `none of the ${poor.length} ${slot} design(s) has a place for your ${lost[0][1]} (it would stop working): pick another kind of section in the list, or ask AI to draft one`;
+    const best = poor.map((s) => /(\d+)\/(\d+)/.exec(s.detail || '')).filter(Boolean).sort((a, b) => b[1] / b[2] - a[1] / a[2])[0];
+    return `none of the ${poor.length} ${slot} design(s) has room for your content${best ? ` (the closest keeps ${best[1]} of your ${best[2]} pieces)` : ''}: pick another kind of section in the list, or ask AI to draft one`;
+  }
+  if (!real.length && skipped.length) return `the ${slot} designs could not be downloaded (network?): try again, or pick another kind of section`;
+  return 'no candidate could be staged';
+}
+
+/**
+ * Local names the entry imports from brand-logo files. A design's demo brands are never shown as the owner's: its
+ * logo row takes the owner's own logos when they have some, and is hidden otherwise — in a logo cloud too.
+ */
+export function logoLocalsFor(stage, entryCode) {
   const out = [];
-  if (slot === 'logo-cloud' || !stage.logoFiles || !stage.logoFiles.length) return out;
+  if (!stage.logoFiles || !stage.logoFiles.length) return out;
   for (const st of parse(stage.entry, entryCode).program.body) {
     if (st.type !== 'ImportDeclaration') continue;
     const base = path.posix.basename(st.source.value);
@@ -1107,6 +1228,82 @@ export function literalFit(root, dirRel, orig, dynamic = []) {
   return { carried, dropped, invented: [...new Set(invented)], of: carried.length + dropped.length };
 }
 
+/**
+ * Every word a staged design still shows of its own — literal text outside the content slots, and the rows of an
+ * illustration drawn from the design's own data array (a fake customer table, a demo chat) — is marked
+ * `data-dh-demo` on its element: dashed in the preview like any demo copy, never passed off as the owner's.
+ * Keep removes the marks (the words themselves go to the demo-copy ledger).
+ */
+export function markDemo(file, code) {
+  let ast;
+  try { ast = parse(file, code); } catch { return code; }
+  const hostOf = new Map();                                        // element start → opening element
+  const literalArrays = new Set();
+  walk(ast, (n) => {
+    if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier') {
+      let init = n.init;
+      while (init && /^TS(As|Satisfies)Expression$/.test(init.type)) init = init.expression;
+      if (init && init.type === 'ArrayExpression' && init.elements.length && init.elements.every((e) => e && e.type === 'ObjectExpression')) literalArrays.add(n.id.name);
+    }
+    return true;
+  });
+  const mark = (el) => { if (el && /^[a-z][a-z0-9]*$/.test(jsxName(el.openingElement.name)) && !/^(svg|path|title|option|script|style)$/.test(jsxName(el.openingElement.name)) && !attr(el, 'data-dh-demo')) hostOf.set(el.start, el.openingElement); };
+  // words inside a component (`<Button><Link>Get Started</Link></Button>`) have no plain element of their own: a
+  // marked span wraps them (Keep unwraps it)
+  const wraps = [];
+  const markText = (n, el) => {
+    if (!el || !/^[a-z]/.test(jsxName(el.openingElement.name))) { wraps.push(n); return; }
+    mark(el);
+  };
+  // three letters or digits: "Get Started", but also a demo player's "0:45"
+  const words = (t) => (String(t).match(/[\p{L}\p{N}]/gu) || []).length >= 3;
+  const visit = (n, stack, inFallback, mapParam) => {
+    if (!n || typeof n.type !== 'string') return;
+    if (n.type === 'LogicalExpression' && n.operator === '??') { visit(n.left, stack, inFallback, mapParam); visit(n.right, stack, true, mapParam); return; }
+    if (n.type === 'JSXAttribute') return;
+    if (n.type === 'JSXElement') {
+      if (attr(n, 'data-dh-demo')) return;                         // already a dashed slot fallback
+      stack = stack.concat([n]);
+    }
+    if (n.type === 'JSXText' && !inFallback && words(n.value)) markText(n, stack[stack.length - 1]);
+    if (n.type === 'JSXExpressionContainer' && mapParam && !inFallback) {
+      let hit = false;
+      walk(n.expression, (m) => { if (m.type === 'MemberExpression' && m.object.type === 'Identifier' && m.object.name === mapParam) hit = true; return !hit; });
+      if (hit) mark(stack[stack.length - 1]);
+    }
+    if (n.type === 'CallExpression' && n.callee.type === 'MemberExpression' && !n.callee.computed && n.callee.property.name === 'map'
+      && n.callee.object.type === 'Identifier' && literalArrays.has(n.callee.object.name)) {
+      const cb = n.arguments[0];
+      const param = cb && cb.params && cb.params[0] && cb.params[0].type === 'Identifier' ? cb.params[0].name : null;
+      if (cb) visit(cb.body, stack, inFallback, param || mapParam);
+      return;
+    }
+    for (const k of Object.keys(n)) {
+      if (k === 'loc' || k === 'start' || k === 'end' || k === 'extra' || /Comments$/.test(k)) continue;
+      const v = n[k];
+      if (Array.isArray(v)) for (const c of v) visit(c, stack, inFallback, mapParam);
+      else if (v && typeof v.type === 'string') visit(v, stack, inFallback, mapParam);
+    }
+  };
+  visit(ast.program, [], false, null);
+  if (!hostOf.size && !wraps.length) return code;
+  const edits = [...hostOf.values()].map((o) => ({ start: o.name.end, end: o.name.end, text: ' data-dh-demo=""' }));
+  for (const n of wraps) {
+    const a = n.start + (n.value.length - n.value.trimStart().length), b = n.end - (n.value.length - n.value.trimEnd().length);
+    edits.push({ start: a, end: b, text: `<span data-dh-demo="" data-dh-wrap="">${code.slice(a, b)}</span>` });
+  }
+  edits.sort((x, y) => y.start - x.start);
+  let out = code;
+  for (const e of edits) out = out.slice(0, e.start) + e.text + out.slice(e.end);
+  try { parse(file, out); } catch { return code; }
+  return out;
+}
+
+/** Keep: the preview's demo marks go — wrapped words back to plain text, marked elements lose the attribute. */
+export function unmarkDemo(code) {
+  return code.replace(/<span data-dh-demo="" data-dh-wrap="">([^<{}]*)<\/span>/g, '$1').replace(/ data-dh-demo=""(?=[\s>/])/g, '');
+}
+
 export function demoTexts(root, dirRel, ownerTexts = []) {
   const brand = brandName(root);   // the owner's own name is never demo copy
   const own = new Set(ownerTexts.concat(brand ? [brand, `© ${brand}`] : []).map((t) => String(t).replace(/\s+/g, ' ').trim().toLowerCase()));
@@ -1205,6 +1402,14 @@ export function keep(rootIn, id, idx) {
   }
   const baked = s.kind === 'block' ? bake(root, s.file, cleanLocal, { ...v, entry: entryFinal }) : { baked: 0 };
   void eAbs;
+  // the preview's demo marks go (the words stay, and the ledger below lists them)
+  for (const f of fs.readdirSync(path.join(root, final))) {
+    if (!/\.(tsx|jsx)$/.test(f)) continue;
+    const p = path.join(root, final, f);
+    const code = fs.readFileSync(p, 'utf8');
+    const out = unmarkDemo(code);
+    if (out !== code) { try { parse(f, out); fs.writeFileSync(p, out); } catch { /* keep the marked file rather than a broken one */ } }
+  }
   // losers
   for (const o of s.variants) {
     if (o.idx === i) continue;

@@ -1,5 +1,81 @@
 # Changelog
 
+## [2.2.3] — 2026-09-26 — try-on, section by section: the component zoo
+
+A test site with one section of every common kind: a notice bar, service cards, a lone card, a shadcn `<Card>`,
+blog cards, product cards, stats, a logo row, a team, steps, a contact form, a newsletter, a login, badges,
+integrations, a comparison table, a big quote and a button. In Chromium, every variant of every section was
+screenshotted and checked for:
+- words that are not the owner's and not dashed;
+- the owner's words gone missing;
+- broken layout (zero height, overflow, broken images) and errors.
+
+Each finding is fixed and pinned offline (`tryon/test/zoo.test.mjs`). The last pass has no undashed foreign word
+and no missing owner word in any offered variant.
+
+### What is offered, and what is refused
+- **Notice bar.** The words beside a link were dropped, so only "Book a slot" reached the design. Now the line is
+  kept and becomes the headline.
+- **Stats.** 120+, 98%, 24h and 7/7 are figures and pair with the design's figures. Before, "120+" could become
+  the section headline. The overlay now recognises a stats band.
+- **Logo cloud.** Nothing was ever offered (0/6). Now the owner's own logos take the design's logo row, with the
+  same spacing: 6/6. The design's demo brands (Spotify, Vercel…) never show as the owner's, in a logo cloud too.
+- **Team.** Names and roles stay in their places, and each photo carries the owner's name. Before, a demo person's
+  name ("Meschac Irung") could sit beside the owner's photo.
+- **Comparison table.** The table goes into a design's table row by row, with the column names over the columns:
+  12/12. Pricing-card designs that scrambled the rows into "plans" are no longer offered.
+- **Forms (contact, login).** The owner's own `<form>` (its action, fields and button) takes the design form's
+  place. Before, a design form that posts nowhere replaced a working one, with fields like "Company size".
+- **Newsletter.** A design with no place for the owner's form is not offered. Before, the email field vanished
+  and "Subscribe" became a dead link.
+- **Product cards in plan designs.**
+  - A featured card's "Popular" badge no longer takes the product name (which pushed every word one slot down).
+  - The design's "Get Started" becomes the owner's "Add to cart".
+  - No "/month" beside a product price.
+- **Cards and buttons.**
+  - A component whose words are its props' defaults (`title = "Design Systems"`) gets the owner's words as those
+    props.
+  - A label that switches on hover (`{on ? "Attracting" : "Hover me"}`) shows the owner's label.
+  - A component that ignores what is put inside it goes through the fit check instead of silently losing the
+    owner's text.
+  - A card or a button must carry all of the owner's words. A fitness-rings widget or a music player that drops
+    the card's title is not offered as a variant of it.
+  - A card that shows the owner's content inside it no longer also shows its own prop words ("Acme", "Case Study",
+    "Get Started") next to it. They are emptied.
+  - A design that puts what it wraps inside a paragraph now takes only words there. Before, the owner's whole card
+    went inside a `<p>`: invalid HTML and 45 hydration errors on the page. Other content fills its props instead,
+    and a button prop's link prop (`primaryCtaUrl`) gets the owner's link.
+  - Tweet embeds, hover cards and a vendor's "Open in v0" button are no longer offered as cards or buttons
+    (catalog 773).
+- **Blog cards, integrations.** When no design can keep the owner's content, the owner reads why ("none of the 11
+  designs has room for your content — the closest keeps 7 of your 16 pieces") and is offered the AI draft. The
+  message used to be a code and a list of ids.
+
+### Honest by default
+- Every word a staged design still shows of its own is dashed:
+  - constant text;
+  - the rows of an illustration's demo data;
+  - words inside a component (`<Button><Link>Get Started`);
+  - a demo player's "0:45".
+- Keep removes the marks. The words go to the demo-copy ledger as before.
+- Two designs (a glass card and a team selector) crashed the loader on a TypeScript function type; they now load.
+
+### Keep passes `next build`
+Designs call the owner's own components with their registry's props. For example, Veil's `<Card
+variant="outline">` against a shadcn Card that has no variants. That rendered in dev, but once kept it failed the
+production type check. Such props are now fitted when a design is staged: a prop the owner's component does not
+take is dropped, and a value it does not have becomes `default`.
+
+Checked for real: a zoo app with a kept logo row, contact form, product cards, card, comparison table and stats
+section passes `next build`.
+
+### Picking, and phones
+- The overlay now recognises a stats band, a team, a comparison table, a notice bar, and shadcn components by their
+  `data-slot` (card, badge, button…). Several of these used to fall back to "content".
+- The page itself (`main`, `body`) is no longer labelled "signup" because a login form sits somewhere on it.
+- On a phone or a narrow window, the variant bar ran off the screen: "AI draft" and "Discard" could not be
+  reached, and the design's name was squeezed to nothing. The bar now wraps, with the name on its own row.
+
 ## [2.2.2] — 2026-09-26 — try-on, Tune and Site, audited live on three real apps
 
 Three apps, each built the way owners build them:

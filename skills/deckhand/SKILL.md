@@ -1,7 +1,7 @@
 ---
 name: deckhand
 description: "Idea → live, owned web business on a $5 VPS (or $0), or a boilerplate product to sell: define, research, plan the page/feature graph, build from a vetted MIT base or scratch with parallel sub-agents, rebrand, live-swap sections for licensed designs (try-on), verify, deploy to Coolify, operate with bots; follow proven workflows (query the best 3, step by step) and improve them from each run's autopsy; resume any project from any fresh session or AI (Claude Code, Hermes, Codex…). Use for building, launching, redesigning, deploying or maintaining a website/SaaS/booking/catalogue/lead-gen business, for component try-on/swap, for ops bots/crons, or to turn a project into a reusable base or workflow."
-version: 2.2.2
+version: 2.2.3
 license: MIT
 compatibility: "Any agent harness that can run shell commands (Claude Code, Codex, Cursor, Hermes, OpenCode, Gemini CLI …). Needs Python 3.9+ (stdlib) and Node 18+ for try-on/compose. Windows: `py` instead of `python3`."
 metadata:
@@ -138,7 +138,7 @@ or folder) · `scratch` (scaffold + compose from licensed blocks). Owner changes
 
 ## 5. Try-on (live component swap) — zero model calls per click
 
-The owner clicks any element of their running site; N licensed variants (774 indexed: Tailark OSS
+The owner clicks any element of their running site; N licensed variants (773 indexed: Tailark OSS
 blocks, shadcn, Magic UI, Kokonut, Smooth, basecn) are written into the source once, **wearing the site's
 colour tokens and carrying the owner's own copy, links, images and list data** (footer/nav menus from the
 plan; demo logos, stock photos and unwired forms hidden); ←/→ compares instantly;

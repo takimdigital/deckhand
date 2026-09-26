@@ -82,7 +82,7 @@ paywall). `registry add` indexes it into `~/.deckhand/catalog/` — it ranks bes
 ## What the engine guarantees
 - Location: every JSX element carries `data-dh="file:line:col"` in dev (AST, vendored parser — works with
   TypeScript 7 projects); the overlay resolves the clicked node and its owners.
-- Candidates: `data/components.index.json` (774 MIT items; the navbars include every Tailark hero's own header),
+- Candidates: `data/components.index.json` (773 MIT items; the navbars include every Tailark hero's own header),
   ranked by slot, primitive base (a Radix project never gets Base UI code), missing deps, personal library first
   (for the same slot only), then design diversity. Outside Next (Vite), `next/link` and `next/image` in a design
   become local stand-ins written beside it.
@@ -92,9 +92,17 @@ paywall). `registry add` indexes it into `~/.deckhand/catalog/` — it ranks bes
   list data are transplanted by role/order; repeated cards pair item by item (twin rows of the same card
   shape count as one list; the row that fits the owner's count wins, unused rows hide whole); two-tone
   headings take the heading in the bright half and a subtitle, or nothing, in the muted half; extra demo
-  buttons/cards hide; brand-logo rows, stock photos and the design's `©` never pass as the owner's.
-- Honesty: a design form (newsletter, "enter your email") is hidden unless the slot is a form page
-  (contact, login, signup) or the owner's element has one; footer/navbar menus come from the plan
+  buttons/cards hide; brand-logo rows, stock photos and the design's `©` never pass as the owner's. Words beside a
+  link are kept (a notice bar's line, a sentence with a link inside); figures (120+, 98%, 24h) pair with figures;
+  the owner's logo row replaces the design's demo brands; the owner's `<form>` replaces the design's form whole
+  (their action and fields); a comparison table fills a design's table row by row, column names over the columns;
+  a component whose words are prop defaults (`title = "…"`) gets the owner's words as those props; a label that
+  switches on hover shows the owner's label; a card template's own "Get Started" becomes the owner's button text.
+- Honesty: every word a staged design still shows of its own is dashed (constant text, an illustration's demo
+  rows, words inside a component); a design form (newsletter, "enter your email") is hidden unless the slot is a
+  form page (contact, login, signup) or the owner's element has one — and a design with no place for the owner's
+  form is not offered; a list field the design also reads as a value (`{t.period && …}`) is emptied, never shown
+  undashed; footer/navbar menus come from the plan
   (`.deckhand/sitemap.json` nav + page titles) and social rows keep only the owner's networks
   (`brief.brand.social`); a site without a plan shows none of the design's demo menus or networks — its own links
   reach the page through the content slots (a footer's titled columns fill the design's columns, links included).
@@ -105,7 +113,9 @@ paywall). `registry add` indexes it into `~/.deckhand/catalog/` — it ranks bes
   to the quote and the author line to the name; "Custom" in a plan's price spot is the price; a design's "/month" is
   dropped when the owner's price already says it; a single-card design takes one whole testimonial, never half of
   the next; company logos inside cards hide one by one, never the cards.
-- Build safety: a design is wired only if everything it imports loads from the project — every named import and
+- Build safety: a design's variant props on the project's own primitives are fitted to what those take (a Veil
+  `<Card variant="outline">` against a shadcn Card without variants would fail `next build` once kept); a design is
+  wired only if everything it imports loads from the project — every named import and
   `NS.Part` / `<NS.Part>` read exists, and a package the import itself needs is installed — else `BROKEN_IMPORT`
   and the next candidate takes its place. Designs that need no install come first (a running dev server may not
   see a new package until it restarts); a project with the `radix-ui` umbrella gets `radix-ui/<part>` imports
@@ -132,7 +142,7 @@ paywall). `registry add` indexes it into `~/.deckhand/catalog/` — it ranks bes
 | no stamps (`doctor: stampsInHtml false`) | dev server not restarted after `setup` |
 | HMR blocked / "Blocked cross-origin request" | open the helper URL (it rewrites Origin to localhost), not 127.0.0.1:3000 |
 | `NO_CANDIDATES` | slot mislabeled, or base mismatch (`hidden` count) — pick the right slot |
-| `POOR_FIT` skips | the design cannot hold ≥50% of the owner's content — honest skip, try More, or the AI draft |
+| `POOR_FIT` skips | the design cannot hold ≥50% of the owner's content (a card or button: all of it), or has no place for their form — honest skip; the message names the closest fit: pick another kind of section in the list, More, or the AI draft |
 | `ELEMENT_NOT_FOUND` + "reload" | the page is older than the file (a session added/removed lines, an edit) → click the button (or reload) and pick again |
 | `BROKEN_IMPORT` / `NEEDS_DEPS` skips | the design imports something this project cannot load / needs an install while install-free designs exist — honest skip, the next design is shown |
 | `BUILD_BROKE` (file restored) or "N variant(s) removed" | those designs broke the page build and were taken out at once; if a package was just installed (`installedKept`), restart the dev server and try again |

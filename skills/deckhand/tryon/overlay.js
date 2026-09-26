@@ -59,6 +59,8 @@
     '.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chips button{border-radius:999px;padding:3px 10px;font-size:12px}.chips button.on{background:#18181b;color:#fff;border-color:#18181b}',
     '.sw{width:22px;height:22px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #d4d4d8;cursor:pointer;padding:0}.sw.on{box-shadow:0 0 0 2px #18181b}',
     '.site{pointer-events:auto;position:fixed;right:122px;bottom:18px;padding:9px 13px;border-radius:999px;background:#fff;color:#18181b;border:1px solid #e4e4e7;cursor:pointer;box-shadow:0 8px 30px rgba(0,0,0,.14);font-weight:600}',
+    // a phone (or a narrow window): the bar wraps — the design's name on its own row, every button reachable
+    '@media (max-width:640px){.bar{left:8px;right:8px;bottom:10px;transform:none;max-width:none;flex-wrap:wrap;justify-content:center;gap:6px;padding:8px}.bar .meta{order:-1;flex:1 1 100%;text-align:center}.bar button{padding:5px 8px;font-size:12.5px}}',
     '.spin{width:14px;height:14px;border:2px solid #d4d4d8;border-top-color:#2563eb;border-radius:50%;animation:s .8s linear infinite;display:inline-block;vertical-align:-2px;margin-right:6px}@keyframes s{to{transform:rotate(360deg)}}',
   ].join('') + '</style>';
   (document.body || document.documentElement).appendChild(host);
@@ -121,10 +123,14 @@
   function guessSlot(n) {
     if (!n || n.nodeType !== 1) return null;
     var t = n.tagName.toLowerCase(), cls = String(n.getAttribute('class') || '').toLowerCase();
+    if (t === 'body' || t === 'html' || t === 'main') return null;        // the page itself, not one of its sections
     var txt = (n.innerText || '').slice(0, 3000);
     if (t === 'button' || n.getAttribute('role') === 'button' || (t === 'a' && /(btn|button|rounded|bg-|px-)/.test(cls) && q(n, '*') < 6)) return 'button';
     if (t === 'input') return 'input';
     if (t === 'textarea') return 'textarea';
+    // shadcn-style components say what they are (<Card> renders data-slot="card")
+    var ds = String(n.getAttribute('data-slot') || '');
+    if (/^(card|badge|button|input|textarea|avatar|table|tabs|accordion|separator|progress|skeleton|breadcrumb|pagination)$/.test(ds)) return ds;
     if (/badge|chip|pill/.test(cls) && txt.length < 40) return 'badge';
     if (t === 'nav' || (t === 'header' && q(n, 'a') >= 2)) return 'navbar';
     if (t === 'footer') return 'footer';
@@ -137,16 +143,38 @@
     if (qs >= 3) return 'faq';
     if (q(n, 'blockquote') >= 1 || /testimonial|review/.test(cls)) return 'testimonials';
     if (q(n, 'h1')) return 'hero';
+    // a table with two or more compared columns (us vs them, plan vs plan)
+    if (q(n, 'table') && q(n, 'th') >= 3 && q(n, 'tr') >= 3) return 'comparison';
+    // figures: 3+ short leaves that read as a number (120+, 98%, 24h, 7/7, 4.9, €2M) — not a 1, 2, 3 step count
+    var figs = 0, leaves = n.querySelectorAll('p,span,div,dt,dd,strong,b,h2,h3,h4');
+    for (var f = 0; f < leaves.length && f < 400; f++) {
+      if (leaves[f].children.length) continue;
+      var ft = (leaves[f].textContent || '').trim();
+      if (/^[$€£¥]?\s?\d[\d.,]*\s?(%|\+|[kmb]\+?|x|h|\/\d+)$/i.test(ft) || /^[$€£¥]?\d{1,3}([.,]\d+)+$/.test(ft) || /^\d{3,}$/.test(ft)) figs++;
+    }
+    // people: 3+ tiles that each hold one portrait and a few short lines (a name, a role)
+    function portrait(tile) {
+      var ims = tile.querySelectorAll('img,[data-slot=avatar],[class*="avatar"]');
+      if (ims.length !== 1) return false;
+      var r = ims[0].getBoundingClientRect();
+      return r.width >= 48 && r.height >= 0.8 * r.width;          // a face, not a 24px brand mark
+    }
+    function peopleIn(box) { var k = box.children, x = 0; for (var j = 0; j < k.length; j++) { var tl = (k[j].innerText || '').trim().length; if (tl > 2 && tl < 90 && portrait(k[j])) x++; } return x; }
     // cards: 3+ siblings that each hold a heading and some words — directly, or in the usual container > grid
     function cardsIn(box) { var k = box.children, x = 0; for (var j = 0; j < k.length; j++) if (q(k[j], 'h2,h3,h4') && (k[j].innerText || '').length > 20) x++; return x; }
     var cards = cardsIn(n), boxes = n.querySelectorAll('div,ul,ol');
     for (var b = 0; b < boxes.length && b < 80 && cards < 3; b++) cards = Math.max(cards, cardsIn(boxes[b]));
+    if (figs >= 3 && figs >= cards && txt.length < 800) return 'stats';
+    var people = peopleIn(n);
+    for (var b2 = 0; b2 < boxes.length && b2 < 80 && people < 3; b2++) people = Math.max(people, peopleIn(boxes[b2]));
+    if (people >= 3) return 'team';
     if (cards >= 3) return 'features';
     var imgs = q(n, 'img,svg');
     if (imgs >= 4 && txt.replace(/\s/g, '').length < 120) return 'logo-cloud';
-    var nums = (txt.match(/\b\d[\d,.]*\s?(%|\+|k|m|x)\b/gi) || []).length;
-    if (nums >= 3 && txt.length < 600) return 'stats';
     if (q(n, 'h2') >= 1 && q(n, 'a,button') >= 1 && txt.length < 500) return 'cta';
+    // an announcement bar: one line and a link across the page
+    if (q(n, 'a,button') >= 1 && q(n, 'a,button') <= 2 && !q(n, 'h1,h2,h3,h4,img,input') && txt.length > 12 && txt.length < 200
+      && n.getBoundingClientRect().width >= 0.8 * (window.innerWidth || 1)) return 'cta';
     if ((t === 'section' || t === 'article') && q(n, 'h2,h3')) return 'content';
     if (q(n, 'h3,h4') === 1 && txt.length < 500 && /(border|rounded|shadow|card)/.test(cls)) return 'card';
     return null;
@@ -610,7 +638,14 @@
   // after Keep/Discard the file moved under the page: the next pick starts from a fresh page (fresh positions)
   var stale = false;
   function keptText(r) { return r && r.installedKept && r.installedKept.length ? '\n\nInstalled for this try and kept in package.json: ' + r.installedKept.join(', ') : ''; }
-  function skippedText(sk) { return sk && sk.length ? '\n\nskipped: ' + sk.map(function (s) { return s.id + ' (' + s.why + ')'; }).join(', ') : ''; }
+  var WHY = { POOR_FIT: 'no room for your content', FETCH_FAILED: 'download failed', NEEDS_DEPS: 'needs npm packages', UNRESOLVED_IMPORT: 'broken upstream',
+    BROKEN_IMPORT: 'would break this page', NO_EXPORT: 'broken upstream', PARAMETERIZE_FAILED: 'could not be adapted', FETCH: 'download failed' };
+  function skippedText(sk) {
+    if (!sk || !sk.length) return '';
+    var by = {}, order = [];
+    sk.forEach(function (s) { var w = WHY[s.why] || s.why; if (!by[w]) { by[w] = []; order.push(w); } by[w].push(String(s.id).replace(/@[\w-]+$/, '')); });
+    return '\n\nskipped: ' + order.map(function (w) { return by[w].length + ' ' + w + ' (' + by[w].slice(0, 3).join(', ') + (by[w].length > 3 ? ', …' : '') + ')'; }).join(' · ');
+  }
   function flash(n) { if (!n) return; var o = el('div', 'outline'); root.appendChild(o); place(o, n.getBoundingClientRect()); setTimeout(function () { o.remove(); }, 700); }
 
   /* ------------------------------------------------------------ session / variant bar */

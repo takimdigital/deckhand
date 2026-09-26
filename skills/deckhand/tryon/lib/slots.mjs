@@ -23,13 +23,14 @@ export const TAILARK_CATEGORY = {
 
 const NAME_RULES = [
   // not slots: groups of controls, demos, hooks (a null rule stops the scan)
-  [/(button|toggle|radio|input)-group|input-otp|native-select|-demo$|^use-/, null],
+  // (and a vendor's own branded button — "Open in v0" — is not a button for anyone else's site)
+  [/(button|toggle|radio|input)-group|input-otp|native-select|-demo$|^use-|^v0-/, null],
   [/^(login|sign-?in)/, 'login'], [/^(signup|sign-?up|register)/, 'signup'], [/^sidebar/, 'sidebar'],
   [/^dashboard/, 'dashboard'], [/^calendar/, 'calendar'], [/(^|-)hero/, 'hero'], [/pricing/, 'pricing'],
   [/(^|-)(faq|faqs)(-|$)/, 'faq'], [/footer/, 'footer'], [/(navbar|header|navigation-bar|nav-bar)/, 'navbar'],
   [/testimonial/, 'testimonials'], [/(^|-)cta(-|$)|call-to-action/, 'cta'], [/(^|-)features?(-|$)|bento/, 'features'],
   [/(^|-)stats?(-|$)/, 'stats'], [/(^|-)team(-|$)/, 'team'], [/contact/, 'contact'], [/logo-?cloud|logos/, 'logo-cloud'],
-  [/button/, 'button'], [/badge/, 'badge'], [/(^|-)card(-|$)/, 'card'], [/textarea/, 'textarea'],
+  [/hover-?card/, 'popover'], [/tweet/, 'embed'], [/button/, 'button'], [/badge/, 'badge'], [/(^|-)card(-|$)/, 'card'], [/textarea/, 'textarea'],
   [/(^|-)input(-|$)/, 'input'], [/(^|-)select(-|$)/, 'select'], [/checkbox/, 'checkbox'], [/switch|toggle/, 'switch'],
   [/radio/, 'radio-group'], [/slider/, 'slider'], [/(^|-)tabs?(-|$)/, 'tabs'], [/accordion/, 'accordion'],
   [/dialog|modal/, 'dialog'], [/(^|-)sheet(-|$)|drawer/, 'sheet'], [/popover/, 'popover'], [/tooltip/, 'tooltip'],

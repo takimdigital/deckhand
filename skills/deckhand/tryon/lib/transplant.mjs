@@ -37,12 +37,16 @@ export function roleOf(name) {
 }
 const COMPOUND = /[a-z](Title|Trigger|Heading|Question|Label|Description|Content|Answer|Body|Text|Subtitle)$/;
 const isBlockEl = (name) => BLOCK_TAGS.has(name) || roleOf(name) === 'action' || COMPOUND.test(name);
-const CONTENT_ROLES = ['heading', 'text', 'price', 'action', 'item', 'label', 'quote', 'copyright'];
-const ITEM_CLASSES = [['heading', 'text', 'quote', 'label'], ['price'], ['action'], ['item']];
+const CONTENT_ROLES = ['heading', 'text', 'price', 'figure', 'action', 'item', 'label', 'quote', 'copyright'];
+const ITEM_CLASSES = [['heading', 'text', 'quote', 'label', 'figure'], ['price'], ['action'], ['item']];
 const PRICE = /^(?:from\s+)?[$€£¥₹]?\s?\d[\d.,\s]*(?:k)?\s?(?:[$€£¥₹]|eur|usd|mad|dh)?\s*(?:\/\s*\w+|per \w+)?$/i;
 const COPYRIGHT = /^(©|\(c\)|copyright\b)/i;
+/** A figure — 120+, 98%, 24h, 7/7, 10M+, 4.9x, +500, 22 Million — the number of a stat, never a price or a word. */
+const FIGURE = /^[+~]?\s?\d[\d.,]*\s?(?:%|\+|[kmb]\+?|x|h|\/\s?\d+|\s(?:million|billion|thousand)\+?)$|^\+\s?\d[\d.,]*$/i;
+const isFigure = (t) => FIGURE.test(String(t).trim()) && String(t).trim().length <= 16;
 const withPrice = (u) => {
   if (u.role !== 'action' && COPYRIGHT.test(u.text)) return { ...u, role: 'copyright' };
+  if (u.role !== 'action' && isFigure(u.text)) return { ...u, role: 'figure' };
   return u.role !== 'action' && u.role !== 'heading' && PRICE.test(u.text) ? { ...u, role: 'price' } : u;
 };
 
@@ -314,16 +318,51 @@ function collect(code, root, ast, mode) {
     const bodyEnd = last.type === 'JSXText' ? last.end - (last.value.length - last.value.trimEnd().length) : last.end;
     const bsrc = code.slice(bodyStart, bodyEnd);
     const lvl = /^h([1-6])$/.exec(jsxName(el.openingElement.name));
-    return [{ ...lu, role: 'heading', sub: 'lead', el: lead, level: lvl ? Number(lvl[1]) : lu.level },
+    // `<p><span>99.9%</span> Uptime guarantee.</p>` leads with a figure, not a title
+    return [{ ...lu, role: isFigure(lu.text) ? 'figure' : 'heading', sub: 'lead', el: lead, level: lvl ? Number(lvl[1]) : lu.level },
       { role: 'text', level: null, el, tag: jsxName(el.openingElement.name), host: el, childrenStart: bodyStart, childrenEnd: bodyEnd,
         src: bsrc, text: bsrc.replace(/<[^>]+>/g, ' ').replace(/\{\s*['"] ?['"]\s*\}/g, ' ').replace(/\s+/g, ' ').trim(), dynamic: false, hrefAttr: null,
         // a two-tone heading's muted half: the owner's subtitle if one is left over, else nothing
         ...(lvl || roleOf(jsxName(el.openingElement.name)) === 'heading' ? { optional: true } : {}) }];
   };
 
+  // Words written straight into an element that also holds a link or button. One run of them (before or after the
+  // link) is a line of text and the link stays an action; words on both sides of a link are one sentence, carried
+  // whole with the link inside it.
+  const mixedText = (el, name, kids) => {
+    if (!/^[a-z]/.test(name) || /^(svg|path|g|code|pre|kbd|option|select|ul|ol|nav|form)$/.test(name) || !hasStaticText(kids)) return null;
+    const inline = (c) => c.type === 'JSXText' || (c.type === 'JSXExpressionContainer' && (c.expression.type === 'JSXEmptyExpression' || isStaticExpr(c.expression) || isDynamicChild(c)))
+      || (c.type === 'JSXElement' && !isBlockEl(jsxName(c.openingElement.name)) && !containsBlock(c));
+    const runs = [];
+    let cur = null;
+    kids.forEach((c, i) => { if (inline(c)) { if (!cur) runs.push(cur = []); cur.push(i); } else cur = null; });
+    const letters = (idx) => idx.reduce((n, i) => { const c = kids[i]; const t = c.type === 'JSXText' ? c.value : c.type === 'JSXExpressionContainer' && isStaticExpr(c.expression) ? String(c.expression.value ?? c.expression.quasis?.[0]?.value?.cooked ?? '') : c.type === 'JSXElement' ? textOf(code, c) : ''; return n + (t.match(/[\p{L}\p{N}]/gu) || []).length; }, 0);
+    const worded = runs.filter((r) => letters(r) >= 4);
+    if (!worded.length) return null;
+    const linkLike = (c) => c.type === 'JSXText' || c.type === 'JSXExpressionContainer' || (c.type === 'JSXElement' && /^(a|Link|NavLink|Anchor)$/.test(jsxName(c.openingElement.name).split('.').pop()) && actionKind(c) === 'link');
+    const spans = worded.length > 1 && kids.slice(worded[0][0], worded[worded.length - 1].slice(-1)[0] + 1).every(linkLike)
+      ? [[worded[0][0], worded[worded.length - 1].slice(-1)[0]]] : worded.map((r) => [r[0], r[r.length - 1]]);
+    const used = new Set(), out = [];
+    for (const [a, b] of spans) {
+      const first = kids[a], last = kids[b];
+      const s = first.type === 'JSXText' ? first.start + (first.value.length - first.value.trimStart().length) : first.start;
+      const e = last.type === 'JSXText' ? last.end - (last.value.length - last.value.trimEnd().length) : last.end;
+      if (e <= s) continue;
+      const src = code.slice(s, e);
+      const part = kids.slice(a, b + 1);
+      part.forEach((c) => used.add(c));
+      const level = /^h([1-6])$/.exec(name);
+      out.push({ role: roleOf(name) === 'action' ? 'text' : roleOf(name), level: level ? Number(level[1]) : null, el, tag: name, host: el,
+        childrenStart: s, childrenEnd: e, src, text: textOf(code, { type: 'JSXFragment', children: part }),
+        dynamic: part.some((c) => isDynamicChild(c) || (c.type === 'JSXElement' && childExpressions(c))), hrefAttr: null });
+    }
+    return out.length ? { units: out.map(withPrice), used } : null;
+  };
+
   const visit = (el, ctx) => {
     if (el.type !== 'JSXElement') return;
     const name = jsxName(el.openingElement.name);
+    if (/^(style|script|noscript|template)$/.test(name)) return;
     if (roleOf(name) === 'action' && !ctx.actionOuter) ctx = { ...ctx, actionOuter: el };
     if (/^(img|Image)$/.test(name)) {
       const src = attr(el, 'src'), alt = attr(el, 'alt');
@@ -336,7 +375,7 @@ function collect(code, root, ast, mode) {
             return f != null && typeof ctx.env.item[f] === 'string' ? JSON.stringify(ctx.env.item[f]) : null;
           };
           ctx.item.images.push({ src: val(src), alt: val(alt) });
-        } else if (!ctx.inMap) images.push({ el, src, alt });
+        } else if (!ctx.inMap) images.push({ el, src, alt, parent: ctx.parent || null, grand: ctx.grand || null });
       }
     }
     if (/^(input|textarea|Input|Textarea)$/.test(name) && !ctx.inMap && !ctx.env) {
@@ -347,18 +386,29 @@ function collect(code, root, ast, mode) {
     const nestedBlock = kids.some((c) => c.type === 'JSXElement' && containsBlock(c));
     const blockish = isBlockEl(name) && !nestedBlock && inlineContent(el, mode === 'original' || !!ctx.env);
     // a div/span that holds text directly (a price, a tagline) is content too — decorative bits are not
-    const loose = !blockish && !nestedBlock && /^[a-z]/.test(name) && !/^(svg|path|g|circle|rect|code|pre|kbd|option)$/.test(name)
+    const loose = !blockish && !nestedBlock && /^[a-z]/.test(name) && !/^(svg|path|g|circle|rect|code|pre|kbd|option|style|script|noscript|template)$/.test(name)
       && directContent(kids, mode === 'original' || !!ctx.env);
     // `<h2><span class="text-foreground">Lead.</span><br/> muted rest</h2>` (two-tone heading) splits too
     if (blockish && !ctx.env && !ctx.inMap && (/^(text|item)$/.test(roleOf(name)) || (mode === 'candidate' && roleOf(name) === 'heading'))) {
       const pair = leadBody(el);
       if (pair) { for (const u of pair) units.push(u); return; }
     }
+    // `New: weekend deep-cleans. <Link>Book a slot</Link>`: the words beside a link or button are the owner's too
+    const skip = mode === 'original' && !ctx.inMap && !ctx.env && !blockish && nestedBlock ? mixedText(el, name, kids) : null;
+    if (skip) {
+      for (const u of skip.units) units.push(u);
+      for (const c of kids) {
+        if (skip.used.has(c)) continue;
+        if (c.type === 'JSXElement') visit(c, ctx);
+        else if (c.type === 'JSXExpressionContainer') visitExpr(c.expression, ctx);
+      }
+      return;
+    }
     if (blockish || loose) {
       if (!ctx.inMap || ctx.env) {
         let u = unitFor(el, ctx.env);
         if (u) u = withPrice(u);
-        if (u && loose && u.role !== 'price' && u.text.replace(/[^\p{L}\p{N}]/gu, '').length < 4) u = null;
+        if (u && loose && u.role !== 'price' && u.role !== 'figure' && u.text.replace(/[^\p{L}\p{N}]/gu, '').length < 4) u = null;
         if (u) {
           if (u.role === 'action') { u.outer = ctx.actionOuter || el; u.sub = actionKind(u.outer); }
           if (ctx.env) { u.list = ctx.list; u.itemIdx = ctx.itemIdx; u.tpl = el; ctx.item.units.push(u); }
@@ -367,10 +417,11 @@ function collect(code, root, ast, mode) {
         }
       }
     }
+    const down = { ...ctx, parent: el, grand: ctx.parent || null };
     for (const c of kids) {
-      if (c.type === 'JSXElement') visit(c, ctx);
-      else if (c.type === 'JSXFragment') { for (const cc of c.children) if (cc.type === 'JSXElement') visit(cc, ctx); }
-      else if (c.type === 'JSXExpressionContainer') visitExpr(c.expression, ctx);
+      if (c.type === 'JSXElement') visit(c, down);
+      else if (c.type === 'JSXFragment') { for (const cc of c.children) if (cc.type === 'JSXElement') visit(cc, down); }
+      else if (c.type === 'JSXExpressionContainer') visitExpr(c.expression, down);
     }
   };
 
@@ -407,9 +458,35 @@ function collect(code, root, ast, mode) {
       if (mode === 'candidate' && arr && mc.object.type === 'Identifier' && !ctx.inMap && bind) {
         const demo = litValue(arr);
         if (Array.isArray(demo) && demo.length && demo.every((x) => x && typeof x === 'object')) {
-          const fields = listFields(code, roots, bind).map((f) => (['text', 'item'].includes(f.role) && typeof demo[0][f.field] === 'string' && PRICE.test(demo[0][f.field].trim()) ? { ...f, role: 'price' } : f));
+          const fields = listFields(code, roots, bind).map((f) => {
+            const v = typeof demo[0][f.field] === 'string' ? demo[0][f.field].trim() : null;
+            if (v != null && ['text', 'item', 'heading'].includes(f.role) && isFigure(v)) return { ...f, role: 'figure' };
+            return ['text', 'item'].includes(f.role) && v != null && PRICE.test(v) ? { ...f, role: 'price' } : f;
+          });
+          // a card template's own button label ("Get Started" in every plan): an action field of its own, so the
+          // owner's "Add to cart" goes there instead of being dropped (the design's words stay only as a dashed fallback)
+          const consts = [];
+          if (bind.kind === 'id' && !fields.some((f) => f.role === 'action')) {
+            for (const r of roots) walk(r, (n) => {
+              if (consts.length || n.type !== 'JSXElement') return !consts.length;
+              if (roleOf(jsxName(n.openingElement.name)) !== 'action') return true;
+              const host = textHost(n, true), hk = host.children || [];
+              const [a, b] = textRange(hk);
+              if (a > b) return false;
+              const part = hk.slice(a, b + 1);
+              // "Get Started", or `{tier.price === 'Custom' ? 'Contact Us' : 'Get Started'}` (words in both branches)
+              const choice = part.length === 1 && part[0].type === 'JSXExpressionContainer' && part[0].expression.type === 'ConditionalExpression'
+                && [part[0].expression.consequent, part[0].expression.alternate].every(isStaticExpr);
+              if (!choice && !part.every((c) => c.type === 'JSXText')) return false;
+              const s0 = choice ? part[0].start : hk[a].start + (hk[a].value.length - hk[a].value.trimStart().length);
+              const e0 = choice ? part[0].end : hk[b].end - (hk[b].value.length - hk[b].value.trimEnd().length);
+              consts.push({ start: s0, end: e0, text: code.slice(s0, e0), param: bind.name });
+              return false;
+            });
+            if (consts.length) fields.push({ field: 'dhAction', role: 'action', constant: true });
+          }
           lists.push({ name: mc.object.name, object: mc.object, fields, demoCount: demo.length,
-            demoItems: demo, textOnly: textOnlyFields(roots, bind) });
+            demoItems: demo, textOnly: textOnlyFields(roots, bind), consts });
         }
       }
       if (mode === 'original' && !ctx.env) dynamicLists++;
@@ -482,7 +559,8 @@ function listFields(code, roots, bind) {
           const kids = (n.children || []).filter((c) => !(c.type === 'JSXText' && !c.value.trim()));
           if (kids.length === 1 && kids[0].type === 'JSXExpressionContainer') {
             const f = fieldOf(kids[0].expression, bind);
-            if (f != null && !fields.some((x) => x.field === f)) push({ field: f, role: 'text', loose: true });
+            // (a field already used as an image's alt is still shown here: `<span>{member.name}</span>`)
+            if (f != null && !fields.some((x) => x.field === f && !['imageAlt', 'image', 'href'].includes(x.role))) push({ field: f, role: 'text', loose: true });
           }
         }
       }
@@ -571,7 +649,7 @@ function innerBindings(el) {
     else if (pat.type === 'RestElement') bind(pat.argument);
   };
   walk(el, (n) => {
-    if (/Function/.test(n.type)) n.params.forEach(bind);
+    if (/Function/.test(n.type) && Array.isArray(n.params)) n.params.forEach(bind);
     if (n.type === 'VariableDeclarator') bind(n.id);
     if (n.type === 'CatchClause') bind(n.param);
     return true;
@@ -616,9 +694,50 @@ function unitValue(u, inner) {
   return { __src: '`' + parts.join('').trim() + '`' };
 }
 
+/**
+ * A card's words into a card's slots. A role both sides have pairs exactly (the title to the title — never the date
+ * line); when the owner wrote more body text than the card holds, its longest text wins (the excerpt, not the
+ * "12 Sep · Guides" line); the rest pairs in document order (a tier name may be an h3 on one side, a span on the other).
+ */
+function pairCard(o, sl) {
+  const pairs = [], oLeft = [...o], sLeft = [...sl];
+  let exact = false;
+  for (const r of ['figure', 'heading', 'quote', 'label']) {
+    const oo = oLeft.filter((u) => u.role === r), ss = sLeft.filter((x) => x.role === r);
+    for (let k = 0; k < Math.min(oo.length, ss.length); k++) {
+      pairs.push([oo[k], ss[k]]); oLeft.splice(oLeft.indexOf(oo[k]), 1); sLeft.splice(sLeft.indexOf(ss[k]), 1); exact = true;
+    }
+  }
+  const left = [];
+  const ot = oLeft.filter((u) => u.role === 'text'), st = sLeft.filter((x) => x.role === 'text');
+  if (exact && st.length && ot.length > sLeft.length) {
+    const keep = new Set([...ot].sort((a, b) => b.text.length - a.text.length).slice(0, sLeft.length));
+    for (const u of ot) if (!keep.has(u)) { left.push(u); oLeft.splice(oLeft.indexOf(u), 1); }
+  }
+  const n = Math.min(oLeft.length, sLeft.length);
+  for (let k = 0; k < n; k++) pairs.push([oLeft[k], sLeft[k]]);
+  return { pairs, left: left.concat(oLeft.slice(n)), empty: sLeft.slice(n) };
+}
+
 /** A value for a generated list item: string data, or JS source kept verbatim (an owner's link expression). */
 const itemValue = (v) => (v && typeof v === 'object' && typeof v.__src === 'string' ? v.__src : JSON.stringify(v));
 const listSrc = (items) => '[' + items.map((o) => '{ ' + Object.entries(o).map(([k, v]) => `${JSON.stringify(k)}: ${itemValue(v)}`).join(', ') + ' }').join(', ') + ']';
+
+/**
+ * The owner's logo row: 2+ images side by side (one parent, or one grandparent when each has its own box) — or a
+ * data list whose items are an image and at most a name. [] when there is none.
+ */
+export function ownerLogos(orig) {
+  const rows = new Map();
+  for (const im of orig.images || []) if (im.src && im.row != null) { if (!rows.has(im.row)) rows.set(im.row, []); rows.get(im.row).push(im); }
+  const best = [...rows.values()].sort((a, b) => b.length - a.length)[0] || [];
+  if (best.length >= 2) return best;
+  for (const l of orig.lists || []) {
+    const its = l.items.filter((it) => it.images.length === 1 && it.images[0].src && it.units.length <= 1);
+    if (its.length >= 2 && its.length === l.items.length) return its.map((it) => it.images[0]);
+  }
+  return [];
+}
 
 /** Content of the clicked element. `ast` = the whole file (to evaluate literal data arrays). */
 export function extractUnits(code, el, ast = null) {
@@ -630,9 +749,12 @@ export function extractUnits(code, el, ast = null) {
     const priced = new Set();
     for (const it of l.items) for (const u of it.units) if (u.role === 'price' && u.tpl) priced.add(u.tpl);
     for (const it of l.items) for (const u of it.units) if (u.role === 'text' && u.tpl && priced.has(u.tpl)) u.role = 'price';
+    const figured = new Set();
+    for (const it of l.items) for (const u of it.units) if (u.role === 'figure' && u.tpl) figured.add(u.tpl);
+    for (const it of l.items) for (const u of it.units) if (u.role === 'text' && u.tpl && figured.has(u.tpl)) u.role = 'figure';
   }
   const pub = (u) => ({
-    role: u.role, sub: u.sub || null, level: u.level, text: u.text, src: u.src.trim(), dynamic: !!u.dynamic,
+    role: u.role, sub: u.sub || null, level: u.level, text: u.text, src: u.src.trim(), dynamic: !!u.dynamic, tag: u.tag || null,
     href: u.href !== undefined ? u.href : attrValueSrc(code, u.hrefAttr, inner), list: u.list ? c.lists.indexOf(u.list) : null, item: u.itemIdx ?? null,
   });
   const lists = c.lists.map((l) => ({ items: l.items.map((it) => ({ units: it.units.map(pub), images: it.images, bullets: it.bullets })) }));
@@ -656,11 +778,32 @@ export function extractUnits(code, el, ast = null) {
   };
   units = units.map(safe);
   for (const l of lists) for (const it of l.items) it.units = it.units.map(safe);
+  // the owner's own <form> (its action, handlers, field names): it moves whole into a design's form spot
+  const forms = [];
+  walk(el, (n) => {
+    if (n.type !== 'JSXElement') return true;
+    if (jsxName(n.openingElement.name) !== 'form') return true;
+    const own = innerBindings(n);
+    const outside = new Set([...inner].filter((x) => !own.has(x)));
+    forms.push({ src: usesAny(n, outside) ? null : code.slice(n.start, n.end), start: n.start, end: n.end });
+    return false;
+  });
+  if (forms.length) {
+    const fi = (u) => forms.findIndex((f) => u.el.start >= f.start && u.el.end <= f.end);
+    units = units.map((u, i) => { const k = fi(c.units[i]); return k >= 0 ? { ...u, form: k } : u; });
+  }
   return {
+    forms: forms.map((f) => ({ src: f.src })),
     units,
     inner,
-    images: c.images.map((i) => ({ src: attrValueSrc(code, i.src, inner), alt: attrValueSrc(code, i.alt, inner) })),
-    inputs: c.inputs.map((i) => ({ placeholder: attrValueSrc(code, i.ph) })),
+    images: c.images.map((i) => {
+      // images side by side (a logo row): the same parent, or the same grandparent when each sits in its own box
+      const perParent = c.images.filter((j) => j.parent === i.parent).length;
+      const row = perParent >= 2 ? i.parent : i.grand;
+      const jsx = code.slice(i.el.start, i.el.end);
+      return { src: attrValueSrc(code, i.src, inner), alt: attrValueSrc(code, i.alt, inner), row: row ? row.start : null, jsx: usesAny(i.el, inner) ? null : jsx };
+    }),
+    inputs: c.inputs.map((i) => ({ placeholder: attrValueSrc(code, i.ph), form: forms.findIndex((f) => i.el.start >= f.start && i.el.end <= f.end) })),
     lists,
     dynamicLists: c.dynamicLists,
   };
@@ -711,6 +854,60 @@ function returnedJsx(fn) {
 
 const CHROME = /(^|\.)(\w*Header|\w*Navbar|\w*NavBar|\w*Nav)$/;
 
+/** The text-rendered prop defaults of a design's exported component (see defaultPropSlots), for callers outside. */
+export function defaultPropsOf(file, code, exp) {
+  let ast;
+  try { ast = parse(file, code); } catch { return []; }
+  const fn = exp ? findComponentFn(ast, exp) : null;
+  return fn ? defaultPropSlots(fn) : [];
+}
+
+/**
+ * A component whose words are its props' defaults — `function CardFlip({ title = "Design Systems", features = [...] })`
+ * rendering `<h3>{title}</h3>`: each such prop is a slot, filled by passing the prop itself (key `@title`).
+ */
+function defaultPropSlots(fn) {
+  const p0 = fn.params[0];
+  const pat = p0 && (p0.type === 'ObjectPattern' ? p0 : p0.type === 'AssignmentPattern' && p0.left.type === 'ObjectPattern' ? p0.left : null);
+  if (!pat) return [];
+  const out = [];
+  const up = new Map();
+  walk(fn.body, (n, parent) => { if (n.type === 'JSXElement') up.set(n, parent); return true; });
+  const propNames = new Set(pat.properties.filter((pr) => pr.type === 'ObjectProperty').map((pr) => (pr.value.type === 'AssignmentPattern' ? pr.value.left.name : pr.value.name)));
+  // the link a button prop sits in (`<a href={primaryCtaUrl}>{primaryCtaText}</a>`): the owner's href goes there
+  const hrefPropOf = (el) => {
+    for (let e = el, i = 0; e && e.type === 'JSXElement' && i < 3; e = up.get(e), i++) {
+      const h = attr(e, 'href') || attr(e, 'to');
+      if (h && h.value && h.value.type === 'JSXExpressionContainer' && h.value.expression.type === 'Identifier' && propNames.has(h.value.expression.name)) return h.value.expression.name;
+    }
+    return null;
+  };
+  for (const pr of pat.properties) {
+    if (pr.type !== 'ObjectProperty' || pr.value.type !== 'AssignmentPattern' || pr.value.left.type !== 'Identifier') continue;
+    const name = pr.value.left.name, d = pr.value.right;
+    const str = d.type === 'StringLiteral' ? d.value : d.type === 'TemplateLiteral' && !d.expressions.length ? d.quasis[0].value.cooked : null;
+    const strs = d.type === 'ArrayExpression' && d.elements.length && d.elements.every((e) => e && e.type === 'StringLiteral') ? d.elements.map((e) => e.value) : null;
+    if (str == null && !strs) continue;
+    let host = null, mapped = false;
+    walk(fn.body, (n, parent) => {
+      if (host || mapped) return false;
+      // `{title}`, or a fallback after what is passed in (`{children || subtitle}`)
+      const e = n.type === 'JSXExpressionContainer' ? n.expression : null;
+      const shown = e && ((e.type === 'Identifier' && e.name === name) || (e.type === 'LogicalExpression' && /^(\|\||\?\?)$/.test(e.operator) && e.right.type === 'Identifier' && e.right.name === name));
+      if (str != null && shown && parent && parent.type === 'JSXElement') { host = parent; return false; }
+      if (strs && mapCall(n) && mapCall(n).object.type === 'Identifier' && mapCall(n).object.name === name) { mapped = true; return false; }
+      return true;
+    });
+    if (str != null && host && /[\p{L}]/u.test(str)) {
+      const tag = jsxName(host.openingElement.name), lv = /^h([1-6])$/.exec(tag);
+      const role = roleOf(tag) === 'action' ? 'action' : roleOf(tag);
+      const hrefProp = role === 'action' ? hrefPropOf(host) : null;
+      out.push({ key: '@' + name, role: isFigure(str) ? 'figure' : role, sub: role === 'action' ? 'cta' : null, level: lv ? Number(lv[1]) : null, demo: str, propName: name, at: host.start, ...(hrefProp ? { hrefProp } : {}) });
+    } else if (strs && mapped) out.push({ key: '@' + name, role: 'bullets', demo: `${strs.length} demo bullets`, propName: name });
+  }
+  return out;
+}
+
 /**
  * Parameterize the candidate entry file -> { code, slots[], lists[], prop, removed[] }.
  * opts.stripChrome: drop header/navbar components a block embeds (the site has its own) and
@@ -746,12 +943,15 @@ export function parameterize(file, code, exp, opts = {}) {
   } else {
     return { code, slots: [], lists: [], reason: 'UNSUPPORTED_SIGNATURE' };
   }
+  const propSlots = defaultPropSlots(fn);
 
   const removed = [];
   const lists = [];
   const groups = [];
   const logoRows = [];
+  const logoSwaps = [];
   const forms = [];
+  const formSwaps = [];
   const conds = new Map();
   const cut = [];
   for (const root of roots) {
@@ -771,6 +971,21 @@ export function parameterize(file, code, exp, opts = {}) {
     const inCut = (node) => cut.some((x) => x.start <= node.start && node.end <= x.end);
     const parents = new Map();
     walk(root, (n, parent) => { if (n.type === 'JSXElement') parents.set(n, parent); return true; });
+    // a label that switches with a state (`{hovered ? "Attracting" : "Hover me"}`): one slot, the owner's words in
+    // both states (list templates and attribute values excepted)
+    const choices = [];
+    walk(root, (n, parent) => {
+      if (n.type === 'JSXAttribute' || mapCall(n)) return false;
+      if (n.type === 'JSXExpressionContainer' && parent && parent.type === 'JSXElement' && n.expression.type === 'ConditionalExpression'
+        && [n.expression.consequent, n.expression.alternate].every((e) => isStaticExpr(e) && /\p{L}/u.test(e.value ?? e.quasis[0].value.cooked))) {
+        let act = false;
+        for (let p = parent; p && p.type === 'JSXElement'; p = parents.get(p)) if (roleOf(jsxName(p.openingElement.name)) === 'action') { act = true; break; }
+        const alt = n.expression.alternate;
+        choices.push({ node: n, role: act ? 'action' : 'text', demo: alt.value ?? alt.quasis[0].value.cooked });
+        return false;
+      }
+      return true;
+    });
     const inChildren = (n) => { const p = parents.get(n); return p && (p.type === 'JSXElement' || p.type === 'JSXFragment') && (p.children || []).includes(n); };
     // one wrapper per element, conditions AND-ed: `{a !== false && b === true && (<el/>)}`
     const addCond = (node, cond) => { if (!conds.has(node)) conds.set(node, []); conds.get(node).push(cond); };
@@ -794,13 +1009,16 @@ export function parameterize(file, code, exp, opts = {}) {
         });
         return t;
       };
+      const swaps = [];
       if (logos.length) {
         // the lowest common ancestor of every logo = the row; plus its label when the row's parent
         // holds only label + row
         const chains = logos.map(chain);
         let lca = null;
         for (let i = 0; i < chains[0].length; i++) { if (chains.every((ch) => ch[i] === chains[0][i])) lca = chains[0][i]; else break; }
-        if (lca && lca !== root && textLen(lca) > 60) {
+        // the owner has a logo row of their own: it takes the place of the design's demo brands, same row, same spacing
+        if (opts.logoSwap && logos.length >= 2 && lca && inChildren(lca) && textLen(lca) <= 60 && (lca.children || []).some((x) => x.type === 'JSXElement')) swaps.push(lca);
+        else if (lca && lca !== root && textLen(lca) > 60) {
           // logos inside real content (a company mark on each testimonial card): each logo goes, the content stays
           for (const lg of logos) {
             let box = lg;
@@ -810,7 +1028,9 @@ export function parameterize(file, code, exp, opts = {}) {
         } else if (lca && lca !== root) {
           const up = parents.get(lca);
           const sib = up && up.type === 'JSXElement' ? (up.children || []).filter((x) => x.type === 'JSXElement') : [];
-          rows.add(sib.length <= 2 && up !== root && inChildren(up) ? up : lca);
+          // the row's label goes with it ("Trusted by" + logos); a card whose illustration holds logos keeps its words
+          const labelOnly = sib.every((x) => x === lca || textLen(x) <= 40);
+          rows.add(sib.length <= 2 && labelOnly && up !== root && inChildren(up) ? up : lca);
         } else {
           for (const lg of logos) { const p = chain(lg).pop(); if (p && p !== root) rows.add(p); }
         }
@@ -822,9 +1042,39 @@ export function parameterize(file, code, exp, opts = {}) {
         logoRows.push(k);
         cut.push({ start: r.start + 0.5, end: r.end - 0.5, hidden: true });
       }
+      for (const r of swaps) {
+        if (inCut(r)) continue;
+        const k = 'logoRow' + (logoSwaps.length + 1);
+        const kids = (r.children || []).filter((x) => !(x.type === 'JSXText' && !x.value.trim()));
+        const a = kids[0].start, b = kids[kids.length - 1].end;
+        edits.push({ start: a, end: b, text: `{${acc(k)} ?? (<>${code.slice(a, b)}</>)}`, keep: true });
+        // the owner may have more logos than the design's row: a flex row wraps instead of running off a phone
+        const ca = attr(r, 'className');
+        if (ca && ca.value && ca.value.type === 'StringLiteral' && /(^|\s)flex(\s|$)/.test(ca.value.value) && !/flex-(wrap|nowrap|col)|overflow-/.test(ca.value.value)) {
+          edits.push({ start: ca.value.start, end: ca.value.end, text: JSON.stringify(ca.value.value + ' flex-wrap'), keep: true });
+        }
+        // the design's demo brands never show under the owner's name: theirs, or the row is empty
+        logoSwaps.push(k);
+        cut.push({ start: r.start + 0.5, end: r.end - 0.5, hidden: true });
+      }
     }
     // 1b. a design's own form (newsletter, "enter your email") posts nowhere: hidden unless the owner's
     //     section has one or the slot IS a form page (contact, login) — no dead-end UI by default
+    // …and when the owner's section has a form of its own, theirs takes the design form's place (their fields,
+    //     their action) — never a "Company size" select nobody reads
+    if (opts.forms === 'swap') {
+      walk(root, (n) => {
+        if (n.type !== 'JSXElement') return true;
+        if (jsxName(n.openingElement.name) !== 'form') return true;
+        if (n !== root && inChildren(n) && !inCut(n)) {
+          const k = 'form' + (formSwaps.length + forms.length + 1);
+          if (!formSwaps.length) { edits.push({ start: n.start, end: n.end, text: `{${acc(k)} ?? (${code.slice(n.start, n.end)})}`, keep: true }); formSwaps.push(k); }
+          else { addCond(n, `${acc(k + 'Show')} === true`); forms.push(k); }
+          cut.push({ start: n.start + 0.5, end: n.end - 0.5, hidden: true });
+        }
+        return false;
+      });
+    }
     if (opts.forms === 'hide') {
       walk(root, (n) => {
         if (n.type !== 'JSXElement') return true;
@@ -865,16 +1115,30 @@ export function parameterize(file, code, exp, opts = {}) {
       groups.push({ key: gk, count: N, cols, ...(boxShow ? { box: true } : {}) });
       gnodes.push([gk, g]);
     }
+    // a featured card's extra line (its "Popular" badge): a unit none of its sibling cards has. It takes the owner's
+    // words only when they have one more, else it goes whole — never the product name in the badge, every word shifted
+    const extra = new Set();
+    const sigOf = (u) => { const a = attr(u.el, 'className'); return u.role + '|' + u.tag + '|' + (a && a.value && a.value.type === 'StringLiteral' ? a.value.value : ''); };
+    for (const [, g] of gnodes) {
+      const lo = Math.min(...g.per.map((p) => p.length));
+      if (!g.uniform || lo < 2) continue;
+      g.per.forEach((p, i) => {
+        if (p.length !== lo + 1) return;
+        const others = new Set(g.per.filter((_, j) => j !== i).flat().map(sigOf));
+        for (const u of p) if (!others.has(sigOf(u))) extra.add(u);
+      });
+    }
     for (const u of c.units) {
       if (inCut(u.el)) continue;
       const k = key(u.role);
+      if (extra.has(u)) { u.optional = true; if (inChildren(u.el)) addCond(u.el, `${acc(k)} !== false`); }
       const inSentence = (node) => { const p = parents.get(node); return !!(p && (p.children || []).some((c) => c.type === 'JSXText' && c.value.trim())); };
       if (u.role === 'action' && u.outer && inChildren(u.outer) && !u.outer.__dhWrapped && !inSentence(u.outer)) {
         u.outer.__dhWrapped = true;
         addCond(u.outer, `${acc(k + 'Show')} !== false`);
       }
       edits.push({ start: u.childrenStart, end: u.childrenEnd, text: `{${acc(k)} ?? <span data-dh-demo="">${code.slice(u.childrenStart, u.childrenEnd)}</span>}` });
-      const slot = { key: k, role: u.role, sub: u.sub || null, level: u.level, demo: u.text, hideable: u.role === 'action' && !!(u.outer && u.outer.__dhWrapped), ...(u.optional ? { optional: true } : {}) };
+      const slot = { key: k, role: u.role, sub: u.sub || null, level: u.level, demo: u.text, at: u.childrenStart, hideable: u.role === 'action' && !!(u.outer && u.outer.__dhWrapped), ...(u.optional ? { optional: true } : {}) };
       if (memberOf.has(u)) { slot.group = memberOf.get(u).gk; slot.member = memberOf.get(u).i; }
       const hv = u.hrefAttr && u.hrefAttr.value;
       if (u.role === 'action' && hv && hv.type === 'StringLiteral') {
@@ -882,6 +1146,12 @@ export function parameterize(file, code, exp, opts = {}) {
         slot.href = true;
       }
       slots.push(slot);
+    }
+    for (const ch of choices) {
+      if (inCut(ch.node)) continue;
+      const k = key(ch.role);
+      edits.push({ start: ch.node.start, end: ch.node.end, text: `{${acc(k)} ?? <span data-dh-demo="">${code.slice(ch.node.start, ch.node.end)}</span>}` });
+      slots.push({ key: k, role: ch.role, sub: ch.role === 'action' ? 'cta' : null, level: null, demo: ch.demo, at: ch.node.start });
     }
     for (const im of c.images) {
       if (inCut(im.el)) continue;
@@ -912,7 +1182,8 @@ export function parameterize(file, code, exp, opts = {}) {
       const a = acc(k);
       const merge = tsFile ? `${a}.map((o: any, i: number) => ({ ...${l.name}[i % ${l.name}.length], ...o }))` : `${a}.map((o, i) => ({ ...${l.name}[i % ${l.name}.length], ...o }))`;
       edits.push({ start: l.object.start, end: l.object.end, text: tsFile ? `((${a} ? ${merge} : ${l.name}) as typeof ${l.name})` : `(${a} ? ${merge} : ${l.name})` });
-      lists.push({ key: k, fields: l.fields, demoCount: l.demoCount, demoItems: l.demoItems || [], textOnly: l.textOnly || [] });
+      for (const k0 of l.consts || []) edits.push({ start: k0.start, end: k0.end, text: `{(${k0.param}${tsFile ? ' as any' : ''}).dhAction ?? <span data-dh-demo="">${k0.text}</span>}` });
+      lists.push({ key: k, fields: l.fields, demoCount: l.demoCount, demoItems: l.demoItems || [], textOnly: l.textOnly || [], at: l.object.start });
     }
   }
   for (const [node, cs] of conds) {
@@ -920,12 +1191,12 @@ export function parameterize(file, code, exp, opts = {}) {
     edits.push({ start: node.start, end: node.start, text: `{${cs.join(' && ')} && (` }, { start: node.end, end: node.end, text: ')}' });
   }
   for (const x of cut) if (!x.hidden) edits.push({ ...x, text: '' });
-  const kept = edits.filter((e) => (e.text === '' && !e.hidden) || !cut.some((x) => x.start <= e.start && e.end <= x.end));
+  const kept = edits.filter((e) => e.keep || (e.text === '' && !e.hidden) || !cut.some((x) => x.start <= e.start && e.end <= x.end));
   kept.sort((a, b) => b.start - a.start || b.end - a.end);
   let out = code;
   for (const e of kept) out = out.slice(0, e.start) + e.text + out.slice(e.end);
   if (!opts.noVerify) parse(file, out);                        // must still parse — throws otherwise (noVerify: debugging only)
-  return { code: out, slots, lists, groups, logoRows, forms, prop, removed };
+  return { code: out, slots: slots.concat(propSlots), lists, groups, logoRows, logoSwaps, forms, formSwaps, prop, removed };
 }
 
 /* ------------------------------------------------------------------ binding */
@@ -962,11 +1233,57 @@ function adaptLinkLists(orig, candLists) {
   return { ...orig, units, lists };
 }
 
+/** The words a design list shows per item, in the order it shows them (one entry per field). */
+const cellFields = (cl) => cl.fields.filter((f, i) => ['text', 'price', 'figure', 'item', 'heading', 'label', 'quote'].includes(f.role)
+  && cl.fields.findIndex((g) => g.field === f.field && g.role !== 'imageAlt' && g.role !== 'href' && g.role !== 'image') === i);
+
+/**
+ * The owner's table: rows of plain cells, every row as wide (a feature, then one value per column), no images.
+ * Its width, or 0.
+ */
+function matrixWidth(ol) {
+  if (!ol || ol.items.length < 2) return 0;
+  const k = ol.items[0].units.length;
+  return k >= 3 && ol.items.every((it) => it.units.length === k && !it.images.length && !it.bullets.length && it.units.every((u) => ['text', 'figure', 'price', 'label'].includes(u.role))) ? k : 0;
+}
+
 export function bind(orig, cand, opts = {}) {
-  const slots = cand.slots || cand;
+  let slots = cand.slots || cand;
   const candLists = cand.lists || [];
   orig = adaptLinkLists(orig, candLists);
   const props = [], carried = [], dropped = [], demo = [], hidden = [];
+  // what a design cannot hold at all and the section cannot work without (the owner's form: a newsletter whose
+  // email field vanished leaves a dead "Subscribe" link) — such a design is not offered
+  let lost = null;
+  if ((orig.forms || [])[0] && orig.forms[0].src && !(cand.formSwaps || []).length) lost = 'form';
+  if ((cand.formSwaps || []).length && (orig.forms || [])[0] && orig.forms[0].src) {
+    props.push([cand.formSwaps[0], `<>${orig.forms[0].src}</>`]);
+    for (const u of orig.units.filter((x) => x.form === 0)) carried.push({ role: u.role, text: u.text });
+    orig = { ...orig, units: orig.units.filter((x) => x.form !== 0), inputs: (orig.inputs || []).filter((x) => x.form !== 0) };
+  }
+  // a comparison table goes into a design's table — row by row, cell by cell, its column names over the columns —
+  // never into three pricing cards as if each feature were a plan
+  const mk = matrixWidth(orig.lists[0]);
+  let matrix = null;
+  if (mk) {
+    // (a list of plans — "$9 /month" — is the design's column heads, not its rows)
+    const li = candLists.findIndex((cl) => cellFields(cl).length === mk
+      && !cellFields(cl).some((f) => /[$€£¥₹]/.test(String(((cl.demoItems || [])[0] || {})[f.field] ?? ''))));
+    if (li < 0) {
+      for (const it of orig.lists[0].items) for (const u of it.units) dropped.push({ role: u.role, text: u.text });
+      orig = { ...orig, units: orig.units.filter((u) => u.list !== 0), lists: orig.lists.slice(1) };
+    } else {
+      matrix = { li, k: mk };
+      const heads = orig.units.filter((u) => (u.list === null || u.list === undefined) && u.tag === 'th');
+      const at = candLists[li].at;
+      const over = slots.filter((x) => x.role === 'text' && !x.optional && x.at != null && at != null && x.at < at).slice(-(mk - 1));
+      if (heads.length === mk - 1 && over.length === mk - 1) {
+        heads.forEach((u, i) => { props.push([over[i].key, `<>${u.src}</>`]); carried.push({ role: 'text', text: u.text }); });
+        orig = { ...orig, units: orig.units.filter((u) => !heads.includes(u)) };
+        slots = slots.filter((x) => !over.includes(x));
+      }
+    }
+  }
   const candGroups = cand.groups || [];
   const useLists = candLists.length && orig.lists.length;
   const useGroup = !useLists && candGroups.length && orig.lists.length;
@@ -974,9 +1291,20 @@ export function bind(orig, cand, opts = {}) {
   const byRole = (arr, r) => arr.filter((x) => x.role === r);
   let flatSlots = useGroup ? slots.filter((x) => !x.group) : slots;
   // a role only one side uses reads as text: an owner's <blockquote> fills a design's <p>, a design's <cite> an owner's line
-  for (const r of ['quote', 'label']) {
+  for (const r of ['quote', 'label', 'figure']) {
     if (!flatSlots.some((x) => x.role === r)) flat = flat.map((u) => (u.role === r ? { ...u, role: 'text' } : u));
     if (!flat.some((u) => u.role === r)) flatSlots = flatSlots.map((x) => (x.role === r ? { ...x, role: 'text' } : x));
+  }
+  // a button whose label is a plain prop (`label = "Welcome"` shown in a <span>): the owner's button text is that label
+  if (flat.length && flat.every((u) => u.role === 'action') && !flatSlots.some((x) => x.role === 'action') && flatSlots.some((x) => x.role === 'text')) {
+    flat = flat.map((u) => ({ ...u, role: 'text' }));
+  }
+  // a design's headline is never left to demo copy while the owner wrote one short line of their own (a notice bar
+  // into a call to action): that line is the headline
+  if (!orig.units.some((u) => u.role === 'heading' || u.role === 'quote' || (u.list !== null && u.list !== undefined))
+    && flatSlots.some((x) => x.role === 'heading' && !x.optional)) {
+    const line = flat.find((u) => u.role === 'text' && u.text.length <= 100 && u.text.split(/\s+/).length >= 4);
+    if (line) flat = flat.map((u) => (u === line ? { ...u, role: 'heading' } : u));
   }
   // the owner's list items go into a design's fixed slots whole, in order: a second testimonial never becomes the
   // first card's "role" line. An item that does not fit whole is left out (reported, never half-shown)
@@ -1006,40 +1334,57 @@ export function bind(orig, cand, opts = {}) {
     let next = 0;
     for (const g of candGroups) {
       const gk = g.key;
-      const take = use.includes(g) ? Math.min(g.count, items.length - next) : 0;
-      if (!take && g.box) props.push([gk + 'BoxShow', 'false']);
+      const active = use.includes(g);
+      let filled = 0;
       for (let i = 0; i < g.count; i++) {
         const ms = slots.filter((x) => x.group === gk && x.member === i);
-        if (i >= take) {
+        if (!active || next >= items.length) {
           props.push([gk + 'Show' + (i + 1), 'false']);
           continue;
         }
-        const item = items[next + i];
-        // inside a card, headings and body text pair in document order (a tier name may be an h3 on
-        // one side and a styled span on the other); actions and list items pair among themselves
-        for (const cls of ITEM_CLASSES) {
-          const o = item.units.filter((u) => cls.includes(u.role)), sl = ms.filter((x) => cls.includes(x.role));
-          const n = Math.min(o.length, sl.length);
-          for (let k = 0; k < n; k++) {
-            props.push([sl[k].key, `<>${o[k].src}</>`]);
-            if (sl[k].href && o[k].href) props.push([sl[k].key + 'Href', o[k].href]);
-            carried.push({ role: o[k].role, text: o[k].text });
+        // a member is one card — or a column of rows (several headings): then consecutive items fill its rows, one each
+        const textSl = ms.filter((x) => ITEM_CLASSES[0].includes(x.role));
+        const rowsSl = [];
+        for (const x of textSl) { if (!rowsSl.length || (x.role === 'heading' && rowsSl[rowsSl.length - 1].some((y) => y.role === 'heading'))) rowsSl.push([]); rowsSl[rowsSl.length - 1].push(x); }
+        const multi = rowsSl.length > 1 && rowsSl.every((r) => r.some((y) => y.role === 'heading'));
+        const packed = items.slice(next, next + (multi ? rowsSl.length : 1));
+        next += packed.length;
+        filled++;
+        const place = (pairs, left, empty) => {
+          for (const [u, x] of pairs) {
+            props.push([x.key, `<>${u.src}</>`]);
+            if (x.href && u.href) props.push([x.key + 'Href', u.href]);
+            carried.push({ role: u.role, text: u.text });
           }
-          for (let k = n; k < o.length; k++) dropped.push({ role: o[k].role, text: o[k].text });
-          for (let k = n; k < sl.length; k++) {
-            if (sl[k].optional) props.push([sl[k].key, 'false']);
-            else demo.push({ role: sl[k].role, key: sl[k].key, text: sl[k].demo });
+          for (const u of left) dropped.push({ role: u.role, text: u.text });
+          for (const x of empty) {
+            if (x.optional) props.push([x.key, 'false']);
+            else demo.push({ role: x.role, key: x.key, text: x.demo });
           }
+        };
+        // headings and body text: row by row (inside a card, a title to the title, the longest text to the body)
+        if (multi) {
+          packed.forEach((it, r) => { const q = pairCard(it.units.filter((u) => ITEM_CLASSES[0].includes(u.role)), rowsSl[r]); place(q.pairs, q.left, q.empty); });
+          for (const r of rowsSl.slice(packed.length)) place([], [], r);
+        } else {
+          const q = pairCard(packed.flatMap((it) => it.units.filter((u) => ITEM_CLASSES[0].includes(u.role))), [...textSl.filter((x) => !x.optional), ...textSl.filter((x) => x.optional)]);
+          place(q.pairs, q.left, q.empty);
+        }
+        // prices, actions and list items pair among themselves, in order
+        for (const cls of ITEM_CLASSES.slice(1)) {
+          const o = packed.flatMap((it) => it.units.filter((u) => cls.includes(u.role))), sl = ms.filter((x) => cls.includes(x.role));
+          place(o.slice(0, sl.length).map((u, k) => [u, sl[k]]), o.slice(sl.length), sl.slice(o.length));
         }
         const bs = ms.find((x) => x.role === 'bullets');
+        const bullets = packed.flatMap((it) => it.bullets);
         if (bs) {
           // the owner's bullets, or none — a design's demo feature list is never presented as theirs
-          props.push([bs.key, JSON.stringify(item.bullets)]);
-          if (item.bullets.length) carried.push({ role: 'item', text: item.bullets.join(', ') });
-        } else if (item.bullets.length) dropped.push({ role: 'item', text: item.bullets.join(', ') });
+          props.push([bs.key, JSON.stringify(bullets)]);
+          if (bullets.length) carried.push({ role: 'item', text: bullets.join(', ') });
+        } else if (bullets.length) dropped.push({ role: 'item', text: bullets.join(', ') });
       }
-      if (g.cols && take && take < g.count) props.push([gk + 'Cols', String(take)]);
-      next += take;
+      if (!filled && g.box) props.push([gk + 'BoxShow', 'false']);           // a row nothing reaches goes whole
+      if (g.cols && active && filled && filled < g.count) props.push([gk + 'Cols', String(filled)]);
     }
     for (let i = next; i < items.length; i++) for (const u of items[i].units) dropped.push({ role: u.role, text: u.text });
   }
@@ -1058,18 +1403,23 @@ export function bind(orig, cand, opts = {}) {
     s = [...s.filter((x) => !x.optional), ...s.filter((x) => x.optional)];   // a real subtitle slot first
     const n = Math.min(o.length, s.length);
     for (let i = 0; i < n; i++) {
-      props.push([s[i].key, `<>${o[i].src}</>`]);
+      props.push([s[i].key, s[i].propName && !o[i].dynamic ? JSON.stringify(o[i].text) : `<>${o[i].src}</>`]);
       if (s[i].href && o[i].href) props.push([s[i].key + 'Href', o[i].href]);
+      if (s[i].hrefProp && o[i].href) props.push(['@' + s[i].hrefProp, o[i].href]);
       carried.push({ role, text: o[i].text });
     }
     for (let i = n; i < o.length; i++) dropped.push({ role, text: o[i].text });
     for (let i = n; i < s.length; i++) {
       if (s[i].optional) { props.push([s[i].key, 'false']); continue; }
+      // a prop-driven design's own words ("Design Systems") never stand in for the owner's: empty instead
+      if (s[i].propName) { props.push([s[i].key, '""']); hidden.push(`demo ${role}: ${s[i].demo}`); continue; }
       // a design's extra demo button ("Get a Demo" -> "#") is hidden, never shown as the owner's offer
       if (s[i].hideable && !opts.keepDemoActions) { props.push([s[i].key + 'Show', 'false']); hidden.push(s[i].demo); continue; }
       demo.push({ role, key: s[i].key, text: s[i].demo });
     }
   }
+  // a design's own bullet list outside any card ("UI/UX, Modern Design…") is not the owner's: emptied
+  for (const x of flatSlots.filter((y) => y.role === 'bullets' && !y.group)) { props.push([x.key, '[]']); hidden.push(`demo list (${x.demo})`); }
   if ((cand.logoRows || []).length) hidden.push(`${cand.logoRows.length} row(s) of demo brand logos`);
   if ((cand.forms || []).length) hidden.push(`${cand.forms.length} design form(s) — not wired to anything`);
 
@@ -1077,29 +1427,41 @@ export function bind(orig, cand, opts = {}) {
     candLists.forEach((cl, li) => {
       const ol = orig.lists[li];
       if (!ol) return;
-      const leftDemo = new Set();
+      const leftDemo = new Set(), leftHidden = new Set();
       const items = ol.items.map((it, ii) => {
         const obj = {};
         let units = it.units;
         const has = (arr, r) => arr.filter((u) => u.role === r).length;
-        for (const r of ['quote', 'label']) if (!cl.fields.some((f) => f.role === r)) units = units.map((u) => (u.role === r ? { ...u, role: 'text' } : u));
-        const fr = (f) => (['quote', 'label'].includes(f.role) && !units.some((u) => u.role === f.role) ? 'text' : f.role);
+        for (const r of ['quote', 'label', 'figure']) if (!cl.fields.some((f) => f.role === r)) units = units.map((u) => (u.role === r ? { ...u, role: 'text' } : u));
+        const fr = (f) => (['quote', 'label', 'figure'].includes(f.role) && !units.some((u) => u.role === f.role) ? 'text' : f.role);
         // a FAQ row written as two paragraphs, a design with a question + answer: the first text is the title
         if (!has(units, 'heading') && cl.fields.some((f) => f.role === 'heading') && has(units, 'text') > cl.fields.filter((f) => f.role === 'text').length) {
           const first = units.find((u) => u.role === 'text');
           units = units.map((u) => (u === first ? { ...u, role: 'heading' } : u));
         }
+        // the owner's photo is captioned by one of their words (`alt={m.name}` + `<p>{m.name}</p>`) and the design
+        // does the same: that word goes to the design's captioning field — the name stays the name
+        const capF = cl.fields.find((f) => f.role === 'imageAlt' && cl.fields.some((g) => g.field === f.field && CONTENT_ROLES.includes(g.role)));
+        const cap = capF && it.images[0] && typeof it.images[0].alt === 'string' ? it.images[0].alt.replace(/^"|"$/g, '') : null;
+        const capU = cap && units.find((u) => u.text === cap && u.role !== 'action');
+        if (capU) { obj[capF.field] = unitValue(capU, orig.inner); carried.push({ role: capU.role, text: capU.text }); units = units.filter((u) => u !== capU); }
+        if (matrix && matrix.li === li) {
+          cellFields(cl).forEach((f, k) => { obj[f.field] = unitValue(it.units[k], orig.inner); carried.push({ role: it.units[k].role, text: it.units[k].text }); });
+          units = [];
+        }
         for (const role of CONTENT_ROLES) {
-          let fields = cl.fields.filter((f) => fr(f) === role);
+          let fields = cl.fields.filter((f) => fr(f) === role && !(f.field in obj));
           let vals = units.filter((u) => u.role === role);
           if (fields.length > 1 && vals.length > 1) {
             // name + role + quote, all text: when one of the design's own texts is clearly the long one (the quote),
             // the owner's longest text goes there; the rest keep document order (name, then role)
             const dl = (f) => String(((cl.demoItems || [])[0] || {})[f.field] || '').length;
             const ls = fields.map(dl);
-            if (Math.min(...ls) > 0 && Math.max(...ls) >= 3 * Math.min(...ls)) {
+            const vLong = vals.reduce((a, b) => (b.text.length > a.text.length ? b : a));
+            const vShort = Math.min(...vals.map((v) => v.text.length));
+            // …only when the owner's own words are that uneven too: "Nadia B." / "Founder" stay name, then role
+            if (Math.min(...ls) > 0 && Math.max(...ls) >= 3 * Math.min(...ls) && vLong.text.length >= 2 * vShort && vLong.text.length >= 40) {
               const fLong = fields[ls.indexOf(Math.max(...ls))];
-              const vLong = vals.reduce((a, b) => (b.text.length > a.text.length ? b : a));
               fields = [fLong, ...fields.filter((f) => f !== fLong)];
               vals = [vLong, ...vals.filter((v) => v !== vLong)];
             }
@@ -1110,19 +1472,24 @@ export function bind(orig, cand, opts = {}) {
         const d = (cl.demoItems || [])[ii % Math.max(1, (cl.demoItems || []).length)] || {};
         // every field the design shows as words (found by role, or only ever rendered as text) that the owner did not fill
         const shown = new Set([...cl.fields.filter((f) => CONTENT_ROLES.includes(f.role)).map((f) => f.field), ...(cl.textOnly || [])]);
-        const ownPeriod = units.some((u) => u.role === 'price' && /\/\s*\w+|\bper\s+\w+/i.test(u.text));
+        const ownPrice = it.units.some((u) => u.role === 'price');
         for (const f of shown) {
           if (f in obj || typeof d[f] !== 'string' || !d[f].trim()) continue;
-          // the design's own "/month" beside a price the owner already wrote as "€290 /month"
-          if (ownPeriod && /^\s*(\/|per\s)\s*\w+\s*$/i.test(d[f])) { obj[f] = ''; continue; }
-          leftDemo.add(d[f]);
-          if ((cl.textOnly || []).includes(f)) obj[f] = { __src: `<span data-dh-demo="">{${JSON.stringify(d[f])}}</span>` };
+          // the design's own "/month" beside the owner's price: theirs already says "€290 /month", or it is not a
+          // subscription at all ("€24" for a product) — either way the design's period goes
+          if (ownPrice && /^\s*(\/|per\s)\s*\w+\s*$/i.test(d[f])) { obj[f] = ''; continue; }
+          if ((cl.textOnly || []).includes(f)) { leftDemo.add(d[f]); obj[f] = { __src: `<span data-dh-demo="">{${JSON.stringify(d[f])}}</span>` }; }
+          // a field also read as a value (`{tier.period && <span>{tier.period}</span>}`) cannot carry a dash: it is
+          // emptied — "€24 /month" on a product that is not a subscription would be a claim the owner never made
+          else { obj[f] = ''; leftHidden.add(`${f}: ${d[f]}`); }
         }
         const hrefF = cl.fields.find((f) => f.role === 'href');
         const act = it.units.find((u) => u.role === 'action' && u.href);
         if (hrefF && act) obj[hrefF.field] = { __src: act.href };           // JS source: a quoted string or the owner's expression
         const bulletsF = cl.fields.find((f) => f.role === 'bullets');
         if (bulletsF && it.bullets.length) { obj[bulletsF.field] = it.bullets; carried.push({ role: 'item', text: it.bullets.join(', ') }); }
+        // a plan's demo feature list is never presented as the owner's: theirs, or none
+        else if (bulletsF && Array.isArray(d[bulletsF.field]) && d[bulletsF.field].every((x) => typeof x === 'string')) obj[bulletsF.field] = [];
         // a footer column's own links (`links: [{ label, href }]`): the owner's column links, in order
         const nested = bulletsF && !(bulletsF.field in obj) && Array.isArray(d[bulletsF.field]) && d[bulletsF.field][0] && typeof d[bulletsF.field][0] === 'object' ? d[bulletsF.field][0] : null;
         const lk = nested && Object.keys(nested).find((k) => /^(label|name|title|text)$/.test(k) && typeof nested[k] === 'string');
@@ -1133,11 +1500,19 @@ export function bind(orig, cand, opts = {}) {
           for (const a of acts) { carried.push({ role: 'action', text: a.text }); const di = dropped.findIndex((x) => x.role === 'action' && x.text === a.text); if (di >= 0) dropped.splice(di, 1); }
         } else if (lk && hk) obj[bulletsF.field] = { __src: '[]' };      // a column with no links of the owner's: none of the design's
         const imgF = cl.fields.find((f) => f.role === 'image');
-        if (imgF && it.images[0] && it.images[0].src) obj[imgF.field] = { __src: it.images[0].src };
+        if (imgF && it.images[0] && it.images[0].src) {
+          obj[imgF.field] = { __src: it.images[0].src };
+          carried.push({ role: 'image', text: it.images[0].alt ? String(it.images[0].alt).replace(/^"|"$/g, '') : it.images[0].src });
+          // the owner's photo never carries a demo person's name as its alt text
+          const altF = cl.fields.find((f) => f.role === 'imageAlt');
+          if (altF && !(altF.field in obj)) obj[altF.field] = it.images[0].alt ? { __src: it.images[0].alt } : '';
+        }
+        else for (const im of it.images.filter((i) => i.src)) dropped.push({ role: 'image', text: im.alt ? String(im.alt).replace(/^"|"$/g, '') : im.src });
         return obj;
       });
       props.push([cl.key, listSrc(items)]);
       for (const t of leftDemo) demo.push({ role: 'list', key: cl.key, text: t });
+      for (const t of leftHidden) hidden.push(`demo ${t} (emptied)`);
       if (ol.items.length !== cl.demoCount) demo.push({ role: 'list', key: cl.key, text: `${ol.items.length} of your items (design shows ${cl.demoCount})` });
     });
   }
@@ -1150,13 +1525,24 @@ export function bind(orig, cand, opts = {}) {
       hidden.push(`demo copyright → © ${opts.brand}`);
     }
   }
-  const oi = orig.images, si = slots.filter((x) => x.role === 'image');
+  let oi = orig.images;
+  const own = ownerLogos(orig);
+  if ((cand.logoSwaps || []).length && own.length >= 2) {
+    const tag = (im) => im.jsx || `<img src={${im.src}}${im.alt ? ` alt={${im.alt}}` : ' alt=""'} className="h-7 w-auto object-contain" />`;
+    for (const k of cand.logoSwaps) props.push([k, `<>${own.map(tag).join('')}</>`]);
+    for (const im of own) carried.push({ role: 'image', text: im.alt ? String(im.alt).replace(/^"|"$/g, '') : im.src });
+    oi = oi.filter((im) => !own.includes(im));
+    // a list of logos went whole into the row: its names are not left over as loose text
+    const listed = new Set(own);
+    for (const l of orig.lists) for (const it of l.items) if (it.images.some((im) => listed.has(im))) for (const u of it.units) { const di = dropped.findIndex((x) => x.text === u.text); if (di >= 0) dropped.splice(di, 1); }
+  } else if ((cand.logoSwaps || []).length) for (const k of cand.logoSwaps) props.push([k, '<></>']);
+  const si = slots.filter((x) => x.role === 'image');
   for (let i = 0; i < Math.min(oi.length, si.length); i++) {
     if (oi[i].src) props.push([si[i].key, oi[i].src]);
     if (oi[i].alt) props.push([si[i].key + 'Alt', oi[i].alt]);
-    carried.push({ role: 'image', text: oi[i].alt || oi[i].src });
+    carried.push({ role: 'image', text: oi[i].alt ? String(oi[i].alt).replace(/^"|"$/g, '') : oi[i].src });
   }
-  for (let i = si.length; i < oi.length; i++) dropped.push({ role: 'image', text: oi[i].alt || oi[i].src });
+  for (let i = si.length; i < oi.length; i++) dropped.push({ role: 'image', text: oi[i].alt ? String(oi[i].alt).replace(/^"|"$/g, '') : oi[i].src });
   for (let i = oi.length; i < si.length; i++) {
     if (si[i].localDemo && opts.placeholder) {
       props.push([si[i].key, JSON.stringify(opts.placeholder)]);
@@ -1165,17 +1551,19 @@ export function bind(orig, cand, opts = {}) {
   }
   const op = orig.inputs, sp = slots.filter((x) => x.role === 'placeholder');
   for (let i = 0; i < Math.min(op.length, sp.length); i++) if (op[i].placeholder) props.push([sp[i].key, op[i].placeholder]);
-  return { props, carried, dropped, demo, hidden };
+  return { props, carried, dropped, demo, hidden, ...(lost ? { lost } : {}) };
 }
 
 export function contentProp(prop, props) {
-  if (!props.length) return '';
-  return ` ${prop}={{ ${props.map(([k, v]) => `${k}: ${v}`).join(', ')} }}`;
+  // `@title` goes to the component's own prop; everything else into the one content object
+  const own = props.filter(([k]) => k.startsWith('@')), rest = props.filter(([k]) => !k.startsWith('@'));
+  const attrs = own.map(([k, v]) => ` ${k.slice(1)}={${v}}`).join('');
+  return attrs + (rest.length ? ` ${prop}={{ ${rest.map(([k, v]) => `${k}: ${v}`).join(', ')} }}` : '');
 }
 
 /** How much content the original holds (the fit denominator). */
 export function contentCount(orig) {
-  return orig.units.length + orig.images.length + orig.lists.reduce((n, l) => n + l.items.reduce((m, it) => m + it.bullets.length, 0), 0);
+  return orig.units.length + orig.images.length + orig.lists.reduce((n, l) => n + l.items.reduce((m, it) => m + it.bullets.length + it.images.filter((i) => i.src).length, 0), 0);
 }
 
 export function shapeOf(u) {
