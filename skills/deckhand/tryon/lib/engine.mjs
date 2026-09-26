@@ -283,7 +283,7 @@ export async function open(rootIn, opts) {
       const fl = fillLinks(stage.entry, p.code, links, slot);
       fs.writeFileSync(entryAbs, fl.code);
       const b = bind(orig, p, { placeholder: hasPublic ? PLACEHOLDER : null, brand: brandName(root) });
-      if (fl.filled.length) b.hidden.push(...fl.filled.map((f) => `${f.array}: ${f.kind} from your plan (${f.count})`));
+      if (fl.filled.length) b.hidden.push(...fl.filled.map((f) => (f.demoHidden ? `${f.array}: the design's demo ${f.kind} hidden (${f.demoHidden}) — no menu in your plan` : `${f.array}: ${f.kind} from your plan (${f.count})`)));
       // fit gate: a variant that would throw away most of the owner's words is not offered
       if (origCount >= 2 && b.carried.length < Math.ceil(origCount / 2) && !opts.noFitGate) {
         skipped.push({ id: cand.id, why: 'POOR_FIT', detail: `carries ${b.carried.length}/${origCount}` });
@@ -495,7 +495,7 @@ process.stdout.write(JSON.stringify(out));`;
 
 // ------------------------------------------------------------------ the page still builds (or nothing stays)
 
-const BUILD_ERR = /(Module not found|Can't resolve|Build Error|Failed to compile|Export [\w$]+ doesn't exist|is not exported from|doesn't exist in target module|Unexpected token|Expected .* got|SyntaxError|ReferenceError: [\w$]+ is not defined)/;
+const BUILD_ERR = /(Module not found|Can't resolve|Failed to resolve import|Pre-transform error|Build Error|Failed to compile|Export [\w$]+ doesn't exist|is not exported from|doesn't exist in target module|Unexpected token|Expected .* got|SyntaxError|ReferenceError: [\w$]+ is not defined)/;
 
 /** GET a page from the dev server (it compiles on request). {status, text} or {status: 0} when unreachable. */
 export function probePage(url, page = '/', timeoutMs = 90000) {
@@ -547,6 +547,33 @@ export async function probeUntil(url, page, want, deadlineMs = 25000) {
   }
 }
 
+/**
+ * Vite renders in the browser, so the page's HTML never shows a variant: ask Vite for the modules instead. The
+ * edited file (until it carries this session — the watcher lags the write, like any dev server), then each design's
+ * own entry: Vite resolves a module's imports when it is requested (a missing one is a 500 naming the file), and the
+ * request also warms its dependency optimizer before the browser loads anything.
+ */
+export async function probeVite(url, root, id, deadlineMs = 25000, { clean = false } = {}) {
+  const s = loadSession(root, id);
+  const t0 = Date.now();
+  let wait = 300;
+  for (;;) {
+    const p = await probePage(url, '/' + s.file);
+    if (p.status === 0) return p;
+    const err = buildError(p);
+    if (clean ? !err : err) return p;
+    if (!clean && (p.text || '').includes(id)) break;
+    if (Date.now() - t0 > deadlineMs) return { ...p, late: true };
+    await sleep(wait);
+    wait = Math.min(wait * 2, 2500);
+  }
+  for (const v of s.variants) {
+    const p = await probePage(url, '/' + v.entry);
+    if (buildError(p)) return p;
+  }
+  return { status: 200, text: `data-dh-session="${id}"` };
+}
+
 /** Which variants a build error points at: their folder in the error's import trace, else the module it cannot load. */
 export function culpritsOf(root, variants, text) {
   const named = variants.filter((v) => text.includes(v.slug) || text.includes(v.dir));
@@ -572,7 +599,9 @@ export function culpritsOf(root, variants, text) {
  */
 export async function openVerified(rootIn, opts, { url, page, deadlineMs = 25000 } = {}) {
   if (!url) return open(rootIn, opts);
-  const root = detectProject(rootIn).root;
+  const prof0 = detectProject(rootIn);
+  const root = prof0.root;
+  const vite = prof0.framework === 'vite';
   const base = await probePage(url, page);
   const baseErr = buildError(base);
   let exclude = [...(opts.exclude || [])];
@@ -588,7 +617,7 @@ export async function openVerified(rootIn, opts, { url, page, deadlineMs = 25000
     }
     if (baseErr) return { ...s, verified: false, note: 'the page already had an error before the swap — not checked: ' + baseErr.slice(0, 160) };
     if (base.status === 0) return { ...s, verified: false, note: 'the dev server did not answer — not checked' };
-    const after = await probeUntil(url, page, s.id, deadlineMs);
+    const after = vite ? await probeVite(url, root, s.id, deadlineMs) : await probeUntil(url, page, s.id, deadlineMs);
     const err = buildError(after);
     if (!err) {
       const shown = (after.text || '').includes(`data-dh-session="${s.id}"`);
@@ -598,7 +627,8 @@ export async function openVerified(rootIn, opts, { url, page, deadlineMs = 25000
     const culprits = culpritsOf(root, full.variants, after.text || '');
     const d = discard(root, s.id, { reason: 'build' });
     for (const p of d.installedKept || []) if (!kept.includes(p)) kept.push(p);
-    await probeUntil(url, page, null, deadlineMs);               // the dev server rebuilt the restored file
+    if (vite) await probeVite(url, root, s.id, deadlineMs, { clean: true });
+    else await probeUntil(url, page, null, deadlineMs);          // the dev server rebuilt the restored file
     if (!culprits.length) {
       throw new TryonError('BUILD_BROKE', `the page stopped building with these variants, so your file was restored at once. The error: ${err.slice(0, 300)}`,
         { restored: true, dropped, installedKept: kept });
@@ -683,6 +713,23 @@ export function relocate(ast, code, hint, nearLine = 0) {
  * The element the owner picked: the one at file:line:col when it is what they clicked (`hint`), else the same
  * element found again (the page was older than the file). {el, line, col, relocated} or null.
  */
+/**
+ * `<Button asChild><Link>…</Link></Button>`: the page shows ONE button, styled by the component that wraps it; its
+ * props (stamp included) land on the child, so the pick names the child. The element that styles it is the wrapper.
+ */
+export function styledBy(ast, el) {
+  let hit = null;
+  walk(ast, (n) => {
+    if (hit) return false;
+    if (n.type === 'JSXElement' && n.start < el.start && el.end <= n.end) {
+      const kids = (n.children || []).filter((c) => !(c.type === 'JSXText' && !c.value.trim()));
+      if (kids.length === 1 && kids[0] === el && attr(n, 'asChild')) hit = n;
+    }
+    return true;
+  });
+  return hit || el;
+}
+
 export function pickElement(ast, code, line, col, hint = null) {
   const at = findElementAt(ast, code, Number(line), Number(col));
   if (at && fitsHint(at, hint)) return { el: at, line: Number(line), col: Number(col), relocated: false };
@@ -950,7 +997,9 @@ export function bake(root, fileRel, local, variant) {
           const objSrc = (i) => {
             const demoEl = decl.elements[i % decl.elements.length];
             const own = ownerItems[i];
-            const ownKeys = new Map(own.properties.map((p) => [p.key.name || p.key.value, code.slice(p.value.start, p.value.end)]));
+            // a field the owner did not fill was shown as the design's own words, dashed: it bakes back to the design's value
+            const ownKeys = new Map(own.properties.filter((p) => !(p.value.type === 'JSXElement' && attr(p.value, 'data-dh-demo')))
+              .map((p) => [p.key.name || p.key.value, code.slice(p.value.start, p.value.end)]));
             const parts = [];
             for (const p of demoEl.properties) {
               const key = p.type === 'ObjectProperty' ? (p.key.name || p.key.value) : null;

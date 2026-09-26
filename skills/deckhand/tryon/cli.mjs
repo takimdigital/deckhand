@@ -82,7 +82,13 @@ async function main() {
       const target = flags.target || await detectTarget(project);
       let stamped = null;
       if (target) {
-        try { stamped = /data-dh="/.test(await (await fetch(target + (flags.path || '/'))).text()); } catch { stamped = false; }
+        try {
+          const html = await (await fetch(target + (flags.path || '/'))).text();
+          stamped = /data-dh="/.test(html);
+          // a Vite page renders in the browser: the stamps live in the modules it loads, not in the HTML
+          const entry = !stamped && prof.framework === 'vite' ? /<script[^>]+type="module"[^>]+src="(\/(?!@)[^"]+)"/.exec(html) : null;
+          if (entry) stamped = /data-dh(=\\?"|":)/.test(await (await fetch(target + entry[1])).text());
+        } catch { stamped = false; }
       }
       const checks = {
         framework: prof.framework, supported: ['next', 'vite'].includes(prof.framework), wired: !!j, devServer: target || null,

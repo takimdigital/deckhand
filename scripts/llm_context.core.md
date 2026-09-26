@@ -216,14 +216,18 @@ F4 TRY-ON SESSION WIRING
 - `tryon setup` ([[tryon/lib/setup.mjs#setup]]):
   - next.config → `withDeckhandTryon(config)` ([[tryon/lib/setup.mjs#patchNextConfig]]);
   - vite → dhTryon() ([[tryon/lib/setup.mjs#patchViteConfig]]);
-  - adds the token layer ([[tryon/lib/engine.mjs#ensureTokens]]);
-  - journaled.
+  - journaled. The token layer ([[tryon/lib/engine.mjs#ensureTokens]]) is added by the first open, not by setup.
+- `tryon doctor`: the dev server `dh dev start` recorded (.deckhand/dev.json, any port) first
+  ([[tryon/server.mjs#detectTarget]]); a Vite page renders in the browser, so its stamps are checked in the entry
+  module the HTML loads, not in the HTML.
 - Restart dev → `tryon serve` ([[tryon/server.mjs#startServer]]):
   - proxy rewrites Host/Origin to localhost (Next dev guard) and injects the overlay into HTML;
   - HMR websockets are passed through;
   - API gated by the per-run token; writes run one at a time.
 - Overlay ([[tryon/overlay.js]]): owner clicks Try-on → picks an element (nearest data-dh stamp, breadcrumb of
-  ancestors) → chooses a slot ([[tryon/lib/slots.mjs]]) → tabs "Swap it | Tune it"; a "Site" button sits on the pill.
+  ancestors: the 5 innermost plus the sections that hold them) → chooses a slot ([[tryon/lib/slots.mjs]]) → tabs
+  "Swap it | Tune it"; a "Site" button sits on the pill. A click on a button picks the control itself (not its label
+  span). A typed refusal comes back as 200 {ok:false} (the owner's console stays clean); a malformed body is a 400.
 
 F5 OPEN (swap) [[tryon/lib/engine.mjs#open]]
 1. Find the element: [[tryon/lib/engine.mjs#pickElement]]. The one at file:line:col when it is what the owner clicked
@@ -253,7 +257,8 @@ F5 OPEN (swap) [[tryon/lib/engine.mjs#open]]
       installed counts) → BROKEN_IMPORT, and the next candidate takes the place. A candidate that needs an install is
       held: offered only when too few install-free ones exist (a running dev server may not see a new package).
       With the `radix-ui` umbrella installed, `@radix-ui/react-X` imports become `radix-ui/X`
-      ([[tryon/lib/materialize.mjs#radixUmbrella]]) — nothing to install.
+      ([[tryon/lib/materialize.mjs#radixUmbrella]]) — nothing to install. Outside Next (Vite, CRA) `next/link` and
+      `next/image` become local stand-ins written beside the design (NEXT_SHIMS in [[tryon/lib/materialize.mjs]]).
 5. One batched npm install (held candidates only), then the gate again for them.
 6. Sort by fit.
 7. Write ONE wrapper (`data-dh-session`, variant 0 = the original, hidden). Imports are marked `// dh-tryon:<id>`.
@@ -267,6 +272,19 @@ F5 OPEN (swap) [[tryon/lib/engine.mjs#open]]
    old page). An error → discard at once, [[tryon/lib/engine.mjs#culpritsOf]] (the variant folder in the trace,
    else the module it cannot load) → reopen without them (`dropped`, up to 3 tries) or [[!BUILD_BROKE]]
    `restored:true`. Packages installed on the way stay and are reported (`installedKept`, on discard too).
+   Vite ([[tryon/lib/engine.mjs#probeVite]]): the page's HTML never shows a variant, so the edited module is polled
+   until it carries the session, then each design's entry module is requested (Vite resolves its imports then: a
+   500 "Failed to resolve import" names the file; the request also warms Vite's dependency optimizer).
+11. Content mapping rules learned live ([[tryon/lib/transplant.mjs#bind]]): `<summary>`/`<dt>` are headings (FAQ);
+   `<figcaption>`/`<cite>` are the author line; a role only one side uses reads as text; a list item without a
+   heading lends its first text to the design's heading field; clearly long demo text (a quote) takes the owner's
+   longest text; one template spot, one role (the spot that shows "€290" shows "Custom" too); a price or period in a
+   plain span is a field; the design's "/month" is blanked when the owner's price already says it; fixed slots take
+   the owner's list items whole; a footer column's nested `links` get the owner's column links; a list field the
+   owner does not fill keeps the design's words dashed (`<span data-dh-demo>`, only where the field is only ever
+   text) and reported, and bakes back to the design's plain value on Keep. No plan: a design's demo menus and
+   social rows are emptied ([[tryon/lib/sitelinks.mjs#fillLinks]]). Logos inside content cards are hidden one by
+   one, never the cards.
 
 F6 KEEP / DISCARD
 - [[tryon/lib/engine.mjs#keep]]:
@@ -312,7 +330,12 @@ F8 TUNE (one element; the Impeccable verbs as deterministic knobs)
   exactly what would be kept.
 - Knobs: [[tryon/lib/tune.mjs#DIALS]]. Presets: quieter/bolder/airy/compact/clarity/softer/sharper
   ([[tryon/lib/tune.mjs#PRESETS]]).
-- Keep = stop tracking. Reset = byte-exact. [[!FILE_CHANGED]] if the file was edited meanwhile.
+- The pick: a Link inside `<Button asChild>` tunes the Button ([[tryon/lib/engine.mjs#styledBy]]: its classes make the
+  button). On the picked control or component usage only, a knob with nothing to transform ADDS its class
+  (rounded-*, shadow-*, font-*, text-*: a class on a shadcn usage wins through cn/tailwind-merge); a section never.
+  A knob that still finds nothing says why and where to go instead (overlay WHY: Site → Corners…).
+- Keep = stop tracking. Reset = byte-exact; after the owner edited the file ([[!FILE_CHANGED]] refuses further sets),
+  Reset puts back only the class strings the knobs changed and keeps their edit (surgical, `undone`/`left`).
 - From chat, no browser: [[tryon:tune]] `--file F --line N --col C --preset airy` (or `--density 1 …`) →
   `tune --id T --keep|--reset`.
 
@@ -326,8 +349,9 @@ F9 SITE (whole look)
     rule, headings in @layer base);
   - fonts: [[tryon/lib/sitetheme.mjs#rewriteFonts]] rewrites next/font in the root layout (AST) and adds
     --font-heading;
-  - backs up to theme/last.json.
-- Undo is byte-exact.
+  - keeps the replaced files in theme/history.json (10 applies; a 2.2.x last.json still counts).
+- Undo is byte-exact and walks back one apply at a time, to the original (`more` says how many are left).
+- Fonts are Next-only (next/font in the root layout); a Vite project gets every other knob.
 - From chat, no browser: [[tryon:theme]] (state and allowed values) · `theme --neutrals warm --corners round …` ·
   `theme --undo`.
 
@@ -526,6 +550,7 @@ F19 RESEARCH EVIDENCE
 | footer/navbar links from the plan | [[tryon/lib/sitelinks.mjs]] | [[skills/deckhand/tryon/test/sections.test.mjs]] |
 | colours → tokens | [[tryon/lib/theme.mjs]] | setup-theme-server.test.mjs |
 | open/show/keep/discard/bake | [[tryon/lib/engine.mjs]] | engine.test.mjs, sections.test.mjs |
+| content mapping (FAQ, testimonials, pricing, footer columns), navbars from Tailark heroes, Vite shims + build check, Tune additions + surgical reset, Site undo steps (live audit) | [[tryon/lib/transplant.mjs#bind]] · [[tryon/lib/regmap.mjs#navbarsFromHeroes]] · [[tryon/lib/materialize.mjs#writeBundle]] · [[tryon/lib/engine.mjs#probeVite]] · [[tryon/lib/tune.mjs#tuneReset]] · [[tryon/lib/sitetheme.mjs#themeUndo]] | [[skills/deckhand/tryon/test/live-audit.test.mjs]] + the live matrix (3 apps, Chromium) |
 | stale stamps, the import gate, the page-still-builds check (field fixes) | [[tryon/lib/engine.mjs#pickElement]] · [[tryon/lib/engine.mjs#checkImports]] · [[tryon/lib/engine.mjs#openVerified]] · overlay `stale`/`reloadButton` | [[skills/deckhand/tryon/test/field.test.mjs]] (fake dev server) + browser e2e |
 | AI draft gates | [[tryon/lib/draft.mjs#checkDraft]] | [[skills/deckhand/tryon/test/draft.test.mjs]] |
 | Tune knobs / presets | [[tryon/lib/tune.mjs]] (+ overlay tuneUI) | [[skills/deckhand/tryon/test/tune.test.mjs]] |

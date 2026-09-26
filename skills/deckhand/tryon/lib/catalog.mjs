@@ -54,7 +54,7 @@ export function rank(items, { slot, prof, exclude = [], registry = null }) {
     const b = baseScore(prof.base, it.base);
     if (b === null) { hidden++; continue; }
     let s = (exact ? 100 : 40) + b;
-    if (it.r === 'mine') s += 60;
+    if (it.r === 'mine' && exact) s += 60;                          // my saved hero ranks first for a hero, not for a CTA
     if (kindOf(slot) === 'block' && it.r === 'tailark-oss') s += 5;
     const missing = (it.deps || []).filter((d) => !depInstalled(prof, d));
     s -= missing.length * 6;

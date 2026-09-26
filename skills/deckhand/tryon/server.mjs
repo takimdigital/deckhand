@@ -42,6 +42,11 @@ async function probe(url) {
 }
 
 export async function detectTarget(root) {
+  // the dev server `dh dev start` recorded (any port) first
+  try {
+    const u = JSON.parse(fs.readFileSync(path.join(root, '.deckhand', 'dev.json'), 'utf8')).url;
+    if (u && /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(u) && await probe(u.replace(/\/$/, '') + '/')) return u.replace(/\/$/, '').replace('localhost', '127.0.0.1');
+  } catch { /* none recorded */ }
   const pkg = (() => { try { return JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')); } catch { return {}; } })();
   const dev = String(pkg.scripts?.dev || '');
   const m = /(?:-p|--port)[ =](\d+)/.exec(dev);
@@ -180,7 +185,10 @@ export function startServer({ root: rootIn, port = 3999, target, host = '127.0.0
         res.end(JSON.stringify({ ok: true, ...out }));
       } catch (e) {
         log({ api: name, ok: false, code: e.code, message: e.message });
-        res.writeHead(e.status || 400, { 'content-type': 'application/json' });
+        // a typed refusal (NO_VARIANTS, ELEMENT_NOT_FOUND…) is an answer the overlay shows, not a failed request
+        // (a 400 would print "Failed to load resource" in the owner's console); a crash stays a 500
+        const bad = e instanceof SyntaxError || /BODY_TOO_LARGE/.test(String(e.message));   // the request itself is malformed
+        res.writeHead(e.status || (bad ? 400 : e.code ? 200 : 500), { 'content-type': 'application/json' });
         res.end(JSON.stringify({ ok: false, code: e.code || 'ERROR', message: String(e.message).slice(0, 2000), skipped: e.skipped, problems: e.problems, draft: e.draft,
           reload: e.reload, restored: e.restored, dropped: e.dropped, installedKept: e.installedKept }));
       }

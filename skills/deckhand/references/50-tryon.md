@@ -31,20 +31,24 @@ Picker panel → **Tune it**: presets (quieter · bolder · airy · compact · c
 knobs (spacing, headlines, weight, corners, depth, contrast, width). Each change is an exact Tailwind class
 transform of the picked element's subtree, recomputed from the original every time and written to the
 file; HMR shows it, so what the owner sees is what is kept. **Keep** finishes, **Reset**/**Close** restore
-the file byte-exact. "Describe it to the AI" hands the note to the gated, labelled AI draft (below).
+the file byte-exact — or, if the owner edited the file meanwhile, puts back only what the knobs changed and keeps
+their edit. On a button (a Link inside `<Button asChild>` tunes the Button) a knob with nothing to transform adds its
+class (pill → `rounded-full`, raised → `shadow-md`); a knob that finds nothing says why and where to go instead
+(Site → Corners). "Describe it to the AI" hands the note to the gated, labelled AI draft (below).
 **Site** (button beside Try-on): accent (curated swatches or any colour), neutrals (neutral/warm/cool),
 corners (`--radius`), density (`--spacing`, Tailwind 4), headline scale (`--text-2xl…9xl`), body and heading
 fonts. The preview sets the EXACT values apply writes (from the same function); **Apply** writes one marked
 `dh:theme` block at the end of the global stylesheet (light + dark) and, for fonts, rewrites `next/font` in
 the root layout by AST (the body rule beats a hard-coded `font-family`); **Undo last apply** restores both
-files byte-exact. Engines: `lib/tune.mjs`, `lib/sitetheme.mjs` (helper endpoints `tune-*` / `theme-*`).
+files byte-exact, one apply at a time, back to the original (10 kept). Fonts need Next (`next/font`); a Vite site
+gets every other knob. Engines: `lib/tune.mjs`, `lib/sitetheme.mjs` (helper endpoints `tune-*` / `theme-*`).
 **From chat, without a browser** — the owner says "make the hero airier" or "warmer greys, rounder corners":
 ```bash
 $T tune  --file components/hero.tsx --line 12 --col 5 --preset airy    # or --density 1 --size -1 --corners round …
 $T tune  --id <T> --keep        # or --reset (byte-exact)
 $T theme                        # current knobs + every allowed value (accents, fonts)
 $T theme --neutrals warm --corners round [--accent teal|#0f766e] [--density airy] [--headlines larger] [--body Inter --heading Fraunces]
-$T theme --undo                 # byte-exact restore of the last apply
+$T theme --undo                 # byte-exact restore of the last apply (again: the one before, to the original)
 ```
 Unknown knobs or values are refused (`BAD_DIAL`, `BAD_THEME`) with the allowed list — nothing is written.
 
@@ -78,8 +82,10 @@ paywall). `registry add` indexes it into `~/.deckhand/catalog/` — it ranks bes
 ## What the engine guarantees
 - Location: every JSX element carries `data-dh="file:line:col"` in dev (AST, vendored parser — works with
   TypeScript 7 projects); the overlay resolves the clicked node and its owners.
-- Candidates: `data/components.index.json` (738 MIT items), ranked by slot, primitive base (a Radix project
-  never gets Base UI code), missing deps, personal library first, then design diversity.
+- Candidates: `data/components.index.json` (774 MIT items; the navbars include every Tailark hero's own header),
+  ranked by slot, primitive base (a Radix project never gets Base UI code), missing deps, personal library first
+  (for the same slot only), then design diversity. Outside Next (Vite), `next/link` and `next/image` in a design
+  become local stand-ins written beside it.
 - Theme: palette classes → the project's semantic tokens; the site's own `components/ui/*` primitives are
   reused; a site without tokens gets a token layer derived from its own background/foreground + measured accent.
 - Content: headings, text, prices, buttons+links (CTA to CTA, link to link), images, inputs and `.map()`
@@ -90,8 +96,15 @@ paywall). `registry add` indexes it into `~/.deckhand/catalog/` — it ranks bes
 - Honesty: a design form (newsletter, "enter your email") is hidden unless the slot is a form page
   (contact, login, signup) or the owner's element has one; footer/navbar menus come from the plan
   (`.deckhand/sitemap.json` nav + page titles) and social rows keep only the owner's networks
-  (`brief.brand.social`). The bar shows the fit ("your content 8/8") and dashes any demo copy that is left;
-  keep records it in `.deckhand/demo-copy.json`, which `dh rebrand check` blocks on until rewritten.
+  (`brief.brand.social`); a site without a plan shows none of the design's demo menus or networks — its own links
+  reach the page through the content slots (a footer's titled columns fill the design's columns, links included).
+  The bar shows the fit ("your content 8/8") and dashes any demo copy that is left, inside lists too (a
+  testimonial's "role" line the owner never wrote); keep records it in `.deckhand/demo-copy.json`, which
+  `dh rebrand check` blocks on until rewritten.
+- Mapping: FAQ questions (`<summary>`, `<dt>`, or the first of two paragraphs) go to the design's question; a quote
+  to the quote and the author line to the name; "Custom" in a plan's price spot is the price; a design's "/month" is
+  dropped when the owner's price already says it; a single-card design takes one whole testimonial, never half of
+  the next; company logos inside cards hide one by one, never the cards.
 - Build safety: a design is wired only if everything it imports loads from the project — every named import and
   `NS.Part` / `<NS.Part>` read exists, and a package the import itself needs is installed — else `BROKEN_IMPORT`
   and the next candidate takes its place. Designs that need no install come first (a running dev server may not
@@ -103,7 +116,10 @@ paywall). `registry add` indexes it into `~/.deckhand/catalog/` — it ranks bes
 - The page older than the file: the overlay sends what was clicked (tag + start of its text) with its stamp. The
   engine checks the element at the stamp is that one, else finds it again nearest the old line; if it cannot be
   sure, `ELEMENT_NOT_FOUND` with a **Reload the page and pick again** button (nothing written). After Keep or
-  Discard the next pick reloads the page first. Swap, Tune and the AI draft share this.
+  Discard the next pick reloads the page first. Swap, Tune and the AI draft share this. A click deep inside a
+  section still offers the whole section; a click on a button picks the button, not its label.
+- Vite: the build check asks Vite for the edited module and each design's module (a Vite page renders in the
+  browser, so its HTML never shows a variant); `doctor` looks for stamps in the entry module.
 - Keep: wrapper collapses to one component under `components/sections/<slug>/`, literal copy baked in,
   show/hide switches resolved, unused files pruned, `THIRD_PARTY_NOTICES.md` updated.
 - Production: stamps are dev-only (`dh verify` row `prod-clean`); `$T clean` unwires before release

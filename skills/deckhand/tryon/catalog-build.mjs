@@ -16,7 +16,7 @@ import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { TAILARK_CATEGORY, slotFromName, kindOf } from './lib/slots.mjs';
-import { mapShadcnItems } from './lib/regmap.mjs';
+import { mapShadcnItems, navbarsFromHeroes } from './lib/regmap.mjs';
 
 const require = createRequire(import.meta.url);
 const { parse, walk } = require('./lib/ast.cjs');
@@ -136,6 +136,7 @@ async function main() {
     console.error(reg.id, got.length);
     items = items.concat(got);
   }
+  items = items.concat(navbarsFromHeroes(items));
   const seen = new Set();
   items = items.filter((i) => (seen.has(i.id) ? false : (seen.add(i.id), true)));
   items.sort((a, b) => (a.slot + a.r + a.n + a.base).localeCompare(b.slot + b.r + b.n + b.base));

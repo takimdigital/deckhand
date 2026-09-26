@@ -12,7 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <a href="https://github.com/takimdigital/deckhand-skill/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/takimdigital/deckhand-skill/ci.yml?branch=main&label=CI"></a>
-  <img alt="Version: 2.2.1" src="https://img.shields.io/badge/version-2.2.1-blueviolet.svg">
+  <img alt="Version: 2.2.2" src="https://img.shields.io/badge/version-2.2.2-blueviolet.svg">
   <img alt="Works with Claude Code, Codex, Cursor, Hermes, OpenCode, Gemini CLI" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Hermes-black.svg">
 </p>
 
@@ -89,7 +89,7 @@ to start fresh.
 **Try-on: click any section of your site and swap it.** Four licensed designs appear **in your colours,
 with your text, your links and your photos**, and ← → flips between them instantly. Fake "trusted by"
 logos, stock photos and newsletter boxes that post nowhere are hidden. Keep bakes it in, Discard puts your
-file back byte for byte. Catalog: 738 MIT components (Tailark, shadcn, Magic UI, Smooth UI, Kokonut, basecn).
+file back byte for byte. Catalog: 774 MIT components (Tailark, shadcn, Magic UI, Smooth UI, Kokonut, basecn).
 
 **Tune it: don't replace it, adjust it.** Pick a section and choose *quieter · bolder · airier · clearer ·
 softer · sharper*, or dial spacing, headline size, weight, corners, depth, contrast and width. What you see
@@ -209,7 +209,7 @@ Run for real in this release:
   in code, each with a test: a gate passed on the agent's paraphrase of a change request, a base that could not land
   in the planning folder, a database kept alive by hand for hours, ports Windows reserves, 22 work packages for 4
   builders, and a Windows `HOSTNAME` trap.
-- CI on every push, Ubuntu and Windows: 57 try-on + 139 control-plane + 40 server-client + 17 repo tests.
+- CI on every push, Ubuntu and Windows: 71 try-on + 139 control-plane + 40 server-client + 17 repo tests.
 
 Not yet proven live: a full `dh deploy ship` against a real server (it uses the same Coolify client that
 was proven live in v1), the first real run of the $0 Oracle track, and the Claude Code session hook inside a

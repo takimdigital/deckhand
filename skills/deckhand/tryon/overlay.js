@@ -107,7 +107,13 @@
       if (n.hasAttribute && n.hasAttribute('data-dh')) add(n.getAttribute('data-dh'), n, n.tagName.toLowerCase());
     }
     out.sort(function (a, b) { return a.el && b.el && a.el !== b.el && a.el.contains(b.el) ? 1 : (a.el && b.el && b.el.contains(a.el) && a.el !== b.el ? -1 : 0); });
-    return out.slice(0, 7);
+    // the innermost few, plus the sections that hold them (a click deep in an accordion still offers the whole FAQ)
+    var keep = out.slice(0, 5);
+    for (var s = 5; s < out.length && keep.length < 9; s++) {
+      var e = out[s].el;
+      if (e && (/^(SECTION|HEADER|FOOTER|NAV|MAIN|ARTICLE|ASIDE)$/.test(e.tagName) || BLOCKS.indexOf(guessSlot(e)) >= 0)) keep.push(out[s]);
+    }
+    return keep;
   }
 
   var BLOCKS = ['navbar', 'hero', 'logo-cloud', 'features', 'content', 'stats', 'integrations', 'testimonials', 'pricing', 'comparison', 'team', 'faq', 'cta', 'contact', 'footer', 'login', 'signup'];
@@ -131,8 +137,10 @@
     if (qs >= 3) return 'faq';
     if (q(n, 'blockquote') >= 1 || /testimonial|review/.test(cls)) return 'testimonials';
     if (q(n, 'h1')) return 'hero';
-    var kids = n.children, cards = 0;
-    for (var j = 0; j < kids.length; j++) if (q(kids[j], 'h2,h3,h4') && (kids[j].innerText || '').length > 20) cards++;
+    // cards: 3+ siblings that each hold a heading and some words — directly, or in the usual container > grid
+    function cardsIn(box) { var k = box.children, x = 0; for (var j = 0; j < k.length; j++) if (q(k[j], 'h2,h3,h4') && (k[j].innerText || '').length > 20) x++; return x; }
+    var cards = cardsIn(n), boxes = n.querySelectorAll('div,ul,ol');
+    for (var b = 0; b < boxes.length && b < 80 && cards < 3; b++) cards = Math.max(cards, cardsIn(boxes[b]));
     if (cards >= 3) return 'features';
     var imgs = q(n, 'img,svg');
     if (imgs >= 4 && txt.replace(/\s/g, '').length < 120) return 'logo-cloud';
@@ -145,7 +153,12 @@
   }
   function defaultCrumb(cr, clicked) {
     var ctl = clicked.closest && clicked.closest('button,a,input,textarea,[role=button]');
-    if (ctl) for (var i = 0; i < cr.length; i++) if (cr[i].el === ctl || (cr[i].el && ctl.contains(cr[i].el)) || (cr[i].el && cr[i].el.contains(ctl) && guessSlot(cr[i].el) === 'button')) return i;
+    if (ctl) {
+      // the control itself, else the button that wraps it (<Button asChild><Link>), else something inside it (a label span)
+      for (var i = 0; i < cr.length; i++) if (cr[i].el === ctl) return i;
+      for (var i2 = 0; i2 < cr.length; i2++) if (cr[i2].el && cr[i2].el.contains(ctl) && guessSlot(cr[i2].el) === 'button') return i2;
+      for (var i3 = 0; i3 < cr.length; i3++) if (cr[i3].el && ctl.contains(cr[i3].el)) return i3;
+    }
     for (var k = 0; k < cr.length; k++) if (BLOCKS.indexOf(guessSlot(cr[k].el)) >= 0) return k;
     return 0;
   }
@@ -316,13 +329,21 @@
   ];
   var PRESETS = ['quieter', 'bolder', 'airy', 'compact', 'clarity', 'softer', 'sharper'];
   function tuneUI(where) {
-    var box = el('div'), sess = null, dials = {}, preset = null, pending = null, running = false;
+    var box = el('div'), sess = null, dials = {}, preset = null, pending = null, running = false, lastKnob = null;
+    // why a knob found nothing, and where the owner can get it instead
+    var WHY = {
+      corners: 'No corner classes on this element itself — buttons and cards usually take theirs from your ui components. Site → Corners rounds the whole site.',
+      depth: 'No shadow classes on this element itself. Site changes the whole look; or pick the card inside.',
+      width: 'No width limit (max-w-…) on this element to widen or narrow — pick its inner container.',
+      contrast: 'No muted or secondary text colours here to soften or sharpen.',
+      size: 'No headline sizes (text-…) in this element.', weight: 'No font weights in this element.', density: 'No spacing classes (p-, gap-, space-, m-) in this element.',
+    };
     var chips = el('div', 'chips'), status = el('div', 'small muted');
     status.style.marginTop = '8px';
     status.textContent = 'Each change is written to your code and shown live; Keep to finish, Reset to undo.';
     PRESETS.forEach(function (p) {
       var b = el('button', null, p);
-      b.onclick = function () { preset = preset === p ? null : p; dials = {}; render(); push(); };
+      b.onclick = function () { preset = preset === p ? null : p; dials = {}; lastKnob = null; render(); push(); };
       chips.appendChild(b);
     });
     box.appendChild(el('div', 'small muted', 'One click:'));
@@ -338,7 +359,7 @@
         var cur = dials[d[0]] !== undefined ? dials[d[0]] : (d[2].indexOf(0) >= 0 ? 0 : 'as is');
         d[2].forEach(function (v, i) {
           var b = el('button', v === cur ? 'on' : null, d[3][i]);
-          b.onclick = function () { dials[d[0]] = v; render(); push(); };
+          b.onclick = function () { dials[d[0]] = v; lastKnob = d[0]; render(); push(); };
           seg.appendChild(b);
         });
         row.appendChild(seg);
@@ -359,7 +380,7 @@
           return api('tune-set', { id: sess, dials: job.dials, preset: job.preset });
         }).then(function (r) {
           if (!r.ok) throw r;
-          status.className = 'small'; status.textContent = r.changed ? 'Live on the page (' + r.changed + ' class changes). Keep it, or Reset.' : 'Nothing to change there for this knob.';
+          status.className = 'small'; status.textContent = r.changed ? 'Live on the page (' + r.changed + ' class changes). Keep it, or Reset.' : 'Nothing to change there for this knob. ' + ((lastKnob && WHY[lastKnob]) || '');
         }).catch(function (e) { status.className = 'err'; status.textContent = (e.code || 'ERROR') + ': ' + (e.message || e); })
           .then(function () { if (pending) next(); else running = false; });
       })();
@@ -377,7 +398,12 @@
     function doReset() {
       if (!sess) return Promise.resolve();
       var id = sess; sess = null; dials = {}; preset = null; render();
-      return api('tune-reset', { id: id }).then(function (x) { status.className = 'small muted'; status.textContent = x.ok ? 'Back to the original (byte-exact).' : x.message; });
+      return api('tune-reset', { id: id }).then(function (x) {
+        status.className = x.ok ? 'small muted' : 'err';
+        status.textContent = !x.ok ? (x.code || 'ERROR') + ': ' + x.message
+          : x.mode === 'byte-exact' ? 'Back to the original (byte-exact).'
+          : 'The knobs are undone; your own edits to ' + x.restored + ' are kept.' + (x.note ? ' ' + x.note : '');
+      });
     }
     reset.onclick = doReset;
     ai.onclick = function () { doReset().then(function () { var w = where(); if (w) draftForm(box, w, 'Knobs not enough?'); }); };
@@ -459,7 +485,9 @@
             document.head.appendChild(link);
             var st2 = document.createElement('style'); st2.id = 'dh-font-preview';
             // the same reach as apply: body inherits it, explicit font utilities keep theirs
-            st2.textContent = (b ? 'html body{font-family:"' + b + '",ui-sans-serif,system-ui,sans-serif}' : '') + (h ? 'html body :is(h1,h2,h3){font-family:"' + h + '",ui-serif,Georgia,serif}' : '');
+            var kind = function (id) { var f = st.fonts && st.fonts.list.filter(function (x) { return x.id === id; })[0]; return f && f.kind; };
+            var stack = function (id) { var k = kind(id); return k === 'serif' ? 'ui-serif,Georgia,serif' : k === 'mono' ? 'ui-monospace,monospace' : 'ui-sans-serif,system-ui,sans-serif'; };
+            st2.textContent = (b ? 'html body{font-family:"' + b + '",' + stack(v.body) + '}' : '') + (h ? 'html body :is(h1,h2,h3){font-family:"' + h + '",' + stack(v.heading) + '}' : '');
             document.head.appendChild(st2);
           }
           status.className = 'small'; status.textContent = 'Previewing (exact values). Apply writes them to your stylesheet' + (b || h ? ' and layout' : '') + '.';
@@ -480,7 +508,13 @@
           setTimeout(clearPreview, 2500);                              // the dev server now serves the same values
         });
       };
-      undo.onclick = function () { api('theme-undo').then(function (x) { clearPreview(); status.className = x.ok ? 'ok' : 'err'; status.textContent = x.ok ? 'Restored ' + x.restored.join(' + ') + ' (byte-exact).' : x.message; undo.disabled = true; }); };
+      undo.onclick = function () {
+        api('theme-undo').then(function (x) {
+          clearPreview(); status.className = x.ok ? 'ok' : 'err';
+          status.textContent = x.ok ? 'Restored ' + x.restored.join(' + ') + ' (byte-exact)' + (x.more ? ' — ' + x.more + ' earlier apply(s) can be undone too.' : ' — back to before the first apply.') : x.message;
+          undo.disabled = !(x.ok && x.more);
+        });
+      };
       close.onclick = function () { clearPreview(); closePanel(); };
     });
   }

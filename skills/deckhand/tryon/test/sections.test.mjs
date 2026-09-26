@@ -124,7 +124,13 @@ test('footer menus come from the plan; social rows keep only the networks the ow
   assert.deepEqual(nav.filled, [{ array: 'menuItems', kind: 'menu', count: 2 }]);
   assert.match(nav.code, /const menuItems = \[\{ href: "\/menu", name: "Menu" \}, \{ href: "\/order", name: "Order" \}\]/);
   assert.equal(fillLinks('h.tsx', NAV, links, 'hero').code, NAV, 'only footer/navbar menus are rewritten');
-  // no plan, no brief -> nothing is invented
+  // no plan, no brief -> nothing is invented, and the design's demo menus are not passed off as the owner's:
+  // emptied (typed), so the owner's own links (carried by the content slots) are the only ones on the page
   assert.equal(siteLinks(tempSite()), null);
-  assert.equal(fillLinks('footer.tsx', FOOTER, null, 'footer').code, FOOTER);
+  const none = fillLinks('footer.tsx', FOOTER, null, 'footer');
+  parse('footer.tsx', none.code);
+  assert.deepEqual(none.filled.map((f) => [f.array, f.kind, f.count, f.demoHidden]), [['community', 'social', 0, undefined], ['columns', 'columns', 0, 2]]);
+  for (const demo of ['GitHub', 'Security', 'Enterprise', 'Product']) assert.ok(!none.code.includes(demo), demo);
+  assert.match(none.code, /const columns = \(\[\] as Array<\{ name: string; links: Array<\{ href: string; label: string; \[k: string\]: any \}>; \[k: string\]: any \}>\)/);
+  assert.match(fillLinks('h.tsx', NAV, null, 'navbar').code, /const menuItems = \(\[\] as Array/);
 });

@@ -35,3 +35,22 @@ export function baseOf(items) {
   const baseui = deps.some((d) => /^@base-ui-components\/react|^@base-ui\/react/.test(d));
   return radix && !baseui ? 'radix' : baseui && !radix ? 'base-ui' : 'any';
 }
+
+/**
+ * Tailark ships every hero's navbar as its own file (`header.tsx`, `HeroHeader`) beside the hero: each one becomes
+ * a navbar design (a hero swap strips it as chrome, so it is never shown twice). Derived from the hero items.
+ */
+export function navbarsFromHeroes(items) {
+  const out = [];
+  for (const h of items) {
+    if (h.r !== 'tailark-oss' || h.slot !== 'hero' || !h.gh || !(h.rdeps || []).some((d) => /-header$/.test(d))) continue;
+    const n = `${h.n}-header`;
+    out.push({
+      id: `tailark-oss/${n}@${h.base}`, r: 'tailark-oss', n, base: h.base, slot: 'navbar', kind: kindOf('navbar'),
+      t: String(h.t || n).replace(/hero section/, 'header'), deps: [],
+      rdeps: (h.rdeps || []).filter((d) => /-(button|logo)$/.test(d)),
+      gh: h.gh.replace(/[^/]+$/, 'header.tsx'), json: h.json ? h.json + '-header' : undefined, lic: h.lic,
+    });
+  }
+  return out;
+}

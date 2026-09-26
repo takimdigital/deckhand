@@ -1,5 +1,62 @@
 # Changelog
 
+## [2.2.2] — 2026-09-26 — try-on, Tune and Site, audited live on three real apps
+
+Three apps, each built the way owners build them:
+- `create-next-app` with shadcn tokens;
+- pnpm (strict layout) with a `src/` folder and no tokens;
+- Vite + React.
+
+Each had a navbar, hero, features, pricing, testimonials, FAQ, CTA, footer and an /about page. In Chromium, every
+section was swapped and every variant looked at, then every Tune preset and dial and every Site knob was applied
+and undone. Each finding is fixed and pinned offline (`tryon/test/live-audit.test.mjs`).
+
+### Swap: the owner's words in the right places, and nothing that is not theirs
+- **FAQ.** A `<details><summary>` question now lands in the design's question: 7/7 instead of 4/7. Before, the
+  design's own questions ("How long does shipping take?") showed undashed as if they were the owner's.
+- **Testimonials.** Before, every design was rejected. Now 4 designs carry 5/5:
+  - company logos inside cards hide one by one, not the whole grid;
+  - the quote goes to the quote and the author line to the name;
+  - a single-card design takes one whole testimonial.
+- **Pricing.** "Custom" in a plan's price spot is the price. A design's price and "/month" in plain spans are
+  filled, and the design's "/month" is dropped when the owner's price already says it.
+- **Footer.** The owner's titled columns (Contact, Company) fill a design's columns, links included: 8/9. A site
+  without a Deckhand plan no longer shows the design's demo menus ("Security · Partners · Jobs") or its GitHub /
+  Discord links as the owner's.
+- **Demo copy in lists.** A field the owner does not fill (a testimonial's "role" line) keeps the design's words
+  dashed on the page and in the demo-copy ledger. On Keep it bakes back to the design's plain value.
+- **Navbars.** Every Tailark hero ships its own header, and these are now in the catalog: 45 navbar designs
+  (774 items), carrying 8/8 of a typical navbar. They are fetched from GitHub first.
+- **Picking.** A features grid inside a container is recognised as "features". A click deep in an accordion still
+  offers the whole section. A click on a button picks the button, not its label. A saved hero is no longer ranked
+  first for a CTA.
+
+### Vite
+- Designs written for Next (`next/link`, `next/image`) get local stand-ins with the same props. Every Tailark
+  design used to fail to import in a Vite app.
+- The build check asks Vite for the edited module and each design's module. Before, each open waited 25 s and
+  ended "not checked": the page's HTML never shows a client-rendered variant. The request also warms Vite's
+  dependency optimizer.
+- `doctor` finds the stamps in the entry module, and finds the dev server `dh dev start` recorded on any port.
+
+### Tune
+- A Link inside `<Button asChild>` tunes the Button.
+- On a button or component, a knob with nothing to transform adds its class (pill → `rounded-full`, raised →
+  `shadow-md`, bolder → `font-semibold`). A section is never rounded behind the owner's back.
+- A knob that finds nothing says why and where to go instead ("Site → Corners rounds the whole site").
+- Reset after the owner edited the file puts back only what the knobs changed and keeps their edit. Before, it
+  refused, and the tuned classes stayed with no way to undo them from the page.
+
+### Site
+- Undo walks back one apply at a time, to the original, byte-exact (10 applies kept). Before, it was one level only.
+- The heading-font preview uses a fallback that matches the font (sans or serif).
+- Verified in the browser: the preview equals the applied result pixel for pixel, for every accent, a custom hex,
+  neutrals, corners, density, headlines and fonts (`next/font` on the default Geist layout), plus dark mode.
+
+### Also
+- A refusal (no variants, element not found…) is an answer, not a failed request: the owner's console no longer
+  prints "Failed to load resource: 400".
+
 ## [2.2.1] — 2026-09-25 — try-on: the owner's page never stays broken
 
 Three errors an owner hit in try-on on a Next 16 app (Turbopack), each replayed in Chromium against a Next 16 dev

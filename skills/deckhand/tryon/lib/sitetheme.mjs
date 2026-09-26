@@ -249,6 +249,20 @@ export function rewriteFonts(prof, { body, heading } = {}) {
 /* ------------------------------------------------------------------ state · apply · undo */
 
 const stateDir = (root) => path.join(root, '.deckhand', 'tryon', 'theme');
+// every apply keeps the files it replaced: Undo walks back one apply at a time, to the original (10 kept)
+const HISTORY_MAX = 10;
+function history(root) {
+  const d = stateDir(root);
+  try { const h = JSON.parse(fs.readFileSync(path.join(d, 'history.json'), 'utf8')); if (Array.isArray(h)) return h; } catch { /* none yet */ }
+  try { return [JSON.parse(fs.readFileSync(path.join(d, 'last.json'), 'utf8'))]; } catch { return []; }   // a 2.2.x single undo
+}
+function saveHistory(root, h) {
+  const d = stateDir(root);
+  fs.mkdirSync(d, { recursive: true });
+  fs.rmSync(path.join(d, 'last.json'), { force: true });
+  if (h.length) fs.writeFileSync(path.join(d, 'history.json'), JSON.stringify(h));
+  else fs.rmSync(path.join(d, 'history.json'), { force: true });
+}
 
 export function themeState(rootIn) {
   const prof = detectProject(rootIn);
@@ -258,7 +272,7 @@ export function themeState(rootIn) {
   return {
     current: m ? JSON.parse(m[1]) : {}, knobs: { accent: KNOBS.accent, neutrals: KNOBS.neutrals, corners: Object.keys(KNOBS.corners), density: Object.keys(KNOBS.density), headlines: Object.keys(KNOBS.headlines) },
     accents: ACCENTS, fonts: fonts && fonts.fonts.length ? { list: FONTS, layout: fonts.file, current: fonts.fonts.map((f) => ({ callee: f.callee, variable: f.variable, role: roleOf(f) })) } : null,
-    spacingVar: prof.tailwind === 4, css: prof.globalsCss, undo: fs.existsSync(path.join(stateDir(prof.root), 'last.json')),
+    spacingVar: prof.tailwind === 4, css: prof.globalsCss, undo: history(prof.root).length > 0, undoSteps: history(prof.root).length,
   };
 }
 
@@ -279,8 +293,7 @@ export function themeApply(rootIn, vIn = {}) {
   }
   const block = themeCss(v, { bodyVar, heading: !!(fonts && v.heading) });
   css = css.replace(/\s*$/, '\n') + (block ? '\n' + block : '');
-  fs.mkdirSync(stateDir(prof.root), { recursive: true });
-  fs.writeFileSync(path.join(stateDir(prof.root), 'last.json'), JSON.stringify({ at: new Date().toISOString(), files: before }));
+  saveHistory(prof.root, history(prof.root).concat([{ at: new Date().toISOString(), files: before }]).slice(-HISTORY_MAX));
   fs.writeFileSync(cssPath, css);
   if (fonts) fs.writeFileSync(path.join(prof.root, fonts.file), fonts.code);
   return { applied: v, files: [prof.globalsCss, ...(fonts ? [fonts.file] : [])], vars: themeVars(v) };
@@ -288,10 +301,10 @@ export function themeApply(rootIn, vIn = {}) {
 
 export function themeUndo(rootIn) {
   const prof = detectProject(rootIn);
-  const p = path.join(stateDir(prof.root), 'last.json');
-  if (!fs.existsSync(p)) throw Object.assign(new Error('nothing to undo'), { code: 'NO_UNDO' });
-  const last = JSON.parse(fs.readFileSync(p, 'utf8'));
+  const h = history(prof.root);
+  if (!h.length) throw Object.assign(new Error('nothing to undo'), { code: 'NO_UNDO' });
+  const last = h.pop();
   for (const [rel, text] of Object.entries(last.files)) fs.writeFileSync(path.join(prof.root, rel), text);
-  fs.rmSync(p);
-  return { restored: Object.keys(last.files), mode: 'byte-exact' };
+  saveHistory(prof.root, h);
+  return { restored: Object.keys(last.files), mode: 'byte-exact', more: h.length };
 }

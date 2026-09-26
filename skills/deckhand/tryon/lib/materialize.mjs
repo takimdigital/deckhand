@@ -33,6 +33,30 @@ export function cn(...inputs: ClassValue[]) {
 `;
 const BUILTIN = new Set(['react', 'react-dom', 'next']);
 
+/**
+ * A design written for Next (`next/link`, `next/image`) in a Vite/CRA project: a local stand-in with the same props,
+ * so the design renders instead of failing to import. Next projects never get these.
+ */
+const NEXT_SHIMS = {
+  'next/link': ['next-link.tsx', `import * as React from "react"
+
+/** Stand-in for next/link outside Next (written by deckhand try-on): a plain anchor. */
+export default function Link({ href, prefetch, replace, scroll, shallow, locale, legacyBehavior, passHref, ...rest }: any) {
+  const to = typeof href === "string" ? href : (href && (href.pathname || "")) + (href && href.hash ? "#" + href.hash : "")
+  return <a href={to || "#"} {...rest} />
+}
+`],
+  'next/image': ['next-image.tsx', `import * as React from "react"
+
+/** Stand-in for next/image outside Next (written by deckhand try-on): a plain img with the same props. */
+export default function Image({ src, alt, width, height, fill, priority, unoptimized, quality, placeholder, blurDataURL, loader, sizes, style, ...rest }: any) {
+  const url = typeof src === "string" ? src : src && src.src
+  const box = fill ? { position: "absolute", inset: 0, width: "100%", height: "100%", ...(style || {}) } : style
+  return <img src={url} alt={alt ?? ""} width={fill ? undefined : width} height={fill ? undefined : height} loading={priority ? "eager" : "lazy"} style={box} {...rest} />
+}
+`],
+};
+
 export const slugOf = (item) => (item.r + '-' + item.n).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64);
 export const pascal = (s) => s.replace(/(^|[^a-zA-Z0-9]+)([a-zA-Z0-9])/g, (_, __, c) => c.toUpperCase()).replace(/^[0-9]/, 'C$&');
 
@@ -301,11 +325,18 @@ export function writeBundle(prof, item, bundle, { baseDir } = {}) {
   const problems = [];
   const umbrella = radixUmbrella(prof);
   const viaUmbrella = new Set();
+  const shims = new Set();
   for (const f of bundle.files) {
     let code = f.content;
     const imps = importsOf(f.path, code).sort((a, b) => b.start - a.start);
     for (const imp of imps) {
       const s = imp.spec;
+      if (prof.framework !== 'next' && NEXT_SHIMS[s]) {
+        const q = code[imp.start];
+        code = code.slice(0, imp.start) + q + './' + NEXT_SHIMS[s][0].replace(/\.tsx$/, '') + q + code.slice(imp.end);
+        shims.add(s);
+        continue;
+      }
       const rx = /^@radix-ui\/react-([a-z0-9-]+)$/.exec(s);
       if (rx && umbrella && umbrella.has(rx[1]) && !depInstalled(prof, s)) {
         const q = code[imp.start];
@@ -330,6 +361,11 @@ export function writeBundle(prof, item, bundle, { baseDir } = {}) {
   if (needUtils) {
     fs.writeFileSync(path.join(absDir, 'utils.ts'), UTILS_SRC);
     written.push(path.posix.join(relDir, 'utils.ts'));
+  }
+  for (const sp of shims) {
+    const [name, src] = NEXT_SHIMS[sp];
+    fs.writeFileSync(path.join(absDir, name), src);
+    written.push(path.posix.join(relDir, name));
   }
   const deps = new Set([...bundle.deps].filter((d) => !viaUmbrella.has(d)));
   if (needUtils) { deps.add('clsx'); deps.add('tailwind-merge'); }

@@ -18,10 +18,10 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { detectProject } from './project.mjs';
-import { pickElement } from './engine.mjs';
+import { pickElement, styledBy } from './engine.mjs';
 
 const require = createRequire(import.meta.url);
-const { parse, walk, findElementAt, jsxName } = require('./ast.cjs');
+const { parse, walk, findElementAt, jsxName, lineCol } = require('./ast.cjs');
 
 export const PRESETS = {
   quieter: { density: 1, size: -1, weight: -1, depth: 'flat', contrast: 'soft' },
@@ -120,6 +120,19 @@ export function tuneClassList(list, d, ctx = {}) {
 }
 
 const isControl = (name) => /^(button|a|Button|Link)$/.test(name);
+
+/** Classes a knob sets on the picked control when it has none of that family yet. */
+function addMissing(list, d, ctx) {
+  const w = list.split(/\s+/).filter(Boolean);
+  const has = (rx) => w.some((x) => rx.test(x.replace(/^(?:[\w-]+(?:\[[^\]]*\])?:)*!?/, '')));
+  const add = [];
+  if (d.corners && d.corners !== 'as is' && !has(/^rounded(-|$)/)) add.push({ sharp: 'rounded-none', soft: 'rounded-md', round: 'rounded-xl', pill: 'rounded-full' }[d.corners]);
+  if (d.depth && d.depth !== 'as is' && !has(/^shadow(-|$)/)) add.push({ flat: 'shadow-none', subtle: 'shadow-sm', raised: 'shadow-md' }[d.depth]);
+  if (d.weight && !has(/^font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black)$/)) add.push(['font-light', 'font-normal', null, 'font-semibold', 'font-bold'][clamp(d.weight, -2, 2) + 2]);
+  if (d.size && ctx.control && !has(/^text-(xs|sm|base|lg|[2-9]?xl)$/)) add.push(['text-xs', 'text-xs', null, 'text-base', 'text-lg'][clamp(d.size, -2, 2) + 2]);
+  const extra = add.filter(Boolean);
+  return extra.length ? (list.trim() ? list.replace(/\s*$/, ' ' + extra.join(' ')) : extra.join(' ')) : list;
+}
 const isHeading = (name) => /^h[1-6]$/.test(name);
 
 /** Transform every class string inside `el` (className literals, template quasis, cn()/clsx() strings). */
@@ -145,7 +158,10 @@ export function tuneElement(code, el, d) {
         const t = tuneClassList(v, d, ctx);
         if (t !== v) edits.push({ start: s.start, end: s.end, text: t });
       } else {
-        const t = tuneClassList(s.value, d, ctx);
+        let t = tuneClassList(s.value, d, ctx);
+        // the picked button/component itself: a knob with nothing to transform ADDS its class (a shadcn <Button>
+        // gets its corners from ui/button.tsx; a class on the usage wins through cn/tailwind-merge)
+        if (n === el && attr.value === s && (ctx.control || /^[A-Z]/.test(name))) t = addMissing(t, d, ctx);
         if (t !== s.value) edits.push({ start: s.start + 1, end: s.end - 1, text: t });
       }
     }
@@ -199,8 +215,9 @@ export function tuneOpen(rootIn, { file, line, col, hint }) {
   const code = fs.readFileSync(abs, 'utf8');
   const ast = parse(rel, code);
   const picked = pickElement(ast, code, line, col, hint);
-  if (picked) { line = picked.line; col = picked.col; }
-  const el = picked && picked.el;
+  // a Link inside <Button asChild>: the knobs act on the Button (its classes make the button)
+  const el = picked && styledBy(ast, picked.el);
+  if (el) { const lc = lineCol(code, el.start); line = lc.line; col = lc.col; }
   if (!el) throw Object.assign(new Error(`no JSX element at ${rel}:${line}:${col} — the page is older than the file: reload it and pick again`), { code: 'ELEMENT_NOT_FOUND', reload: true });
   const id = 't' + Date.now().toString(36).slice(-6);
   fs.mkdirSync(dir(root), { recursive: true });
@@ -245,10 +262,38 @@ export function tuneReset(rootIn, id) {
   mustBeOpen(s);
   const abs = path.join(root, s.file);
   const orig = fs.readFileSync(path.join(dir(root), id + '.orig'));
-  if (sha(fs.readFileSync(abs)) !== s.shaNow) throw Object.assign(new Error(s.file + ' was edited by hand since tuning — not overwriting it'), { code: 'FILE_CHANGED' });
-  fs.writeFileSync(abs, orig);
+  let out = { id, restored: s.file, mode: 'byte-exact' };
+  if (sha(fs.readFileSync(abs)) !== s.shaNow) {
+    // the owner edited the file meanwhile: put back only the class strings the knobs changed, keep every edit of theirs
+    const o = orig.toString('utf8');
+    const tuned = tuneElement(o, findElementAt(parse(s.file, o), o, s.line, s.col), s.dials || {}).code;
+    let cur = fs.readFileSync(abs, 'utf8');
+    let undone = 0, left = 0;
+    for (const [from, to] of classPairs(s.file, tuned, o)) {
+      const n = cur.split(from).length - 1;
+      if (n === 1) { cur = cur.replace(from, () => to); undone++; } else left++;
+    }
+    parse(s.file, cur);                                            // never write unparseable source
+    fs.writeFileSync(abs, cur);
+    out = { id, restored: s.file, mode: 'surgical (your edits kept)', undone, ...(left ? { left, note: `${left} class change(s) could not be matched — check ${s.file}` } : {}) };
+  } else fs.writeFileSync(abs, orig);
   s.state = 'reset';
   save(root, s);
   fs.rmSync(path.join(dir(root), id + '.orig'), { force: true });
-  return { id, restored: s.file, mode: 'byte-exact' };
+  return out;
+}
+
+/** The class attributes a tune rewrote: [tuned source, original source] pairs, in document order. */
+function classPairs(file, tuned, orig) {
+  const attrs = (code) => {
+    const out = [];
+    walk(parse(file, code), (n) => {
+      if (n.type === 'JSXAttribute' && n.name && /^(className|class)$/.test(n.name.name) && n.value) out.push(code.slice(n.value.start, n.value.end));
+      return true;
+    });
+    return out;
+  };
+  const a = attrs(tuned), b = attrs(orig);
+  if (a.length !== b.length) return [];
+  return a.map((t, i) => [t, b[i]]).filter(([t, o]) => t !== o);
 }

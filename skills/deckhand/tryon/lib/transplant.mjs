@@ -27,9 +27,12 @@ export function roleOf(name) {
   if (/[a-z](Title|Trigger|Heading|Question|Label)$/.test(name)) return /Label$/.test(name) ? 'label' : 'heading';
   if (/[a-z](Description|Content|Answer|Body|Text|Subtitle)$/.test(name)) return 'text';
   if (/^(a|button)$/.test(name) || /(^|\.)(Link|Button|NavLink|Anchor)$/.test(name) || /Button$/.test(name)) return 'action';
-  if (/^(li|dt|dd)$/.test(name)) return 'item';
+  if (name === 'summary' || name === 'dt') return 'heading';           // a FAQ question: <details><summary>, <dl><dt>
+  if (name === 'dd') return 'text';
+  if (name === 'li') return 'item';
   if (name === 'label' || name === 'legend') return 'label';
-  if (/^(blockquote|q|cite|figcaption)$/.test(name)) return 'quote';
+  if (/^(blockquote|q)$/.test(name)) return 'quote';
+  if (/^(cite|figcaption)$/.test(name)) return 'text';                 // who said it: a name line, not the quote
   return 'text';
 }
 const COMPOUND = /[a-z](Title|Trigger|Heading|Question|Label|Description|Content|Answer|Body|Text|Subtitle)$/;
@@ -358,7 +361,7 @@ function collect(code, root, ast, mode) {
         if (u && loose && u.role !== 'price' && u.text.replace(/[^\p{L}\p{N}]/gu, '').length < 4) u = null;
         if (u) {
           if (u.role === 'action') { u.outer = ctx.actionOuter || el; u.sub = actionKind(u.outer); }
-          if (ctx.env) { u.list = ctx.list; u.itemIdx = ctx.itemIdx; ctx.item.units.push(u); }
+          if (ctx.env) { u.list = ctx.list; u.itemIdx = ctx.itemIdx; u.tpl = el; ctx.item.units.push(u); }
           units.push(u);
           return;
         }
@@ -404,7 +407,9 @@ function collect(code, root, ast, mode) {
       if (mode === 'candidate' && arr && mc.object.type === 'Identifier' && !ctx.inMap && bind) {
         const demo = litValue(arr);
         if (Array.isArray(demo) && demo.length && demo.every((x) => x && typeof x === 'object')) {
-          lists.push({ name: mc.object.name, object: mc.object, fields: listFields(code, roots, bind), demoCount: demo.length });
+          const fields = listFields(code, roots, bind).map((f) => (['text', 'item'].includes(f.role) && typeof demo[0][f.field] === 'string' && PRICE.test(demo[0][f.field].trim()) ? { ...f, role: 'price' } : f));
+          lists.push({ name: mc.object.name, object: mc.object, fields, demoCount: demo.length,
+            demoItems: demo, textOnly: textOnlyFields(roots, bind) });
         }
       }
       if (mode === 'original' && !ctx.env) dynamicLists++;
@@ -421,6 +426,30 @@ function collect(code, root, ast, mode) {
   if (root.type === 'JSXFragment') for (const c of root.children) { if (c.type === 'JSXElement') visit(c, {}); else if (c.type === 'JSXExpressionContainer') visitExpr(c.expression, {}); }
   else visit(root, {});
   return { units, images, inputs, lists, bullets, dynamicLists };
+}
+
+/**
+ * The item fields a design only ever renders as the text of an element (`<h3>{item.question}</h3>`), never as a
+ * key, prop or attribute: those can carry a dashed demo marker instead of a bare string.
+ */
+function textOnlyFields(roots, bind) {
+  const uses = new Map(), asText = new Map();
+  const fieldOfMember = (m) => fieldOf(m, bind);
+  for (const r of roots) {
+    walk(r, (n, parent, key) => {
+      const f = fieldOfMember(n);
+      if (f) {
+        uses.set(f, (uses.get(f) || 0) + 1);
+        if (parent && parent.type === 'JSXExpressionContainer' && key === 'expression') asText.set(f, (asText.get(f) || 0) + 1);
+      }
+      if (n.type === 'JSXAttribute' && n.value && n.value.type === 'JSXExpressionContainer') {
+        const g = fieldOfMember(n.value.expression);
+        if (g) asText.set(g, (asText.get(g) || 0) - 1);            // an attribute value is not text
+      }
+      return true;
+    });
+  }
+  return [...uses].filter(([f, n]) => asText.get(f) === n).map(([f]) => f);
 }
 
 /** Candidate list schema: which item field feeds which role, in JSX order. */
@@ -447,6 +476,13 @@ function listFields(code, roots, bind) {
           if (exprs.length === 1) {
             const f = fieldOf(exprs[0].expression, bind);
             if (f != null) push({ field: f, role: roleOf(name) });
+          }
+        } else if (/^(span|div|strong|small|b|em|sup|sub)$/.test(name)) {
+          // a price or period in a plain span (`<span>{plan.price}</span>`): content too, its role told by the demo value
+          const kids = (n.children || []).filter((c) => !(c.type === 'JSXText' && !c.value.trim()));
+          if (kids.length === 1 && kids[0].type === 'JSXExpressionContainer') {
+            const f = fieldOf(kids[0].expression, bind);
+            if (f != null && !fields.some((x) => x.field === f)) push({ field: f, role: 'text', loose: true });
           }
         }
       }
@@ -589,6 +625,12 @@ export function extractUnits(code, el, ast = null) {
   const fileAst = ast || parse('x.tsx', code);
   const c = collect(code, el, fileAst, 'original');
   const inner = innerBindings(el);
+  // one template, one role: the spot that shows "€290" in one plan shows "Custom" in another — both are the price
+  for (const l of c.lists) {
+    const priced = new Set();
+    for (const it of l.items) for (const u of it.units) if (u.role === 'price' && u.tpl) priced.add(u.tpl);
+    for (const it of l.items) for (const u of it.units) if (u.role === 'text' && u.tpl && priced.has(u.tpl)) u.role = 'price';
+  }
   const pub = (u) => ({
     role: u.role, sub: u.sub || null, level: u.level, text: u.text, src: u.src.trim(), dynamic: !!u.dynamic,
     href: u.href !== undefined ? u.href : attrValueSrc(code, u.hrefAttr, inner), list: u.list ? c.lists.indexOf(u.list) : null, item: u.itemIdx ?? null,
@@ -741,13 +783,31 @@ export function parameterize(file, code, exp, opts = {}) {
         return true;
       });
       const chain = (n) => { const ch = []; for (let p = parents.get(n); p; p = parents.get(p)) if (p.type === 'JSXElement') ch.unshift(p); return ch; };
+      // the words an element shows besides the logos (a "Trusted by" label is short; a testimonial card is not)
+      const textLen = (n) => {
+        let t = 0;
+        walk(n, (m) => {
+          if (m.type === 'JSXElement' && opts.logoLocals.includes(jsxName(m.openingElement.name))) return false;
+          if (m.type === 'JSXText') t += m.value.trim().length;
+          else if (m.type === 'StringLiteral' || (m.type === 'TemplateLiteral' && !m.expressions.length)) t += m.type === 'StringLiteral' ? m.value.length : m.quasis[0].value.raw.length;
+          return m.type !== 'JSXAttribute';
+        });
+        return t;
+      };
       if (logos.length) {
         // the lowest common ancestor of every logo = the row; plus its label when the row's parent
         // holds only label + row
         const chains = logos.map(chain);
         let lca = null;
         for (let i = 0; i < chains[0].length; i++) { if (chains.every((ch) => ch[i] === chains[0][i])) lca = chains[0][i]; else break; }
-        if (lca && lca !== root) {
+        if (lca && lca !== root && textLen(lca) > 60) {
+          // logos inside real content (a company mark on each testimonial card): each logo goes, the content stays
+          for (const lg of logos) {
+            let box = lg;
+            for (let p = parents.get(box); p && p.type === 'JSXElement' && p !== root && textLen(p) === 0; p = parents.get(p)) box = p;
+            rows.add(box);
+          }
+        } else if (lca && lca !== root) {
           const up = parents.get(lca);
           const sib = up && up.type === 'JSXElement' ? (up.children || []).filter((x) => x.type === 'JSXElement') : [];
           rows.add(sib.length <= 2 && up !== root && inChildren(up) ? up : lca);
@@ -852,7 +912,7 @@ export function parameterize(file, code, exp, opts = {}) {
       const a = acc(k);
       const merge = tsFile ? `${a}.map((o: any, i: number) => ({ ...${l.name}[i % ${l.name}.length], ...o }))` : `${a}.map((o, i) => ({ ...${l.name}[i % ${l.name}.length], ...o }))`;
       edits.push({ start: l.object.start, end: l.object.end, text: tsFile ? `((${a} ? ${merge} : ${l.name}) as typeof ${l.name})` : `(${a} ? ${merge} : ${l.name})` });
-      lists.push({ key: k, fields: l.fields, demoCount: l.demoCount });
+      lists.push({ key: k, fields: l.fields, demoCount: l.demoCount, demoItems: l.demoItems || [], textOnly: l.textOnly || [] });
     }
   }
   for (const [node, cs] of conds) {
@@ -910,9 +970,32 @@ export function bind(orig, cand, opts = {}) {
   const candGroups = cand.groups || [];
   const useLists = candLists.length && orig.lists.length;
   const useGroup = !useLists && candGroups.length && orig.lists.length;
-  const flat = orig.units.filter((u) => !((useLists && u.list !== null && u.list < candLists.length) || (useGroup && u.list === 0)));
+  let flat = orig.units.filter((u) => !((useLists && u.list !== null && u.list < candLists.length) || (useGroup && u.list === 0)));
   const byRole = (arr, r) => arr.filter((x) => x.role === r);
-  const flatSlots = useGroup ? slots.filter((x) => !x.group) : slots;
+  let flatSlots = useGroup ? slots.filter((x) => !x.group) : slots;
+  // a role only one side uses reads as text: an owner's <blockquote> fills a design's <p>, a design's <cite> an owner's line
+  for (const r of ['quote', 'label']) {
+    if (!flatSlots.some((x) => x.role === r)) flat = flat.map((u) => (u.role === r ? { ...u, role: 'text' } : u));
+    if (!flat.some((u) => u.role === r)) flatSlots = flatSlots.map((x) => (x.role === r ? { ...x, role: 'text' } : x));
+  }
+  // the owner's list items go into a design's fixed slots whole, in order: a second testimonial never becomes the
+  // first card's "role" line. An item that does not fit whole is left out (reported, never half-shown)
+  if (!useLists && !useGroup && flat.some((u) => u.list !== null && u.list !== undefined)) {
+    const cap = {};
+    for (const x of flatSlots) cap[x.role] = (cap[x.role] || 0) + 1;
+    for (const u of flat) if (u.list === null || u.list === undefined) cap[u.role] = (cap[u.role] || 0) - 1;
+    const byItem = new Map();
+    for (const u of flat) if (u.list !== null && u.list !== undefined) { const k = u.list + ':' + u.item; if (!byItem.has(k)) byItem.set(k, []); byItem.get(k).push(u); }
+    const out = new Set();
+    for (const units of byItem.values()) {
+      if (units.length < 2) continue;                                   // single-unit items (badges, links) flow as before
+      const need = {};
+      for (const u of units) need[u.role] = (need[u.role] || 0) + 1;
+      if (Object.entries(need).every(([r, n]) => (cap[r] || 0) >= n)) { for (const [r, n] of Object.entries(need)) cap[r] -= n; }
+      else for (const u of units) out.add(u);
+    }
+    if (out.size) { for (const u of out) dropped.push({ role: u.role, text: u.text }); flat = flat.filter((u) => !out.has(u)); }
+  }
 
   if (useGroup) {
     const items = orig.lists[0].items;
@@ -994,24 +1077,67 @@ export function bind(orig, cand, opts = {}) {
     candLists.forEach((cl, li) => {
       const ol = orig.lists[li];
       if (!ol) return;
-      const items = ol.items.map((it) => {
+      const leftDemo = new Set();
+      const items = ol.items.map((it, ii) => {
         const obj = {};
+        let units = it.units;
+        const has = (arr, r) => arr.filter((u) => u.role === r).length;
+        for (const r of ['quote', 'label']) if (!cl.fields.some((f) => f.role === r)) units = units.map((u) => (u.role === r ? { ...u, role: 'text' } : u));
+        const fr = (f) => (['quote', 'label'].includes(f.role) && !units.some((u) => u.role === f.role) ? 'text' : f.role);
+        // a FAQ row written as two paragraphs, a design with a question + answer: the first text is the title
+        if (!has(units, 'heading') && cl.fields.some((f) => f.role === 'heading') && has(units, 'text') > cl.fields.filter((f) => f.role === 'text').length) {
+          const first = units.find((u) => u.role === 'text');
+          units = units.map((u) => (u === first ? { ...u, role: 'heading' } : u));
+        }
         for (const role of CONTENT_ROLES) {
-          const fields = cl.fields.filter((f) => f.role === role);
-          const vals = it.units.filter((u) => u.role === role);
+          let fields = cl.fields.filter((f) => fr(f) === role);
+          let vals = units.filter((u) => u.role === role);
+          if (fields.length > 1 && vals.length > 1) {
+            // name + role + quote, all text: when one of the design's own texts is clearly the long one (the quote),
+            // the owner's longest text goes there; the rest keep document order (name, then role)
+            const dl = (f) => String(((cl.demoItems || [])[0] || {})[f.field] || '').length;
+            const ls = fields.map(dl);
+            if (Math.min(...ls) > 0 && Math.max(...ls) >= 3 * Math.min(...ls)) {
+              const fLong = fields[ls.indexOf(Math.max(...ls))];
+              const vLong = vals.reduce((a, b) => (b.text.length > a.text.length ? b : a));
+              fields = [fLong, ...fields.filter((f) => f !== fLong)];
+              vals = [vLong, ...vals.filter((v) => v !== vLong)];
+            }
+          }
           fields.forEach((f, k) => { if (vals[k]) { obj[f.field] = unitValue(vals[k], orig.inner); carried.push({ role, text: vals[k].text }); } });
           for (let k = fields.length; k < vals.length; k++) dropped.push({ role, text: vals[k].text });
+        }
+        const d = (cl.demoItems || [])[ii % Math.max(1, (cl.demoItems || []).length)] || {};
+        // every field the design shows as words (found by role, or only ever rendered as text) that the owner did not fill
+        const shown = new Set([...cl.fields.filter((f) => CONTENT_ROLES.includes(f.role)).map((f) => f.field), ...(cl.textOnly || [])]);
+        const ownPeriod = units.some((u) => u.role === 'price' && /\/\s*\w+|\bper\s+\w+/i.test(u.text));
+        for (const f of shown) {
+          if (f in obj || typeof d[f] !== 'string' || !d[f].trim()) continue;
+          // the design's own "/month" beside a price the owner already wrote as "€290 /month"
+          if (ownPeriod && /^\s*(\/|per\s)\s*\w+\s*$/i.test(d[f])) { obj[f] = ''; continue; }
+          leftDemo.add(d[f]);
+          if ((cl.textOnly || []).includes(f)) obj[f] = { __src: `<span data-dh-demo="">{${JSON.stringify(d[f])}}</span>` };
         }
         const hrefF = cl.fields.find((f) => f.role === 'href');
         const act = it.units.find((u) => u.role === 'action' && u.href);
         if (hrefF && act) obj[hrefF.field] = { __src: act.href };           // JS source: a quoted string or the owner's expression
         const bulletsF = cl.fields.find((f) => f.role === 'bullets');
         if (bulletsF && it.bullets.length) { obj[bulletsF.field] = it.bullets; carried.push({ role: 'item', text: it.bullets.join(', ') }); }
+        // a footer column's own links (`links: [{ label, href }]`): the owner's column links, in order
+        const nested = bulletsF && !(bulletsF.field in obj) && Array.isArray(d[bulletsF.field]) && d[bulletsF.field][0] && typeof d[bulletsF.field][0] === 'object' ? d[bulletsF.field][0] : null;
+        const lk = nested && Object.keys(nested).find((k) => /^(label|name|title|text)$/.test(k) && typeof nested[k] === 'string');
+        const hk = nested && Object.keys(nested).find((k) => /^(href|url|link|to)$/.test(k) && typeof nested[k] === 'string');
+        const acts = units.filter((u) => u.role === 'action' && u.href);
+        if (lk && hk && acts.length) {
+          obj[bulletsF.field] = { __src: '[' + acts.map((a) => `{ ${JSON.stringify(hk)}: ${a.href}, ${JSON.stringify(lk)}: ${itemValue(unitValue(a, orig.inner))} }`).join(', ') + ']' };
+          for (const a of acts) { carried.push({ role: 'action', text: a.text }); const di = dropped.findIndex((x) => x.role === 'action' && x.text === a.text); if (di >= 0) dropped.splice(di, 1); }
+        } else if (lk && hk) obj[bulletsF.field] = { __src: '[]' };      // a column with no links of the owner's: none of the design's
         const imgF = cl.fields.find((f) => f.role === 'image');
         if (imgF && it.images[0] && it.images[0].src) obj[imgF.field] = { __src: it.images[0].src };
         return obj;
       });
       props.push([cl.key, listSrc(items)]);
+      for (const t of leftDemo) demo.push({ role: 'list', key: cl.key, text: t });
       if (ol.items.length !== cl.demoCount) demo.push({ role: 'list', key: cl.key, text: `${ol.items.length} of your items (design shows ${cl.demoCount})` });
     });
   }

@@ -5,7 +5,9 @@
  * plan (`.deckhand/sitemap.json` nav.header / nav.footer, page titles as labels), then the brief's
  * `brand.social`. The design's literal link arrays are rewritten in place (AST-exact): flat menus get
  * the owner's routes, "GitHub / Discord / X" rows keep only the networks the owner really has (with the
- * design's icons), column menus get the owner's columns. Nothing is invented: no source → no change.
+ * design's icons), column menus get the owner's columns. Nothing is invented: with no source, the design's demo
+ * menus and social rows are emptied (the owner's own links still reach the page through the content slots) —
+ * a stranger's "Security · Partners · Jobs" or GitHub is never shown as the owner's.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -116,7 +118,8 @@ function relink(code, tpl, shape, l) {
  * slot: 'footer' | 'navbar'. ts: emit typed empty arrays (a `[]` would type as never[]).
  */
 export function fillLinks(file, code, links, slot, { ts = /\.tsx?$/.test(file) } = {}) {
-  if (!links || !['footer', 'navbar'].includes(slot)) return { code, filled: [] };
+  if (!['footer', 'navbar'].includes(slot)) return { code, filled: [] };
+  links = links || { header: [], footerCols: [], social: [], known: false };
   let ast;
   try { ast = parse(file, code); } catch { return { code, filled: [] }; }
   const edits = [], filled = [];
@@ -131,8 +134,7 @@ export function fillLinks(file, code, links, slot, { ts = /\.tsx?$/.test(file) }
       const labels = init.elements.map((e) => strVal(e.properties.find((p) => keyName(p) === la.labelKey).value));
       const social = labels.filter((l) => SOCIAL.test(l.trim()) || networkOfLabel(l)).length >= Math.ceil(labels.length / 2);
       if (social) {
-        if (!links.known) return false;
-        // keep the design's entries (and icons) for networks the owner is on; drop the rest
+        // keep the design's entries (and icons) for networks the owner is on; drop the rest (none known: none kept)
         const kept = [];
         init.elements.forEach((e, i) => {
           const net = networkOfLabel(labels[i]);
@@ -143,14 +145,25 @@ export function fillLinks(file, code, links, slot, { ts = /\.tsx?$/.test(file) }
         filled.push({ array: name, kind: 'social', count: kept.length });
       } else {
         const src = slot === 'navbar' ? links.header : links.footerCols.flatMap((c) => c.links);
-        if (!src.length) return false;
+        if (!src.length) {
+          edits.push({ start: init.start, end: init.end, text: empty(la) });
+          filled.push({ array: name, kind: 'menu', count: 0, demoHidden: labels.length });
+          return false;
+        }
         edits.push({ start: init.start, end: init.end, text: `[${src.map((l, i) => relink(code, init.elements[i % init.elements.length], la, l)).join(', ')}]` });
         filled.push({ array: name, kind: 'menu', count: src.length });
       }
       return false;
     }
     const shapes = init.elements.map(columnShape);
-    if (slot === 'footer' && shapes.every((s) => s && s.titleKey === shapes[0].titleKey && s.linksKey === shapes[0].linksKey) && links.footerCols.length) {
+    const columns = slot === 'footer' && shapes.every((s) => s && s.titleKey === shapes[0].titleKey && s.linksKey === shapes[0].linksKey);
+    if (columns && !links.footerCols.length) {
+      const sh = shapes[0], inner = sh.inner;
+      edits.push({ start: init.start, end: init.end, text: ts ? `([] as Array<{ ${sh.titleKey}: string; ${sh.linksKey}: Array<{ ${inner.hrefKey}: string; ${inner.labelKey}: string; [k: string]: any }>; [k: string]: any }>)` : '[]' });
+      filled.push({ array: name, kind: 'columns', count: 0, demoHidden: init.elements.length });
+      return false;
+    }
+    if (columns) {
       const sh = shapes[0];
       const cols = links.footerCols.map((c, ci) => {
         const tpl = init.elements[ci % init.elements.length];
